@@ -46,6 +46,7 @@ dependencies:
   html_unescape: ^2.0.0
   in_app_update: ^4.2.3
   circle_nav_bar: ^2.2.0
+  font_awesome_flutter: ^10.9.0
 
 
 dev_dependencies:

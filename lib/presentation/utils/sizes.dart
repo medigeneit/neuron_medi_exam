@@ -5,6 +5,22 @@ import 'package:medi_exam/presentation/utils/responsive.dart';
 
 
 class Sizes {
+
+
+
+  static double drawerWidth(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    // Typically, drawer width is 70-80% of screen width on mobile
+    // You can adjust these values as needed
+    if (width < 600) {
+      return width * 0.55; // 75% of screen width on small devices
+    } else {
+      return 400; // Fixed width for tablets/desktops
+    }
+  }
+
+
+
   static double bodyText(BuildContext context) {
     return Responsive.isMobile(context) ? 16 : (Responsive.isTablet(context) ? 18 : 20);
   }

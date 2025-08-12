@@ -1,4 +1,7 @@
 import 'package:get/get.dart';
+import 'package:medi_exam/presentation/screens/login_screen.dart';
+import 'package:medi_exam/presentation/screens/navbar_screen.dart';
+import 'package:medi_exam/presentation/screens/registration_screen.dart';
 import 'package:medi_exam/presentation/screens/splash_screen.dart';
 
 class RouteNames {
@@ -41,6 +44,21 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.splash,
     page: () => const SplashScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.navBar,
+    page: () => const NavBarScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.login,
+    page: () => const LoginScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.registration,
+    page: () => const RegistrationScreen(),
   ),
 
 ];
