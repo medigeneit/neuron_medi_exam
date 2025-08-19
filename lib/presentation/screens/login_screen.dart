@@ -203,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             SizedBox(
                               width: double.infinity,
                               height: 52,
-                              child: FilledButton(
+                              child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
                                   backgroundColor: AppColor.primaryColor,
                                   foregroundColor: AppColor.whiteColor,
@@ -212,18 +212,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 onPressed: _isLoading ? null : _onLogin,
-                                child: _isLoading
+                                icon: _isLoading
                                     ? const SizedBox(
                                         width: 22,
                                         height: 22,
                                         child: CircularProgressIndicator(
-                                            strokeWidth: 2),
-                                      )
-                                    : const Text(
-                                        'Log in',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w600),
-                                      ),
+                                            strokeWidth: 2))
+                                    : const Icon(Icons.login),
+                                label: const Text(
+                                  'Log in',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
                               ),
                             ),
 

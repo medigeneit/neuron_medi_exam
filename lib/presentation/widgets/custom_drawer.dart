@@ -58,12 +58,13 @@ class CustomDrawer extends StatelessWidget {
             title: const Text('Profile'),
             onTap: () {
               Navigator.pop(context);
+              Get.offAllNamed(RouteNames.navBar, arguments: 2);
               // Navigate to profile screen
             },
           ),
           ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('Settings'),
+            leading: const Icon(Icons.notifications_on_rounded),
+            title: const Text('Notice'),
             onTap: () {
               Navigator.pop(context);
               // Navigate to settings screen
@@ -74,6 +75,7 @@ class CustomDrawer extends StatelessWidget {
             title: const Text('Logout'),
             onTap: () {
               Navigator.pop(context);
+              Get.toNamed(RouteNames.support);
               // Handle logout
             },
           ),

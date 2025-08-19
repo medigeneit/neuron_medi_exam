@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -121,7 +122,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const SizedBox(height: 8),
-                            Icon(Icons.person_add_alt_1_rounded, size: 48, color: cs.primary),
+                            Image.asset(AssetsPath.appLogo),
                             const SizedBox(height: 12),
                             Text(
                               'Create your account',
@@ -220,7 +221,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               validator: (v) {
                                 final value = (v ?? '').trim();
                                 if (value.isEmpty) return 'Enter your BMDC number';
-                                if (value.length < 4) return 'BMDC number seems too short';
+                                if (value.length < 6) return 'BMDC number seems too short';
                                 return null;
                               },
                             ),

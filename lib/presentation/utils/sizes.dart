@@ -13,7 +13,7 @@ class Sizes {
     // Typically, drawer width is 70-80% of screen width on mobile
     // You can adjust these values as needed
     if (width < 600) {
-      return width * 0.55; // 75% of screen width on small devices
+      return width * 0.65; // 65% of screen width on small devices
     } else {
       return 400; // Fixed width for tablets/desktops
     }

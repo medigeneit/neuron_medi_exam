@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
 import 'package:medi_exam/presentation/screens/home_screen.dart';
 import 'package:medi_exam/presentation/screens/profile_screen.dart';
@@ -12,10 +13,8 @@ class NavBarScreen extends StatefulWidget {
   State<NavBarScreen> createState() => _NavBarScreenState();
 }
 
-class _NavBarScreenState extends State<NavBarScreen>
-    with SingleTickerProviderStateMixin {
-  int _currentIndex = 1; // Start with home as the default
-  late PageController _pageController;
+class _NavBarScreenState extends State<NavBarScreen> {
+  late int _currentIndex; // Start with home as the default
 
   final List<Widget> _screens = [
     const Dashboard(),
@@ -26,13 +25,14 @@ class _NavBarScreenState extends State<NavBarScreen>
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _currentIndex);
+    _currentIndex = Get.arguments ?? 1; // Get initial index (default to 1)
   }
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+  void _onNavBarTap(int index) {
+    if (index == _currentIndex) return; // Avoid unnecessary updates
+    setState(() {
+      _currentIndex = index;
+    });
   }
 
   String _getTitle(int index) {
@@ -52,20 +52,14 @@ class _NavBarScreenState extends State<NavBarScreen>
   Widget build(BuildContext context) {
     return CommonScaffold(
       title: _getTitle(_currentIndex),
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
+      body: IndexedStack(
+        index: _currentIndex,
         children: _screens,
       ),
       showDrawer: true,
       bottomNavigationBar: CustomNavBar(
         currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-            _pageController.jumpToPage(index);
-          });
-        },
+        onTap: _onNavBarTap,
       ),
     );
   }
