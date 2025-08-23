@@ -21,19 +21,20 @@ class CommonScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColor.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: AppColor.primaryColor,
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
-
-        centerTitle: true,
-        actions: actions,
+    return SafeArea(
+      child: Scaffold(
+        backgroundColor: AppColor.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: AppColor.primaryColor,
+          title: Text(title, style: const TextStyle(color: Colors.white)),
+          iconTheme: const IconThemeData(color: Colors.white),
+          centerTitle: true,
+          actions: actions,
+        ),
+        endDrawer: showDrawer ? const CustomDrawer() : null,
+        body: body,
+        bottomNavigationBar: bottomNavigationBar,
       ),
-      endDrawer: showDrawer ? const CustomDrawer() : null,
-      body: body,
-      bottomNavigationBar: bottomNavigationBar,
     );
   }
 }

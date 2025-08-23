@@ -77,295 +77,297 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Background gradient
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  cs.primary.withOpacity(.15),
-                  cs.secondary.withOpacity(.10),
-                  cs.tertiary.withOpacity(.10),
-                ],
+    return SafeArea(
+      child: Scaffold(
+        body: Stack(
+          children: [
+            // Background gradient
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    cs.primary.withOpacity(.15),
+                    cs.secondary.withOpacity(.10),
+                    cs.tertiary.withOpacity(.10),
+                  ],
+                ),
               ),
             ),
-          ),
-          // Blobs
-          Positioned(
-            top: -90,
-            left: -70,
-            child: _Blob(color: cs.primary.withOpacity(.20), size: 240),
-          ),
-          Positioned(
-            bottom: -70,
-            right: -40,
-            child: _Blob(color: cs.secondary.withOpacity(.18), size: 190),
-          ),
-
-          // Content
-          Center(
-            child: SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-                  child: _GlassCard(
-                    child: Padding(
-                      padding: const EdgeInsets.all(22.0),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(height: 8),
-                            Image.asset(AssetsPath.appLogo),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Create your account',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Join in and get started',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Name
-                            TextFormField(
-                              controller: _nameController,
-                              textCapitalization: TextCapitalization.words,
-                              autofillHints: const [AutofillHints.name],
-                              decoration: const InputDecoration(
-                                labelText: 'Full name',
-                                prefixIcon: Icon(Icons.badge_outlined),
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) {
-                                if ((v ?? '').trim().isEmpty) return 'Enter your name';
-                                if ((v ?? '').trim().length < 2) return 'Name is too short';
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Email
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              autofillHints: const [AutofillHints.email],
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                prefixIcon: Icon(Icons.alternate_email),
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) {
-                                final value = (v ?? '').trim();
-                                if (value.isEmpty) return 'Enter your email';
-                                final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-                                if (!emailRegex.hasMatch(value)) return 'Enter a valid email';
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Phone
-                            TextFormField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              autofillHints: const [AutofillHints.telephoneNumber],
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s-]')),
-                                LengthLimitingTextInputFormatter(18),
-                              ],
-                              decoration: const InputDecoration(
-                                labelText: 'Phone number',
-                                prefixText: '+88',
-
-                                prefixIcon: Icon(Icons.phone_outlined),
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) {
-                                final value = (v ?? '').replaceAll(RegExp(r'[\s-]'), '');
-                                if (value.isEmpty) return 'Enter your phone number';
-                                final digits = value.replaceAll(RegExp(r'[^0-9+]'), '');
-                                if (digits.replaceAll('+88', '').length != 11) {
-                                  return 'Enter a valid phone number';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-
-                            // BMDC number
-                            TextFormField(
-                              controller: _bmdcController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(10),
-                              ],
-                              decoration: const InputDecoration(
-                                labelText: 'BMDC number',
-                                prefixIcon: Icon(Icons.confirmation_number_outlined),
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) {
-                                final value = (v ?? '').trim();
-                                if (value.isEmpty) return 'Enter your BMDC number';
-                                if (value.length < 6) return 'BMDC number seems too short';
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Medical College dropdown
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final screenHeight = MediaQuery.of(context).size.height;
-
-                                return DropdownButtonFormField<String>(
-                                  value: _selectedCollege,
-                                  isExpanded: true, // takes full width, prevents layout overflow
-                                  menuMaxHeight: screenHeight * 0.45, // responsive popup height
-                                  items: _medicalColleges
-                                      .map(
-                                        (c) => DropdownMenuItem<String>(
-                                      value: c,
-                                      child: Text(
-                                        c,
-                                        overflow: TextOverflow.ellipsis, // long names truncate nicely
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                  )
-                                      .toList(),
-                                  // Ensures the selected value in the field also ellipsizes
-                                  selectedItemBuilder: (context) => _medicalColleges
-                                      .map(
-                                        (c) => Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        c,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  )
-                                      .toList(),
-                                  onChanged: (v) => setState(() => _selectedCollege = v),
-                                  decoration: const InputDecoration(
-                                    labelText: 'Medical college',
-                                    prefixIcon: Icon(Icons.school_outlined),
-                                    border: OutlineInputBorder(),
-                                    // optional: guarantee comfy tap target height
-                                    constraints: BoxConstraints(minHeight: 56),
-                                  ),
-                                  validator: (v) => v == null ? 'Select your medical college' : null,
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Password
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _obscurePass,
-                              autofillHints: const [AutofillHints.newPassword],
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: const Icon(Icons.lock_outline),
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  onPressed: () => setState(() => _obscurePass = !_obscurePass),
-                                  icon: Icon(_obscurePass ? Icons.visibility_off : Icons.visibility),
-                                  tooltip: _obscurePass ? 'Show password' : 'Hide password',
+            // Blobs
+            Positioned(
+              top: -90,
+              left: -70,
+              child: _Blob(color: cs.primary.withOpacity(.20), size: 240),
+            ),
+            Positioned(
+              bottom: -70,
+              right: -40,
+              child: _Blob(color: cs.secondary.withOpacity(.18), size: 190),
+            ),
+      
+            // Content
+            Center(
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                    child: _GlassCard(
+                      child: Padding(
+                        padding: const EdgeInsets.all(22.0),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 8),
+                              Image.asset(AssetsPath.appLogo),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Create your account',
+                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              validator: (v) {
-                                final value = v ?? '';
-                                if (value.isEmpty) return 'Create a password';
-                                if (value.length < 6) return 'Must be at least 6 characters';
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Confirm password
-                            TextFormField(
-                              controller: _confirmController,
-                              obscureText: _obscureConfirm,
-                              autofillHints: const [AutofillHints.newPassword],
-                              decoration: InputDecoration(
-                                labelText: 'Confirm password',
-                                prefixIcon: const Icon(Icons.lock_reset_outlined),
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  onPressed: () =>
-                                      setState(() => _obscureConfirm = !_obscureConfirm),
-                                  icon: Icon(
-                                      _obscureConfirm ? Icons.visibility_off : Icons.visibility),
-                                  tooltip: _obscureConfirm ? 'Show password' : 'Hide password',
+                              const SizedBox(height: 4),
+                              Text(
+                                'Join in and get started',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: cs.onSurfaceVariant,
                                 ),
                               ),
-                              validator: (v) {
-                                if ((v ?? '').isEmpty) return 'Confirm your password';
-                                if (v != _passwordController.text) return 'Passwords do not match';
-                                return null;
-                              },
-                            ),
-
-                            const SizedBox(height: 18),
-
-                            // Register button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: FilledButton.icon(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: AppColor.primaryColor,
-                                  foregroundColor: AppColor.whiteColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                              const SizedBox(height: 24),
+      
+                              // Name
+                              TextFormField(
+                                controller: _nameController,
+                                textCapitalization: TextCapitalization.words,
+                                autofillHints: const [AutofillHints.name],
+                                decoration: const InputDecoration(
+                                  labelText: 'Full name',
+                                  prefixIcon: Icon(Icons.badge_outlined),
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (v) {
+                                  if ((v ?? '').trim().isEmpty) return 'Enter your name';
+                                  if ((v ?? '').trim().length < 2) return 'Name is too short';
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+      
+                              // Email
+                              TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                autofillHints: const [AutofillHints.email],
+                                decoration: const InputDecoration(
+                                  labelText: 'Email',
+                                  prefixIcon: Icon(Icons.alternate_email),
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (v) {
+                                  final value = (v ?? '').trim();
+                                  if (value.isEmpty) return 'Enter your email';
+                                  final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+                                  if (!emailRegex.hasMatch(value)) return 'Enter a valid email';
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+      
+                              // Phone
+                              TextFormField(
+                                controller: _phoneController,
+                                keyboardType: TextInputType.phone,
+                                autofillHints: const [AutofillHints.telephoneNumber],
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s-]')),
+                                  LengthLimitingTextInputFormatter(18),
+                                ],
+                                decoration: const InputDecoration(
+                                  labelText: 'Phone number',
+                                  prefixText: '+88',
+      
+                                  prefixIcon: Icon(Icons.phone_outlined),
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (v) {
+                                  final value = (v ?? '').replaceAll(RegExp(r'[\s-]'), '');
+                                  if (value.isEmpty) return 'Enter your phone number';
+                                  final digits = value.replaceAll(RegExp(r'[^0-9+]'), '');
+                                  if (digits.replaceAll('+88', '').length != 11) {
+                                    return 'Enter a valid phone number';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+      
+                              // BMDC number
+                              TextFormField(
+                                controller: _bmdcController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(10),
+                                ],
+                                decoration: const InputDecoration(
+                                  labelText: 'BMDC number',
+                                  prefixIcon: Icon(Icons.confirmation_number_outlined),
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (v) {
+                                  final value = (v ?? '').trim();
+                                  if (value.isEmpty) return 'Enter your BMDC number';
+                                  if (value.length < 6) return 'BMDC number seems too short';
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+      
+                              // Medical College dropdown
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final screenHeight = MediaQuery.of(context).size.height;
+      
+                                  return DropdownButtonFormField<String>(
+                                    value: _selectedCollege,
+                                    isExpanded: true, // takes full width, prevents layout overflow
+                                    menuMaxHeight: screenHeight * 0.45, // responsive popup height
+                                    items: _medicalColleges
+                                        .map(
+                                          (c) => DropdownMenuItem<String>(
+                                        value: c,
+                                        child: Text(
+                                          c,
+                                          overflow: TextOverflow.ellipsis, // long names truncate nicely
+                                          maxLines: 1,
+                                        ),
+                                      ),
+                                    )
+                                        .toList(),
+                                    // Ensures the selected value in the field also ellipsizes
+                                    selectedItemBuilder: (context) => _medicalColleges
+                                        .map(
+                                          (c) => Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          c,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    )
+                                        .toList(),
+                                    onChanged: (v) => setState(() => _selectedCollege = v),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Medical college',
+                                      prefixIcon: Icon(Icons.school_outlined),
+                                      border: OutlineInputBorder(),
+                                      // optional: guarantee comfy tap target height
+                                      constraints: BoxConstraints(minHeight: 56),
+                                    ),
+                                    validator: (v) => v == null ? 'Select your medical college' : null,
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 14),
+      
+                              // Password
+                              TextFormField(
+                                controller: _passwordController,
+                                obscureText: _obscurePass,
+                                autofillHints: const [AutofillHints.newPassword],
+                                decoration: InputDecoration(
+                                  labelText: 'Password',
+                                  prefixIcon: const Icon(Icons.lock_outline),
+                                  border: const OutlineInputBorder(),
+                                  suffixIcon: IconButton(
+                                    onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                                    icon: Icon(_obscurePass ? Icons.visibility_off : Icons.visibility),
+                                    tooltip: _obscurePass ? 'Show password' : 'Hide password',
                                   ),
                                 ),
-                                onPressed: _isLoading ? null : _onRegister,
-                                icon: _isLoading
-                                    ? const SizedBox(
-                                    width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                                    : const Icon(Icons.person_add_alt_1),
-                                label: const Text(
-                                  'Create account',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                validator: (v) {
+                                  final value = v ?? '';
+                                  if (value.isEmpty) return 'Create a password';
+                                  if (value.length < 6) return 'Must be at least 6 characters';
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+      
+                              // Confirm password
+                              TextFormField(
+                                controller: _confirmController,
+                                obscureText: _obscureConfirm,
+                                autofillHints: const [AutofillHints.newPassword],
+                                decoration: InputDecoration(
+                                  labelText: 'Confirm password',
+                                  prefixIcon: const Icon(Icons.lock_reset_outlined),
+                                  border: const OutlineInputBorder(),
+                                  suffixIcon: IconButton(
+                                    onPressed: () =>
+                                        setState(() => _obscureConfirm = !_obscureConfirm),
+                                    icon: Icon(
+                                        _obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                                    tooltip: _obscureConfirm ? 'Show password' : 'Hide password',
+                                  ),
+                                ),
+                                validator: (v) {
+                                  if ((v ?? '').isEmpty) return 'Confirm your password';
+                                  if (v != _passwordController.text) return 'Passwords do not match';
+                                  return null;
+                                },
+                              ),
+      
+                              const SizedBox(height: 18),
+      
+                              // Register button
+                              SizedBox(
+                                width: double.infinity,
+                                height: 52,
+                                child: FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AppColor.primaryColor,
+                                    foregroundColor: AppColor.whiteColor,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: _isLoading ? null : _onRegister,
+                                  icon: _isLoading
+                                      ? const SizedBox(
+                                      width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
+                                      : const Icon(Icons.person_add_alt_1),
+                                  label: const Text(
+                                    'Create account',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
                                 ),
                               ),
-                            ),
-
-                            const SizedBox(height: 14),
-
-                            // Sign in
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Already have an account? ',
-                                  style: TextStyle(color: cs.onSurfaceVariant),
-                                ),
-                                TextButton(
-                                  onPressed: _onSignIn,
-                                  child: const Text('Sign in'),
-                                ),
-                              ],
-                            ),
-                          ],
+      
+                              const SizedBox(height: 14),
+      
+                              // Sign in
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Already have an account? ',
+                                    style: TextStyle(color: cs.onSurfaceVariant),
+                                  ),
+                                  TextButton(
+                                    onPressed: _onSignIn,
+                                    child: const Text('Sign in'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -373,8 +375,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

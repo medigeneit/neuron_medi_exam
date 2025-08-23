@@ -24,6 +24,8 @@ class AppTheme {
       ),
     ),
 
+
+
     textTheme: const TextTheme(
       bodyLarge: TextStyle(
         color: AppColor.primaryTextColor,

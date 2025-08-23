@@ -15,8 +15,7 @@ class CustomDrawer extends StatelessWidget {
       backgroundColor: AppColor.whiteColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          bottomLeft: Radius.circular(24),
+
         ),
       ),
       child: ListView(

@@ -44,7 +44,7 @@ class _NavBarScreenState extends State<NavBarScreen> {
       case 2:
         return 'Profile';
       default:
-        return 'App Name';
+        return 'Neuron Exam';
     }
   }
 

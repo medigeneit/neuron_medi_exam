@@ -16,4 +16,6 @@ class AppColor {
   static const Color armyGreen = Color(0xFF454B1B);
   static const Color midnightBlue = Color(0xFF191970);
   static const Color midnightPurple = Color(0xFF24002A);
+  static const Color indigo = Color(0xFF6366F1);
+  static const Color purple = Color(0xFF8B5CF6);
 }
