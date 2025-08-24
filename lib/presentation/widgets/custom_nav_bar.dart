@@ -18,7 +18,9 @@ class CustomNavBar extends StatelessWidget {
     return CircleNavBar(
       activeIcons: const [
         Icon(Icons.dashboard_customize_rounded, color: AppColor.whiteColor),
+        Icon(Icons.library_books, color: AppColor.whiteColor),
         Icon(Icons.home_rounded, color: AppColor.whiteColor),
+        Icon(Icons.notifications_active_rounded, color: AppColor.whiteColor),
         Icon(Icons.person, color: AppColor.whiteColor),
       ],
       inactiveIcons:  [
@@ -33,9 +35,25 @@ class CustomNavBar extends StatelessWidget {
         Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Icon(Icons.library_books_outlined, color: AppColor.primaryTextColor),
+            SizedBox(height: 2), // Space between icon and text
+            Text("Courses", style: TextStyle(color: AppColor.primaryTextColor, fontSize: Sizes.verySmallText(context))),
+          ],
+        ),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
             Icon(Icons.home_outlined, color: AppColor.primaryTextColor),
             SizedBox(height: 2), // Space between icon and text
             Text("Home", style: TextStyle(color: AppColor.primaryTextColor, fontSize: Sizes.verySmallText(context))),
+          ],
+        ),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.notifications_active_outlined, color: AppColor.primaryTextColor),
+            SizedBox(height: 2), // Space between icon and text
+            Text("Notice", style: TextStyle(color: AppColor.primaryTextColor, fontSize: Sizes.verySmallText(context))),
           ],
         ),
         Column(

@@ -9,14 +9,16 @@ class CommonScaffold extends StatelessWidget {
   final bool showDrawer;
   final List<Widget>? actions;
   final Widget? bottomNavigationBar;
+  final Widget? floatingActionButton;
 
   const CommonScaffold({
     super.key,
     required this.title,
     required this.body,
-    this.showDrawer = true,
+    this.showDrawer = false,
     this.actions,
     this.bottomNavigationBar,
+    this.floatingActionButton,
   });
 
   @override
@@ -34,6 +36,7 @@ class CommonScaffold extends StatelessWidget {
         endDrawer: showDrawer ? const CustomDrawer() : null,
         body: body,
         bottomNavigationBar: bottomNavigationBar,
+        floatingActionButton: floatingActionButton,
       ),
     );
   }

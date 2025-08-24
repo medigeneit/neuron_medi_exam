@@ -1,25 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:medi_exam/data/models/available_batch_item.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'available_batch_card.dart';
-
-class AvailableBatchItem {
-  final String title;
-  final String subTitle;
-  final String startDate;
-  final String days;
-  final String time;
-  final VoidCallback onDetails;
-
-  const AvailableBatchItem({
-    required this.title,
-    required this.subTitle,
-    required this.startDate,
-    required this.days,
-    required this.time,
-    required this.onDetails,
-  });
-}
 
 class AvailableBatchContainer extends StatefulWidget {
   final List<AvailableBatchItem> items;
@@ -130,7 +115,7 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                 children: [
                   // Modern header with icon and count
                   Container(
-                    padding: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
                       border: Border(
                         bottom: BorderSide(
@@ -158,7 +143,7 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                               Text(
                                 widget.title,
                                 style: TextStyle(
-                                  fontSize: Sizes.bodyText(context),
+                                  fontSize: Sizes.subTitleText(context),
                                   fontWeight: FontWeight.w800,
                                   color: AppColor.primaryColor,
                                   height: 1.0,
@@ -181,7 +166,7 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                           GestureDetector(
                             onTap: () {
                               // Handle "See All" action
-                              debugPrint('See All Batches clicked');
+                         Get.toNamed(RouteNames.availableBatches);
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -203,13 +188,13 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 4),
 
                   // Carousel with improved styling
                   Scrollbar(
                     controller: _controller,
-                    thumbVisibility: true,
-                    trackVisibility: false,
+                    //thumbVisibility: true,
+                    //trackVisibility: false,
                     thickness: 3,
                     radius: const Radius.circular(3),
                     interactive: true,
@@ -231,7 +216,27 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                                   startDate: widget.items[i].startDate,
                                   days: widget.items[i].days,
                                   time: widget.items[i].time,
-                                  onDetails: widget.items[i].onDetails,
+                                  discount: widget.items[i].discount,
+                                  onDetails: () {
+                                    // Navigate to details screen with arguments
+                                    Get.toNamed(
+                                      RouteNames.batchDetails, // Make sure this route is defined
+                                      arguments: {
+                                        'title': widget.items[i].title,
+                                        'subTitle': widget.items[i].subTitle,
+                                        'startDate': widget.items[i].startDate,
+                                        'days': widget.items[i].days,
+                                        'time': widget.items[i].time,
+                                        'price': widget.items[i].price,
+                                        'discount': widget.items[i].discount,
+                                        'imageUrl': widget.items[i].imageUrl,
+                                        'batchDetails': widget.items[i].batchDetails,
+                                        'courseOutline': widget.items[i].courseOutline,
+                                        'courseFee': widget.items[i].courseFee,
+                                        'offer': widget.items[i].offer,
+                                      },
+                                    );
+                                  },
                                 ),
                               ),
                             ],
@@ -249,20 +254,20 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                       child: Wrap(
                         spacing: 6,
                         children: List.generate(widget.items.length, (index) {
-                          final double activeSize = 8;
-                          final double inactiveSize = 6;
+
                           final bool isActive = _progress >= index / (widget.items.length - 1) &&
                               _progress <= (index + 1) / (widget.items.length - 1);
 
                           return AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: isActive ? activeSize : inactiveSize,
-                            height: isActive ? activeSize : inactiveSize,
+                            duration: const Duration(milliseconds: 300),
+                            width: isActive ? 16 : 6,
+                            height: 6,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
                             decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
                               color: isActive
                                   ? AppColor.primaryColor
-                                  : (isDark ? Colors.white : Colors.black).withOpacity(0.2),
-                              shape: BoxShape.circle,
+                                  : Colors.grey[400],
                             ),
                           );
                         }),

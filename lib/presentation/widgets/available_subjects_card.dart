@@ -1,37 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 
-class AvailableBatchCard extends StatefulWidget {
+class AvailableSubjectsCard extends StatefulWidget {
   final String title;
   final String subTitle;
   final String startDate;
   final String days;
   final String time;
-  final String? price; // Add price parameter
   final String? discount;
-  final String? imageUrl; // Add imageUrl parameter
-  final VoidCallback? onDetails;
-  final Map<String, dynamic>? navigationData; // Add navigation data
 
-  const AvailableBatchCard({
+  final VoidCallback onDetails;
+
+  const AvailableSubjectsCard({
     Key? key,
     required this.title,
     required this.subTitle,
     required this.startDate,
     required this.days,
     required this.time,
-    this.price,
     this.discount,
-    this.imageUrl,
-    this.onDetails,
-    this.navigationData,
+    required this.onDetails,
   }) : super(key: key);
 
   @override
-  State<AvailableBatchCard> createState() => _AvailableBatchCardState();
+  State<AvailableSubjectsCard> createState() => _AvailableSubjectsCardState();
 }
 
-class _AvailableBatchCardState extends State<AvailableBatchCard> {
+class _AvailableSubjectsCardState extends State<AvailableSubjectsCard> {
   bool _pressed = false;
   bool _hovered = false;
 
@@ -48,8 +43,7 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
     final infoSize = isMobile ? 11.0 : 12.0;
 
     // Modern gradient colors
-    final gradientColors = [AppColor.indigo, AppColor.purple]; // Indigo to purple
-
+    final gradientColors = [AppColor.purple, AppColor.indigo];
 
     return AnimatedScale(
       duration: const Duration(milliseconds: 120),
@@ -71,8 +65,6 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
             child: Material(
               color: isDark ? const Color(0xFF1A1D21) : Colors.white,
               borderRadius: BorderRadius.circular(19),
-
-              // ---------- changed to Stack so we can overlay the ribbon
               child: Stack(
                 children: [
                   InkWell(
@@ -89,15 +81,17 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Title & subtitle with improved hierarchy
-                          Text(
-                            widget.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: titleSize,
-                              fontWeight: FontWeight.w800,
-                              height: 1.1,
-                              color: isDark ? Colors.white : AppColor.primaryTextColor,
+                          Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: Text(
+                              widget.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: titleSize,
+                                fontWeight: FontWeight.w800,
+                                color: AppColor.primaryTextColor,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -107,7 +101,9 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: subTitleSize,
-                              color: isDark ? Colors.white70 : const Color(0xFF6B7280),
+                              color: isDark
+                                  ? Colors.white70
+                                  : const Color(0xFF6B7280),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -140,7 +136,9 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
                                 title: 'Start Date: ',
                                 label: widget.startDate,
                                 fontSize: infoSize,
-                                bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                                bg: isDark
+                                    ? const Color(0xFF2D2F33)
+                                    : const Color(0xFFF0F7FF),
                                 iconColor: gradientColors[0],
                               ),
                               _InfoChip(
@@ -148,7 +146,9 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
                                 title: 'Days: ',
                                 label: widget.days,
                                 fontSize: infoSize,
-                                bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                                bg: isDark
+                                    ? const Color(0xFF2D2F33)
+                                    : const Color(0xFFF0F7FF),
                                 iconColor: gradientColors[0],
                               ),
                               _InfoChip(
@@ -156,7 +156,9 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
                                 title: 'Time: ',
                                 label: widget.time,
                                 fontSize: infoSize,
-                                bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                                bg: isDark
+                                    ? const Color(0xFF2D2F33)
+                                    : const Color(0xFFF0F7FF),
                                 iconColor: gradientColors[0],
                               ),
                             ],
@@ -188,11 +190,7 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
                                   color: Colors.transparent,
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(12),
-                                    onTap: () {
-                                      if (widget.onDetails != null) {
-                                        widget.onDetails!();
-                                      }
-                                    },
+                                    onTap: widget.onDetails,
                                     child: Container(
                                       padding: EdgeInsets.symmetric(
                                         horizontal: isMobile ? 14 : 16,
@@ -210,7 +208,7 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
                                             ),
                                           ),
                                           const SizedBox(width: 6),
-                                          const Icon(
+                                          Icon(
                                             Icons.arrow_forward_rounded,
                                             size: 16,
                                             color: Colors.white,
@@ -228,7 +226,6 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
                     ),
                   ),
 
-                  // --------- Discount / Free ribbon (same behavior as your Subjects card)
 
                   if (widget.discount != null)
                     Positioned(
@@ -260,11 +257,11 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (widget.discount == 'Free')
-                                Icon(
-                                  Icons.celebration_rounded,
-                                  size: 10,
-                                  color: Colors.white,
-                                ),
+                              Icon(
+                                Icons.celebration_rounded,
+                                size: 10,
+                                color: Colors.white,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 widget.discount!,
@@ -297,6 +294,7 @@ class _AvailableBatchCardState extends State<AvailableBatchCard> {
   }
 }
 
+// The _InfoChip class remains unchanged
 class _InfoChip extends StatelessWidget {
   final IconData icon;
   final String title;

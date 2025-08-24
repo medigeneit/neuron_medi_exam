@@ -1,18 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:medi_exam/data/models/slider_image.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 
-class SliderImage {
-  final String imageUrl;
-  final VoidCallback onTap;
-  final String? caption;
 
-  SliderImage({
-    required this.imageUrl,
-    required this.onTap,
-    this.caption,
-  });
-}
 
 class ImageSliderBanner extends StatefulWidget {
   final List<SliderImage> images;
@@ -216,7 +207,7 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
                   borderRadius: BorderRadius.circular(4),
                   color: isActive
                       ? AppColor.primaryColor
-                      : (isDark ? Colors.white38 : Colors.grey[400]),
+                      : Colors.grey[400],
                 ),
               );
             }).toList(),
