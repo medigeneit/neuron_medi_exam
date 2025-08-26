@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:medi_exam/data/models/available_batch_item.dart';
 import 'package:medi_exam/data/models/available_subject_item.dart';
+import 'package:medi_exam/data/models/course_item.dart';
 import 'package:medi_exam/data/models/slider_image.dart';
+import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
 import 'package:medi_exam/presentation/widgets/available_subjects_container.dart';
 import '../widgets/available_batch_container.dart';
 import '../widgets/image_slider_banner.dart'; // Import the fixed widget
@@ -12,6 +14,8 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Dummy list for demo
+    final List<CourseItem> demoCourse = demoCourses;
+
     final List<AvailableBatchItem> demoItems = [
 
       AvailableBatchItem(
@@ -213,16 +217,19 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 8),
 
-              // Section: Available Batches
-              AvailableBatchContainer(
-                items: demoItems,
+
+              AvailableCourseContainerWidget(
+                title: "Batch Wise Preparation",
+                courses: demoCourse,
+                isBatch: true,
               ),
 
               const SizedBox(height: 8),
 
-              // Section: Available Batches
-              AvailableSubjectsContainer(
-                items: demoSubjectsItems,
+              AvailableCourseContainerWidget(
+                title: "Subject Wise Preparation",
+                courses: demoCourse,
+                isBatch: false,
               ),
             ],
           ),

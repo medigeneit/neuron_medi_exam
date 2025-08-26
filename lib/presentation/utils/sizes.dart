@@ -78,6 +78,10 @@ class Sizes {
     return Responsive.isMobile(context) ? 16 : (Responsive.isTablet(context) ? 20 : 22);
   }
 
+  static double veryExtraSmallIcon(BuildContext context) {
+    return Responsive.isMobile(context) ? 12 : (Responsive.isTablet(context) ? 16 : 20);
+  }
+
   static double verySmallRadius(BuildContext context) {
     return Responsive.isMobile(context) ? 5 : (Responsive.isTablet(context) ? 6 : 7);
   }
