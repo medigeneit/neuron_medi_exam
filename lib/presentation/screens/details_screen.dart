@@ -17,12 +17,12 @@ class _DetailsScreenState extends State<DetailsScreen> {
     'courseOutline': false,
   };
 
-  late Map<String, dynamic> courseData;
+  late Map<String, dynamic> batchData;
 
   @override
   void initState() {
     super.initState();
-    courseData = Get.arguments ?? {};
+    batchData = Get.arguments ?? {};
   }
 
   void _toggleSection(String section) {
@@ -37,21 +37,21 @@ class _DetailsScreenState extends State<DetailsScreen> {
     final gradientColors = [AppColor.indigo, AppColor.purple];
 
     // Extracting the required data from the map
-    final title = courseData['title'] ?? '';
-    final subTitle = courseData['subTitle'] ?? '';
-    final startDate = courseData['startDate'] ?? '';
-    final days = courseData['days'] ?? '';
-    final time = courseData['time'] ?? '';
-    final price = courseData['price'];
-    final discount = courseData['discount'];
-    final imageUrl = courseData['imageUrl'];
-    final batchDetails = courseData['batchDetails'] ?? '';
-    final courseOutline = courseData['courseOutline'] ?? '';
-    final courseFee = courseData['courseFee'] ?? '';
-    final offer = courseData['offer'] ?? '';
+    final title = batchData['title'] ?? '';
+    final subTitle = batchData['subTitle'] ?? '';
+    final startDate = batchData['startDate'] ?? '';
+    final days = batchData['days'] ?? '';
+    final time = batchData['time'] ?? '';
+    final price = batchData['price'];
+    final discount = batchData['discount'];
+    final imageUrl = batchData['imageUrl'];
+    final batchDetails = batchData['batchDetails'] ?? '';
+    final courseOutline = batchData['courseOutline'] ?? '';
+    final courseFee = batchData['courseFee'] ?? '';
+    final offer = batchData['offer'] ?? '';
 
     return CommonScaffold(
-      title: 'Course Details',
+      title: 'Batch Details',
       body: Stack(
         children: [
           SingleChildScrollView(

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:medi_exam/data/models/discipline_faculty.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/discipline_faculty_card_widget.dart';
 
 class DisciplineFacultyPickerDialog extends StatelessWidget {
-  final String title;
+  final String courseTitle;
   final String subtitle;
   final IconData icon;
   final bool isBatch;
@@ -14,7 +16,7 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
 
   const DisciplineFacultyPickerDialog({
     Key? key,
-    required this.title,
+    required this.courseTitle,
     required this.subtitle,
     required this.faculties,
     required this.isBatch,
@@ -65,7 +67,7 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _header(title: title, subtitle: subtitle, icon: icon),
+                    child: _header(courseTitle: courseTitle, subtitle: subtitle, icon: icon),
                   ),
                   SizedBox(width: 6,),
                   IconButton(
@@ -108,6 +110,16 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
                           title: item.title,
                           onTap: () {
                             Navigator.of(context).pop();
+                            Get.toNamed(
+                              RouteNames.session_wise_batches, // Make sure this route is defined
+                              arguments: {
+                                'courseTitle': courseTitle,
+                                'icon': icon,
+                                'title': item.title,
+                                'isBatch': isBatch,
+                              },
+                            );
+
                             onSelected(item);
                           },
                           gradientColors: gradientColors,
@@ -126,11 +138,11 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
 }
 
 class _header extends StatelessWidget {
-  final String title;
+  final String courseTitle;
   final String subtitle;
   final IconData icon;
 
-  const _header({required this.title, required this.subtitle, required this.icon});
+  const _header({required this.courseTitle, required this.subtitle, required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +156,7 @@ class _header extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                title,
+                courseTitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -188,7 +200,7 @@ Future<void> showDisciplineFacultyPickerDialog(
     barrierDismissible: true,
     barrierColor: Colors.black.withOpacity(0.5),
     builder: (_) => DisciplineFacultyPickerDialog(
-      title: title,
+      courseTitle: title,
       subtitle: subtitle,
       faculties: faculties,
       icon: icon,

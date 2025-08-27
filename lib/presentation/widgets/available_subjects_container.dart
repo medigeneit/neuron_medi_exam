@@ -4,7 +4,7 @@ import 'package:medi_exam/data/models/available_subject_item.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/available_subjects_card.dart';
-import 'available_batch_card.dart';
+import 'session_wise_batch_card.dart';
 
 class AvailableSubjectsContainer extends StatefulWidget {
   final List<AvailableSubjectsItem> items;

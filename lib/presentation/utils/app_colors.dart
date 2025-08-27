@@ -16,6 +16,8 @@ class AppColor {
   static const Color armyGreen = Color(0xFF454B1B);
   static const Color midnightBlue = Color(0xFF191970);
   static const Color midnightPurple = Color(0xFF24002A);
+  static const Color indigo = Color(0xFF6366F1);
+  static const Color purple = Color(0xFF8B5CF6);
 
   static const Gradient primaryGradient = LinearGradient(
     colors: [AppColor.primaryColor, AppColor.secondaryColor],
@@ -24,11 +26,9 @@ class AppColor {
   );
 
   static const Gradient secondaryGradient = LinearGradient(
-    colors: [AppColor.purple, AppColor.indigo, ],
+    colors: [AppColor.purple, AppColor.indigo,],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const Color indigo = Color(0xFF6366F1);
-  static const Color purple = Color(0xFF8B5CF6);
 }

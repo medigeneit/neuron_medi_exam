@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 
-class AvailableBatchCard extends StatefulWidget {
+class SessionWiseBatchCard extends StatefulWidget {
   final String title;
   final String subTitle;
   final String startDate;
@@ -13,7 +13,7 @@ class AvailableBatchCard extends StatefulWidget {
   final VoidCallback? onDetails;
   final Map<String, dynamic>? navigationData; // Add navigation data
 
-  const AvailableBatchCard({
+  const SessionWiseBatchCard({
     Key? key,
     required this.title,
     required this.subTitle,
@@ -28,10 +28,10 @@ class AvailableBatchCard extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<AvailableBatchCard> createState() => _AvailableBatchCardState();
+  State<SessionWiseBatchCard> createState() => _SessionWiseBatchCardState();
 }
 
-class _AvailableBatchCardState extends State<AvailableBatchCard> {
+class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
   bool _pressed = false;
   bool _hovered = false;
 

@@ -1,12 +1,13 @@
 import 'package:get/get.dart';
-import 'package:medi_exam/presentation/screens/available_batch_screen.dart';
+import 'package:medi_exam/presentation/screens/available_batches_screen.dart';
 import 'package:medi_exam/presentation/screens/courses_screen.dart';
 import 'package:medi_exam/presentation/screens/details_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
 import 'package:medi_exam/presentation/screens/navbar_screen.dart';
 import 'package:medi_exam/presentation/screens/notice_screen.dart';
-import 'package:medi_exam/presentation/screens/profile_screen.dart';
+import 'package:medi_exam/presentation/screens/profile_section_screen.dart';
 import 'package:medi_exam/presentation/screens/registration_screen.dart';
+import 'package:medi_exam/presentation/screens/session_wise_batches_screen.dart';
 import 'package:medi_exam/presentation/screens/splash_screen.dart';
 
 class RouteNames {
@@ -20,6 +21,7 @@ class RouteNames {
   static const String passwordChange = '/passwordChange';
   static const String homeScreen = '/home';
   static const String navBar = '/navigation';
+  static const String session_wise_batches = '/sessionWiseBatches';
   static const String courses = '/courses';
   static const String support = '/support';
   static const String menu = '/menu';
@@ -67,7 +69,7 @@ final List<GetPage> appRoutes = [
   ),
   GetPage(
     name: RouteNames.profile,
-    page: () => const ProfileScreen(),
+    page: () => const ProfileSectionScreen(),
   ),
   GetPage(
     name: RouteNames.courses,
@@ -79,11 +81,16 @@ final List<GetPage> appRoutes = [
   ),
   GetPage(
     name: RouteNames.availableBatches,
-    page: () => const AvailableBatchScreen(),
+    page: () => const AvailableBatchesScreen(),
   ),
   GetPage(
     name: RouteNames.batchDetails,
     page: () => const DetailsScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.session_wise_batches,
+    page: () => const SessionWiseBatchesScreen(),
   ),
 
 ];

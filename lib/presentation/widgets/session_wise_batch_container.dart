@@ -4,31 +4,35 @@ import 'package:medi_exam/data/models/available_batch_item.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
-import 'available_batch_card.dart';
+import 'session_wise_batch_card.dart';
 
-class AvailableBatchContainer extends StatefulWidget {
+class SessionWiseBatchContainer extends StatefulWidget {
   final List<AvailableBatchItem> items;
   final EdgeInsetsGeometry padding;
   final double borderRadius;
   final Color borderColor;
   final String title;
   final String? subtitle;
+  final bool isBatch;
+  final VoidCallback? onTapShowAllBatches;
 
-  const AvailableBatchContainer({
+  const SessionWiseBatchContainer({
     Key? key,
     required this.items,
+    required this.title,
     this.padding = const EdgeInsets.all(16),
     this.borderRadius = 20,
     this.borderColor = AppColor.primaryColor,
-    this.title = 'Available Batches',
     this.subtitle,
+    this.isBatch = false,
+    this.onTapShowAllBatches,
   }) : super(key: key);
 
   @override
-  State<AvailableBatchContainer> createState() => _AvailableBatchContainerState();
+  State<SessionWiseBatchContainer> createState() => _SessionWiseBatchContainerState();
 }
 
-class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
+class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
   final _controller = ScrollController();
 
   double _itemWidth = 0;
@@ -60,8 +64,7 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+
 
     return LayoutBuilder(builder: (context, constraints) {
       final isMobile = constraints.maxWidth < 600;
@@ -82,11 +85,11 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
           // Modern container with gradient border effect
           Container(
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF121212) : Colors.white,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(widget.borderRadius),
               boxShadow: [
                 BoxShadow(
-                  color: isDark ? Colors.black.withOpacity(0.5) : Colors.grey.withOpacity(0.2),
+                  color: Colors.grey.withOpacity(0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -95,17 +98,10 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(widget.borderRadius),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColor.primaryColor.withOpacity(0.08),
-                    AppColor.primaryColor.withOpacity(0.04),
-                    Colors.transparent,
-                  ],
-                ),
+                gradient: widget.isBatch ? AppColor.primaryGradient.withOpacity(0.06) : AppColor.secondaryGradient.withOpacity(0.06),
+
                 border: Border.all(
-                  color: AppColor.primaryColor.withOpacity(0.2),
+                  color: widget.isBatch ? AppColor.primaryColor.withOpacity(0.2) : AppColor.purple.withOpacity(0.2),
                   width: 1.5,
                 ),
               ),
@@ -119,7 +115,7 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                     decoration: BoxDecoration(
                       border: Border(
                         bottom: BorderSide(
-                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.08),
+                          color: Colors.black.withOpacity(0.08),
                           width: 1,
                         ),
                       ),
@@ -133,7 +129,7 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                             shape: BoxShape.circle,
                           ),
                           child: Icon(Icons.auto_awesome_rounded,
-                              size: 18, color: AppColor.primaryColor),
+                              size: 18, color: widget.isBatch ? AppColor.primaryColor : AppColor.purple),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -145,29 +141,15 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                                 style: TextStyle(
                                   fontSize: Sizes.subTitleText(context),
                                   fontWeight: FontWeight.w800,
-                                  color: AppColor.primaryColor,
-                                  height: 1.0,
+                                  color: widget.isBatch ? AppColor.primaryColor : AppColor.purple,
                                 ),
                               ),
-                              if (widget.subtitle != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    widget.subtitle!,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.textTheme.bodySmall?.color?.withOpacity(.6),
-                                    ),
-                                  ),
-                                ),
                             ],
                           ),
                         ),
                         if (widget.items.isNotEmpty)
                           GestureDetector(
-                            onTap: () {
-                              // Handle "See All" action
-                         Get.toNamed(RouteNames.availableBatches);
-                            },
+                            onTap: () => widget.onTapShowAllBatches?.call(),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
@@ -193,8 +175,6 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                   // Carousel with improved styling
                   Scrollbar(
                     controller: _controller,
-                    //thumbVisibility: true,
-                    //trackVisibility: false,
                     thickness: 3,
                     radius: const Radius.circular(3),
                     interactive: true,
@@ -210,7 +190,7 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                               Container(
                                 width: isMobile ? constraints.maxWidth * 0.65 : _itemWidth,
                                 margin: EdgeInsets.only(right: i != widget.items.length - 1 ? _spacing : 0),
-                                child: AvailableBatchCard(
+                                child: SessionWiseBatchCard(
                                   title: widget.items[i].title,
                                   subTitle: widget.items[i].subTitle,
                                   startDate: widget.items[i].startDate,
@@ -219,23 +199,7 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
                                   discount: widget.items[i].discount,
                                   onDetails: () {
                                     // Navigate to details screen with arguments
-                                    Get.toNamed(
-                                      RouteNames.batchDetails, // Make sure this route is defined
-                                      arguments: {
-                                        'title': widget.items[i].title,
-                                        'subTitle': widget.items[i].subTitle,
-                                        'startDate': widget.items[i].startDate,
-                                        'days': widget.items[i].days,
-                                        'time': widget.items[i].time,
-                                        'price': widget.items[i].price,
-                                        'discount': widget.items[i].discount,
-                                        'imageUrl': widget.items[i].imageUrl,
-                                        'batchDetails': widget.items[i].batchDetails,
-                                        'courseOutline': widget.items[i].courseOutline,
-                                        'courseFee': widget.items[i].courseFee,
-                                        'offer': widget.items[i].offer,
-                                      },
-                                    );
+                                    navigateToBatchDetails(i);
                                   },
                                 ),
                               ),
@@ -280,5 +244,25 @@ class _AvailableBatchContainerState extends State<AvailableBatchContainer> {
         ],
       );
     });
+  }
+
+  void navigateToBatchDetails(int i) {
+                                 Get.toNamed(
+      RouteNames.batchDetails, // Make sure this route is defined
+      arguments: {
+        'title': widget.items[i].title,
+        'subTitle': widget.items[i].subTitle,
+        'startDate': widget.items[i].startDate,
+        'days': widget.items[i].days,
+        'time': widget.items[i].time,
+        'price': widget.items[i].price,
+        'discount': widget.items[i].discount,
+        'imageUrl': widget.items[i].imageUrl,
+        'batchDetails': widget.items[i].batchDetails,
+        'courseOutline': widget.items[i].courseOutline,
+        'courseFee': widget.items[i].courseFee,
+        'offer': widget.items[i].offer,
+      },
+    );
   }
 }

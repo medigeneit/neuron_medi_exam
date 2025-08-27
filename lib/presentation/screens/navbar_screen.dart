@@ -4,7 +4,7 @@ import 'package:medi_exam/presentation/screens/courses_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
 import 'package:medi_exam/presentation/screens/home_screen.dart';
 import 'package:medi_exam/presentation/screens/notice_screen.dart';
-import 'package:medi_exam/presentation/screens/profile_screen.dart';
+import 'package:medi_exam/presentation/screens/profile_section_screen.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/custom_nav_bar.dart';
 
@@ -23,7 +23,7 @@ class _NavBarScreenState extends State<NavBarScreen> {
     const CoursesScreen(),
     const HomeScreen(),
     const NoticeScreen(),
-    const ProfileScreen(),
+    const ProfileSectionScreen(),
   ];
 
   @override

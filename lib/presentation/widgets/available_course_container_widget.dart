@@ -79,6 +79,7 @@ class _AvailableCourseContainerWidgetState
                     title: widget.title,
                     count: widget.courses.length,
                     textColor: textColor,
+                    isBatch: widget.isBatch,
                   ),
 
                   const SizedBox(height: 12),
@@ -178,12 +179,14 @@ class _Header extends StatelessWidget {
   final String title;
   final int count;
   final Color textColor;
+  final bool isBatch;
 
 
   const _Header({
     required this.title,
     required this.count,
     required this.textColor,
+    required this.isBatch,
 
   });
 
@@ -210,7 +213,7 @@ class _Header extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              _CountBadge(count: count),
+              _CountBadge(count: count, isBatch: isBatch),
             ],
           ),
         ),
@@ -221,11 +224,12 @@ class _Header extends StatelessWidget {
 
 class _CountBadge extends StatelessWidget {
   final int count;
-  const _CountBadge({required this.count});
+  final bool isBatch;
+  const _CountBadge({required this.count, required this.isBatch});
 
   @override
   Widget build(BuildContext context) {
-    final gradient = AppColor.primaryGradient;
+    final gradient =isBatch? AppColor.primaryGradient : AppColor.secondaryGradient;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: gradient,

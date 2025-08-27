@@ -4,7 +4,6 @@ import 'package:medi_exam/presentation/utils/app_colors.dart';
 class SearchBarWidget extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
-  final bool isDark;
   final bool isCompact;
   final VoidCallback onClear;
   final ValueChanged<String> onSubmitted;
@@ -12,7 +11,6 @@ class SearchBarWidget extends StatelessWidget {
   const SearchBarWidget({
     required this.controller,
     required this.focusNode,
-    required this.isDark,
     required this.isCompact,
     required this.onClear,
     required this.onSubmitted,
@@ -35,7 +33,7 @@ class SearchBarWidget extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF121416) : Colors.white,
+          color: Colors.white,
           borderRadius: innerBorderRadius,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -44,7 +42,7 @@ class SearchBarWidget extends StatelessWidget {
             Icon(
               Icons.search_rounded,
               size: 20,
-              color: isDark ? Colors.white70 : const Color(0xFF6B7280),
+              color: const Color(0xFF6B7280),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -56,13 +54,13 @@ class SearchBarWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: isCompact ? 13.5 : 14.5,
                   fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: Colors.black87,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Search by title or subtitle',
                   hintStyle: TextStyle(
                     fontSize: isCompact ? 13.0 : 14.0,
-                    color: isDark ? Colors.white60 : const Color(0xFF6B7280),
+                    color:  const Color(0xFF6B7280),
                   ),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -77,7 +75,7 @@ class SearchBarWidget extends StatelessWidget {
                 icon: Icon(
                   Icons.close_rounded,
                   size: 18,
-                  color: isDark ? Colors.white70 : const Color(0xFF6B7280),
+                  color:  const Color(0xFF6B7280),
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(
@@ -97,12 +95,12 @@ class SearchBarWidget extends StatelessWidget {
 class TinyChip extends StatelessWidget {
   final IconData icon;
   final String label;
-  final bool isDark;
+
 
   const TinyChip({
     required this.icon,
     required this.label,
-    required this.isDark,
+
   });
 
   @override
@@ -110,7 +108,7 @@ class TinyChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF22252A) : const Color(0xFFF2F6FF),
+        color:  const Color(0xFFF2F6FF),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -122,7 +120,7 @@ class TinyChip extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 12.0,
-              color: isDark ? Colors.white : const Color(0xFF374151),
+              color: const Color(0xFF374151),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -134,13 +132,12 @@ class TinyChip extends StatelessWidget {
 
 class EmptyState extends StatelessWidget {
   final String query;
-  final bool isDark;
 
-  const EmptyState({required this.query, required this.isDark});
+  const EmptyState({required this.query});
 
   @override
   Widget build(BuildContext context) {
-    final subtle = isDark ? Colors.white70 : const Color(0xFF6B7280);
+    final subtle =  const Color(0xFF6B7280);
 
     return Center(
       child: Padding(
@@ -155,7 +152,7 @@ class EmptyState extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : const Color(0xFF111827),
+                color:  const Color(0xFF111827),
               ),
               textAlign: TextAlign.center,
             ),
