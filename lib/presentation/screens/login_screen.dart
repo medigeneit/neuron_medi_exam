@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:medi_exam/data/utils/local_storage_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
@@ -30,14 +31,33 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+// login_screen.dart
   Future<void> _onLogin() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
+
+    // Simulate API call
     await Future.delayed(const Duration(milliseconds: 900));
+
+    // Save token
+    final fakeToken = 'your_auth_token_here';
+    await LocalStorageService.setString(LocalStorageService.token, fakeToken);
+
     setState(() => _isLoading = false);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Logged in! (stub)')));
+
+    final arguments = Get.arguments;
+    if (arguments != null && arguments is Map<String, dynamic>) {
+      final returnRoute = arguments['returnRoute'];
+      final returnArguments = arguments['returnArguments'];
+
+      if (returnRoute != null) {
+        Get.offAllNamed(returnRoute, arguments: returnArguments);
+      } else {
+        Get.offAllNamed(RouteNames.navBar);
+      }
+    } else {
+      Get.offAllNamed(RouteNames.navBar);
+    }
   }
 
   void _onForgotPassword() {

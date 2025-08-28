@@ -31,4 +31,10 @@ class AppColor {
     end: Alignment.bottomRight,
   );
 
+  static const Gradient warningGradient = LinearGradient(
+    colors: [Colors.red, Colors.orange],
+    begin: Alignment.bottomRight,
+    end: Alignment.topLeft,
+  );
+
 }

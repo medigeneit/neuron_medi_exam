@@ -9,9 +9,9 @@ class GlassCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: cs.surface.withOpacity(.75),
+        color: cs.surface.withOpacity(.45),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: cs.outlineVariant.withOpacity(.6)),
+        border: Border.all(color: cs.outlineVariant.withOpacity(.4)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(.06),

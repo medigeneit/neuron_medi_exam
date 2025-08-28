@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/screens/available_batches_screen.dart';
 import 'package:medi_exam/presentation/screens/courses_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
 import 'package:medi_exam/presentation/screens/details_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
 import 'package:medi_exam/presentation/screens/navbar_screen.dart';
@@ -26,7 +27,8 @@ class RouteNames {
   static const String support = '/support';
   static const String menu = '/menu';
   static const String availableBatches = '/availableBatches';
-  static const String profile = '/profile';
+  static const String profile_section = '/profileSection';
+  static const String dashboard = '/dashboard';
   static const String editProfile = '/editProfile';
   static const String subscriptions = '/subscriptions';
   static const String notice = '/notice';
@@ -67,10 +69,7 @@ final List<GetPage> appRoutes = [
     name: RouteNames.registration,
     page: () => const RegistrationScreen(),
   ),
-  GetPage(
-    name: RouteNames.profile,
-    page: () => const ProfileSectionScreen(),
-  ),
+
   GetPage(
     name: RouteNames.courses,
     page: () => const CoursesScreen(),
@@ -91,6 +90,18 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.session_wise_batches,
     page: () => const SessionWiseBatchesScreen(),
+  ),
+
+  // Protected routes with AuthMiddleware
+  GetPage(
+    name: RouteNames.dashboard,
+    page: () => const Dashboard(),
+
+  ),
+  GetPage(
+    name: RouteNames.profile_section,
+    page: () => const ProfileSectionScreen(),
+
   ),
 
 ];

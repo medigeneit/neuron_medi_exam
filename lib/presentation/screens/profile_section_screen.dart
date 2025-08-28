@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:medi_exam/data/utils/local_storage_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
+import 'package:medi_exam/presentation/widgets/fancy_card_background.dart';
 
 class ProfileSectionScreen extends StatefulWidget {
   const ProfileSectionScreen({super.key});
@@ -73,126 +76,74 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   }
 
   Widget _buildProfileCard() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: AppColor.primaryGradient, /*const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF8B5CF6),
-            Color(0xFF662483),
-            Color(0xFF4A1C6B),
-          ],
-        ),*/
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColor.primaryColor.withOpacity(0.4),
-            blurRadius: 25,
-            offset: const Offset(0, 8),
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Stack(
+    return FancyBackground(
+      gradient: AppColor.primaryGradient, // optional
+      child: Column(
         children: [
-          // Decorative elements
-          Positioned(
-            top: -20,
-            right: -20,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColor.whiteColor.withOpacity(0.12),
-                shape: BoxShape.circle,
+          // Profile Image with glow effect
+          Container(
+            width: 110,
+            height: 110,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppColor.whiteColor,
+                width: 3,
               ),
-            ),
-          ),
-          Positioned(
-            bottom: -30,
-            left: -30,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColor.secondaryColor.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                // Profile Image with glow effect
-                Container(
-                  width: 110,
-                  height: 110,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColor.whiteColor,
-                      width: 3,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColor.secondaryColor.withOpacity(0.5),
-                        blurRadius: 15,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.network(
-                      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Icon(
-                        Icons.person,
-                        size: 50,
-                        color: AppColor.whiteColor,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // User Name
-                Text(
-                  'Dr. Sarah Johnson',
-                  style: TextStyle(
-                    fontSize: Sizes.titleText(context) + 2,
-                    fontWeight: FontWeight.w800,
-                    color: AppColor.whiteColor,
-                    letterSpacing: 0.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-
-                // BMDC Number
-                GlassCard(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    child: Text(
-                      'BMDC: A-12345',
-                      style: TextStyle(
-                        fontSize: Sizes.normalText(context),
-                        fontWeight: FontWeight.w700,
-                        color: AppColor.whiteColor,
-                      ),
-                    ),
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColor.secondaryColor.withOpacity(0.5),
+                  blurRadius: 15,
+                  spreadRadius: 2,
                 ),
               ],
+            ),
+            child: ClipOval(
+              child: Image.network(
+                'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  Icons.person,
+                  size: 50,
+                  color: AppColor.whiteColor,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // User Name
+          Text(
+            'Dr. Sarah Johnson',
+            style: TextStyle(
+              fontSize: Sizes.titleText(context) + 2,
+              fontWeight: FontWeight.w800,
+              color: AppColor.whiteColor,
+              letterSpacing: 0.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+
+          // Phone (was BMDC Number label in code comment)
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Text(
+                'Phone: +880 1234 567890',
+                style: TextStyle(
+                  fontSize: Sizes.normalText(context),
+                  fontWeight: FontWeight.w700,
+                  color: AppColor.whiteColor,
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
 
   Widget _buildActionsCard() {
     return GlassCard(
@@ -311,13 +262,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
             decoration: BoxDecoration(
-              gradient: AppColor.secondaryGradient, /*LinearGradient(
-                colors: _isLoggingOut
-                    ? [AppColor.orangeColor.withOpacity(0.3), AppColor.orangeColor.withOpacity(0.2)]
-                    : [AppColor.orangeColor.withOpacity(0.9), AppColor.orangeColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),*/
+              gradient: AppColor.warningGradient,
               borderRadius: BorderRadius.circular(18),
               boxShadow: _isLoggingOut
                   ? null
@@ -474,15 +419,18 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
       _isLoggingOut = true;
     });
 
-    // Simulate logout process
+    // Clear all data from local storage
+    await LocalStorageService.clearAll();
+
+    // Simulate logout process (optional delay)
     await Future.delayed(const Duration(seconds: 2));
 
     setState(() {
       _isLoggingOut = false;
     });
 
-    // Navigate to login screen
-    Get.offAllNamed('/login');
+    // Navigate to public screen (home screen at index 2)
+    Get.offAllNamed(RouteNames.navBar, arguments: 2);
   }
 }
 
