@@ -70,7 +70,7 @@ class FancyBackground extends StatelessWidget {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: AppColor.secondaryColor.withOpacity(0.15),
+                  color: AppColor.whiteColor.withOpacity(0.08),
                   shape: BoxShape.circle,
                 ),
               ),

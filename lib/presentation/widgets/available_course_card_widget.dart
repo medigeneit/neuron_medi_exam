@@ -107,7 +107,7 @@ class _AvailableCourseCardWidgetState extends State<AvailableCourseCardWidget> {
 
                     // Title
                     Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.only(top: 8),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -118,7 +118,7 @@ class _AvailableCourseCardWidgetState extends State<AvailableCourseCardWidget> {
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                               style: theme.textTheme.titleMedium?.copyWith(
-                                fontSize: Sizes.smallText(context),
+                                fontSize: Sizes.verySmallText(context),
                                 fontWeight: FontWeight.w700,
                                 color: AppColor.primaryTextColor,
                                 height: 1.2,

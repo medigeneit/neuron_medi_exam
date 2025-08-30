@@ -36,6 +36,11 @@ class _NavBarScreenState extends State<NavBarScreen> {
       final isAuthenticated = await _authService.isAuthenticated();
       if (!isAuthenticated) {
         // Navigate to login and pass the intended destination
+        Get.snackbar('Login Required', 'Please log in to access this section.',
+            snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withOpacity(0.8),
+        colorText: Colors.white);
+
         Get.offAllNamed(
           RouteNames.login,
           arguments: {
@@ -60,6 +65,10 @@ class _NavBarScreenState extends State<NavBarScreen> {
       final isAuthenticated = await _authService.isAuthenticated();
       if (!isAuthenticated) {
         // Navigate to login and pass the intended destination
+        Get.snackbar('Login Required', 'Please log in to access this section.',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: Colors.redAccent.withOpacity(0.8),
+            colorText: Colors.white);
         Get.toNamed(
           RouteNames.login,
           arguments: {

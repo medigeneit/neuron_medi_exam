@@ -3,6 +3,7 @@ import 'package:medi_exam/presentation/screens/available_batches_screen.dart';
 import 'package:medi_exam/presentation/screens/courses_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
 import 'package:medi_exam/presentation/screens/details_screen.dart';
+import 'package:medi_exam/presentation/screens/enrolled_courses_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
 import 'package:medi_exam/presentation/screens/navbar_screen.dart';
 import 'package:medi_exam/presentation/screens/notice_screen.dart';
@@ -24,6 +25,7 @@ class RouteNames {
   static const String navBar = '/navigation';
   static const String session_wise_batches = '/sessionWiseBatches';
   static const String courses = '/courses';
+  static const String enrolledCourses = '/enrolledCourses';
   static const String support = '/support';
   static const String menu = '/menu';
   static const String availableBatches = '/availableBatches';
@@ -73,6 +75,11 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.courses,
     page: () => const CoursesScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.enrolledCourses,
+    page: () => const EnrolledCoursesScreen(),
   ),
   GetPage(
     name: RouteNames.notice,

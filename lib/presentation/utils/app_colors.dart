@@ -11,6 +11,8 @@ class AppColor {
   static const Color backgroundColor = Color(0xFFF7F5F8);
   static const Color primaryTextColor = Color(0xFF1F003B);
   static const Color secondaryTextColor = Color(0xFF505050);
+  static const Color greyColor = Colors.grey;
+  static const Color blackColor = Colors.black;
   static const Color whiteColor = Color(0xFFFFFFFF);
   static const Color orangeColor = Color(0xFFFF6B00);
   static const Color armyGreen = Color(0xFF454B1B);
@@ -33,6 +35,12 @@ class AppColor {
 
   static const Gradient warningGradient = LinearGradient(
     colors: [Colors.red, Colors.orange],
+    begin: Alignment.bottomRight,
+    end: Alignment.topLeft,
+  );
+
+  static  Gradient silverGradient = LinearGradient(
+    colors: [Colors.grey.shade700, Colors.grey.shade300],
     begin: Alignment.bottomRight,
     end: Alignment.topLeft,
   );

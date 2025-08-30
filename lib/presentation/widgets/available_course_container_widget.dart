@@ -205,7 +205,7 @@ class _Header extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleLarge?.copyWith(
-                    fontSize: Sizes.subTitleText(context),
+                    fontSize: Sizes.bodyText(context),
                     fontWeight: FontWeight.w800,
                     color: textColor,
                     letterSpacing: 0.1,
