@@ -48,39 +48,42 @@ class FancyBackground extends StatelessWidget {
               ),
             ],
       ),
-      child: Stack(
-        children: [
-          if (showDecorations) ...[
-            Positioned(
-              top: -20,
-              right: -20,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: AppColor.whiteColor.withOpacity(0.12),
-                  shape: BoxShape.circle,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Stack(
+          children: [
+            if (showDecorations) ...[
+              Positioned(
+                top: -30,
+                right: -30,
+                child: Container(
+                  width: 130,
+                  height: 130,
+                  decoration: BoxDecoration(
+                    color: AppColor.whiteColor.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: -30,
-              left: -30,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: AppColor.whiteColor.withOpacity(0.08),
-                  shape: BoxShape.circle,
+              Positioned(
+                bottom: -35,
+                left: -35,
+                child: Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    color: AppColor.whiteColor.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
+            ],
+            Padding(
+              padding: padding,
+              child: child,
             ),
           ],
-          Padding(
-            padding: padding,
-            child: child,
-          ),
-        ],
+        ),
       ),
     );
   }

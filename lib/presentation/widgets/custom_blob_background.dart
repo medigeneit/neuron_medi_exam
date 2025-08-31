@@ -20,51 +20,54 @@ class CustomBlobBackground extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withOpacity(0.15),
             blurRadius: 30,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          // Top-right decorative blob
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: blobColor.withOpacity(0.05),
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(24),
-                  bottomLeft: Radius.circular(100),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            // Top-right decorative blob
+            Positioned(
+              top: 0,
+              left: 0,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: blobColor.withOpacity(0.05),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    bottomRight: Radius.circular(100),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Bottom-left decorative blob
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: blobColor.withOpacity(0.08),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(24),
-                  topRight: Radius.circular(100),
+            // Bottom-left decorative blob
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: blobColor.withOpacity(0.08),
+                  borderRadius: const BorderRadius.only(
+                    bottomRight: Radius.circular(24),
+                    topLeft: Radius.circular(100),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Child content
-          child,
-        ],
+            // Child content
+            child,
+          ],
+        ),
       ),
     );
   }

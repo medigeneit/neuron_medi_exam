@@ -46,6 +46,9 @@ class Sizes {
   static double verySmallText(BuildContext context) {
     return Responsive.isMobile(context) ? 10 : (Responsive.isTablet(context) ? 12 : 14);
   }
+  static double extraSmallText(BuildContext context) {
+    return Responsive.isMobile(context) ? 8 : (Responsive.isTablet(context) ? 10 : 12);
+  }
 
   static double buttonText(BuildContext context) {
     return Responsive.isMobile(context) ? 16 : (Responsive.isTablet(context) ? 18 : 20);

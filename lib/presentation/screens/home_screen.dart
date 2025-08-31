@@ -3,7 +3,9 @@ import 'package:medi_exam/data/models/course_item.dart';
 import 'package:medi_exam/data/models/slider_image.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/animated_text_widget.dart';
 import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
+
 import '../widgets/image_slider_banner.dart'; // Import the fixed widget
 
 class HomeScreen extends StatelessWidget {
@@ -13,7 +15,6 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Dummy list for demo
     final List<CourseItem> demoCourse = demoCourses;
-
 
     return SafeArea(
       child: Container(
@@ -29,7 +30,6 @@ class HomeScreen extends StatelessWidget {
               ),
 
               const SizedBox(height: 8),
-
 
               AvailableCourseContainerWidget(
                 title: "Batch Wise Preparation",
@@ -52,8 +52,6 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-
-
 ///demonstrates a section  for subject wise preparation.
 ///demonstrates a section  for subject wise preparation.
 
@@ -70,23 +68,20 @@ class ComingSoonWidget extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ComingSoonWidget> createState() =>
-      _ComingSoonWidgetState();
+  State<ComingSoonWidget> createState() => _ComingSoonWidgetState();
 }
 
-class _ComingSoonWidgetState
-    extends State<ComingSoonWidget>
+class _ComingSoonWidgetState extends State<ComingSoonWidget>
     with TickerProviderStateMixin {
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final radius = BorderRadius.circular(20);
 
-    final gradientStroke = widget.isBatch ? AppColor.primaryGradient : AppColor.secondaryGradient;
+    final gradientStroke =
+        widget.isBatch ? AppColor.primaryGradient : AppColor.secondaryGradient;
 
     final textColor = const Color(0xFF111827);
-
 
     return Semantics(
       container: true,
@@ -135,12 +130,48 @@ class _ComingSoonWidgetState
                   ),
                   const SizedBox(height: 12),
 
-Text('Coming soon...',      style: theme.textTheme.titleLarge?.copyWith(
-  fontSize: Sizes.subTitleText(context),
-  fontWeight: FontWeight.w800,
-  color: Colors.grey,
-  letterSpacing: 0.1,
-),)
+/*
+                  AnimatedText(
+                    text: 'Coming soon...',
+                    color: textColor,
+                    fontSize: Sizes.bodyText(context),
+                    animationType: AnimationType.pulse,
+                    duration: Duration(milliseconds: 1500),
+                    intensity: 0.3,
+                  ),
+*/
+
+/*                  AnimatedText(
+                    text: 'Loading...',
+                    color: Colors.blue,
+                    fontSize: 16,
+                    animationType: AnimationType.bounce,
+                    intensity: 0.5,
+                  ),*/
+
+                  AnimatedText(
+                    text: 'Coming Soon...',
+                    color: Colors.black54,
+                    animationType: AnimationType.colorShift,
+                    colorPalette: [Colors.grey.shade400, Colors.grey.shade800, Colors.black87],
+                    duration: Duration(seconds: 2),
+                    fontSize: Sizes.bodyText(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+
+/*                  AnimatedText(
+                    text: 'Coming Soon...',
+                    color: Colors.grey.shade700,
+                    animationType: AnimationType.blink,
+                    intensity: 0.7,
+                  ),*/
+
+/*                  AnimatedText(
+                    text: 'Welcome!',
+                    color: Colors.purple,
+                    animationType: AnimationType.wave,
+                    intensity: 0.4,
+                  ),*/
                 ],
               ),
             ),
@@ -150,19 +181,18 @@ Text('Coming soon...',      style: theme.textTheme.titleLarge?.copyWith(
     );
   }
 }
+
 class _Header extends StatelessWidget {
   final String title;
   final int count;
   final Color textColor;
   final bool isBatch;
 
-
   const _Header({
     required this.title,
     required this.count,
     required this.textColor,
     required this.isBatch,
-
   });
 
   @override
@@ -187,8 +217,6 @@ class _Header extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              //_CountBadge(count: count, isBatch: isBatch),
             ],
           ),
         ),
@@ -196,10 +224,3 @@ class _Header extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
-
-

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:medi_exam/data/models/notice_item.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/animated_container_widget.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 
 class NoticeCardWidget extends StatelessWidget {
@@ -65,21 +66,24 @@ class NoticeCardWidget extends StatelessWidget {
 
                   // Unread indicator
                   if (!noticeItem.isRead)
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: AppColor.primaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        'New',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: Sizes.verySmallText(context),
-                          fontWeight: FontWeight.bold,
+                    AnimatedCircleContainer(
+                      size: Sizes.smallIcon(context),
+                      color: Colors.transparent,
+                      borderColor: AppColor.primaryColor,
+                      borderWidth: 1,
+                      animationType: ContainerAnimationType.borderPulse,
+                      intensity: 0.4,
+                      child: Center(
+                        child: Text(
+                          'New',
+                          style: TextStyle(
+                            color: AppColor.primaryColor,
+                            fontSize: Sizes.extraSmallText(context),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
+                    )
                 ],
               ),
 

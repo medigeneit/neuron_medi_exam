@@ -36,7 +36,7 @@ class AvailableBatchItem {
 class DemoBatchData {
   static const List<Map<String, dynamic>> sessionData = [
     {
-      'title': 'Morning Session',
+      'title': "Nov'26 Session",
       'subtitle': '6:00 AM - 12:00 PM',
       'items': [
         AvailableBatchItem(
@@ -105,7 +105,7 @@ class DemoBatchData {
       ],
     },
     {
-      'title': 'Evening Session',
+      'title': "Jan'26 Session",
       'subtitle': '4:00 PM - 10:00 PM',
       'items': [
         AvailableBatchItem(
@@ -174,7 +174,7 @@ class DemoBatchData {
       ],
     },
     {
-      'title': 'Weekend Session',
+      'title': "Nov'25 Session",
       'subtitle': 'Special Weekend Classes',
       'items': [
         AvailableBatchItem(
