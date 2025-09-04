@@ -97,6 +97,4 @@ final List<AvailableSubjectsItem> demoSubjectsItems = [
       debugPrint("Chapter 10: Statistics & Probability");
     },
   ),
-
-
 ];

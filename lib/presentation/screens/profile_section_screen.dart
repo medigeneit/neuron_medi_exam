@@ -21,13 +21,13 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
       icon: Icons.edit_rounded,
       title: 'Edit Profile',
       color: AppColor.primaryColor,
-      route: '/edit-profile',
+      route: RouteNames.editProfile,
     ),
     ProfileAction(
       icon: Icons.lock_rounded,
       title: 'Change Password',
       color: AppColor.purple,
-      route: '/change-password',
+      route: RouteNames.passwordChange,
     ),
     ProfileAction(
       icon: Icons.history_rounded,
@@ -77,67 +77,162 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
 
   Widget _buildProfileCard() {
     return FancyBackground(
-      gradient: AppColor.primaryGradient, // optional
-      child: Column(
+      gradient: AppColor.primaryGradient,
+      child: Stack(
         children: [
-          // Profile Image with glow effect
-          Container(
-            width: 110,
-            height: 110,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColor.whiteColor,
-                width: 3,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColor.secondaryColor.withOpacity(0.5),
-                  blurRadius: 15,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Image.network(
-                'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Icon(
-                  Icons.person,
-                  size: 50,
-                  color: AppColor.whiteColor,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
+          Column(
+            children: [
 
-          // User Name
-          Text(
-            'Dr. Sarah Johnson',
-            style: TextStyle(
-              fontSize: Sizes.titleText(context) + 2,
-              fontWeight: FontWeight.w800,
-              color: AppColor.whiteColor,
-              letterSpacing: 0.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColor.whiteColor,
+                    width: 3,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColor.secondaryColor.withOpacity(0.6),
+                      blurRadius: 20,
+                      spreadRadius: 3,
+                      offset: const Offset(0, 4),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColor.whiteColor.withOpacity(0.3),
+                      AppColor.secondaryColor.withOpacity(0.1),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    ClipOval(
+                      child: Image.network(
+                        'https://img.freepik.com/free-vector/doctor-character-background_1270-84.jpg?w=200&t=st=1720102342~exp=1720102942~hmac=2d2b5a7a9b3d8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColor.primaryColor,
+                                AppColor.secondaryColor,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            size: 50,
+                            color: AppColor.whiteColor,
+                          ),
+                        ),
+                      ),
+                    ),
 
-          // Phone (was BMDC Number label in code comment)
-          GlassCard(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Text(
-                'Phone: +880 1234 567890',
+                    // Online status indicator
+                    Positioned(
+                      bottom: 6,
+                      right: 6,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColor.whiteColor,
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // User Name with modern typography
+              Text(
+                'Dr. Imrul Ibtehaz Orvee',
                 style: TextStyle(
-                  fontSize: Sizes.normalText(context),
-                  fontWeight: FontWeight.w700,
+                  fontSize: Sizes.titleText(context),
+                  fontWeight: FontWeight.w900,
                   color: AppColor.whiteColor,
+                  letterSpacing: 0.8,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 16),
+
+              // Phone info with modern card
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 42),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColor.whiteColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColor.whiteColor.withOpacity(0.3),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.phone_rounded,
+                      size: 18,
+                      color: AppColor.whiteColor.withOpacity(0.9),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '+880 1234 567890',
+                      style: TextStyle(
+                        fontSize: Sizes.normalText(context),
+                        fontWeight: FontWeight.w600,
+                        color: AppColor.whiteColor,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+
+            ],
           ),
         ],
       ),

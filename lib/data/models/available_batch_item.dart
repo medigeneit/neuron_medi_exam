@@ -33,7 +33,7 @@ class AvailableBatchItem {
 }
 
 
-class DemoBatchData {
+class DemoSessionWiseBatchData {
   static const List<Map<String, dynamic>> sessionData = [
     {
       'title': "Nov'26 Session",
@@ -63,7 +63,7 @@ class DemoBatchData {
           time: '9:00–10:00 PM',
           price: '৳ 12,000',
           discount: '15% OFF',
-          imageUrl: 'https://picsum.photos/800/400?random=8',
+          imageUrl: 'https://picsum.photos/800/400?random=6',
           batchDetails:
           'The BCS (Health) Full Course focuses on the entire syllabus. The BCS (Health) Full Course focuses on the entire syllabus. The BCS (Health) Full Course focuses on the entire syllabus.',
           courseOutline:
@@ -79,7 +79,7 @@ class DemoBatchData {
           time: '7:30–9:00 PM',
           price: '৳ 9,200',
           discount: '20% OFF',
-          imageUrl: 'https://picsum.photos/800/400?random=6',
+          imageUrl: 'https://picsum.photos/800/400?random=7',
           batchDetails:
           'This intensive crash course is designed for quick learning. This intensive crash course is designed for quick learning. This intensive crash course is designed for quick learning.',
           courseOutline:
@@ -116,7 +116,7 @@ class DemoBatchData {
           time: '7:30–9:00 PM',
           price: '৳ 9,200',
           discount: '20% OFF',
-          imageUrl: 'https://picsum.photos/800/400?random=6',
+          imageUrl: 'https://picsum.photos/800/400?random=9',
           batchDetails:
           'This intensive crash course is designed for quick learning. This intensive crash course is designed for quick learning. This intensive crash course is designed for quick learning.',
           courseOutline:
@@ -132,7 +132,7 @@ class DemoBatchData {
           time: '6:30–8:00 PM',
           price: '৳ 11,500',
           discount: null,
-          imageUrl: 'https://picsum.photos/800/400?random=8',
+          imageUrl: 'https://picsum.photos/800/400?random=10',
           batchDetails: 'Focused training for Part-2 of FCPS in Medicine. Focused training for Part-2 of FCPS in Medicine. Focused training for Part-2 of FCPS in Medicine.',
           courseOutline:
           '1. Medical History Taking\n2. Long Case Preparation\n3. Short Case Discussions\n4. Clinical Skills\n5. Diagnostic Reasoning',
@@ -147,7 +147,7 @@ class DemoBatchData {
           time: '7:30–9:00 PM',
           price: '৳ 8,500',
           discount: 'Free',
-          imageUrl: 'https://picsum.photos/800/400?random=5',
+          imageUrl: 'https://picsum.photos/800/400?random=11',
           batchDetails:
           'This batch will cover all the critical aspects of FCPS Part-1 in Medicine. This batch will cover all the critical aspects of FCPS Part-1 in Medicine.',
           courseOutline:
@@ -163,7 +163,7 @@ class DemoBatchData {
           time: '9:00–10:00 PM',
           price: '৳ 12,000',
           discount: '15% OFF',
-          imageUrl: 'https://picsum.photos/800/400?random=8',
+          imageUrl: 'https://picsum.photos/800/400?random=12',
           batchDetails:
           'The BCS (Health) Full Course focuses on the entire syllabus. The BCS (Health) Full Course focuses on the entire syllabus. The BCS (Health) Full Course focuses on the entire syllabus.',
           courseOutline:
@@ -185,7 +185,7 @@ class DemoBatchData {
           time: '8:00–9:30 PM',
           price: '৳ 10,000',
           discount: null,
-          imageUrl: 'https://picsum.photos/800/400?random=7',
+          imageUrl: 'https://picsum.photos/800/400?random=14',
           batchDetails:
           'A focused, high-yield course to prepare for MRCP Part 1. A focused, high-yield course to prepare for MRCP Part 1. A focused, high-yield course to prepare for MRCP Part 1.',
           courseOutline:
@@ -201,7 +201,7 @@ class DemoBatchData {
           time: '6:30–8:00 PM',
           price: '৳ 11,500',
           discount: null,
-          imageUrl: 'https://picsum.photos/800/400?random=8',
+          imageUrl: 'https://picsum.photos/800/400?random=15',
           batchDetails: 'Focused training for Part-2 of FCPS in Medicine. Focused training for Part-2 of FCPS in Medicine. Focused training for Part-2 of FCPS in Medicine.',
           courseOutline:
           '1. Medical History Taking\n2. Long Case Preparation\n3. Short Case Discussions\n4. Clinical Skills\n5. Diagnostic Reasoning',
@@ -216,7 +216,7 @@ class DemoBatchData {
           time: '7:30–9:00 PM',
           price: '৳ 8,500',
           discount: 'Free',
-          imageUrl: 'https://picsum.photos/800/400?random=5',
+          imageUrl: 'https://picsum.photos/800/400?random=16',
           batchDetails:
           'This batch will cover all the critical aspects of FCPS Part-1 in Medicine. This batch will cover all the critical aspects of FCPS Part-1 in Medicine.',
           courseOutline:
@@ -232,7 +232,7 @@ class DemoBatchData {
           time: '9:00–10:00 PM',
           price: '৳ 12,000',
           discount: '15% OFF',
-          imageUrl: 'https://picsum.photos/800/400?random=8',
+          imageUrl: 'https://picsum.photos/800/400?random=17',
           batchDetails:
           'The BCS (Health) Full Course focuses on the entire syllabus. The BCS (Health) Full Course focuses on the entire syllabus. The BCS (Health) Full Course focuses on the entire syllabus.',
           courseOutline:
@@ -248,7 +248,7 @@ class DemoBatchData {
           time: '7:30–9:00 PM',
           price: '৳ 9,200',
           discount: '20% OFF',
-          imageUrl: 'https://picsum.photos/800/400?random=6',
+          imageUrl: 'https://picsum.photos/800/400?random=18',
           batchDetails:
           'This intensive crash course is designed for quick learning. This intensive crash course is designed for quick learning. This intensive crash course is designed for quick learning.',
           courseOutline:

@@ -1,12 +1,15 @@
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/screens/available_batches_screen.dart';
+import 'package:medi_exam/presentation/screens/change_password_screen.dart';
 import 'package:medi_exam/presentation/screens/courses_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
-import 'package:medi_exam/presentation/screens/details_screen.dart';
+import 'package:medi_exam/presentation/screens/batch_details_screen.dart';
+import 'package:medi_exam/presentation/screens/edit_profile_screen.dart';
 import 'package:medi_exam/presentation/screens/enrolled_courses_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
 import 'package:medi_exam/presentation/screens/navbar_screen.dart';
 import 'package:medi_exam/presentation/screens/notice_screen.dart';
+import 'package:medi_exam/presentation/screens/payment_screen.dart';
 import 'package:medi_exam/presentation/screens/profile_section_screen.dart';
 import 'package:medi_exam/presentation/screens/registration_screen.dart';
 import 'package:medi_exam/presentation/screens/session_wise_batches_screen.dart';
@@ -91,7 +94,7 @@ final List<GetPage> appRoutes = [
   ),
   GetPage(
     name: RouteNames.batchDetails,
-    page: () => const DetailsScreen(),
+    page: () => const BatchDetailsScreen(),
   ),
 
   GetPage(
@@ -108,7 +111,19 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.profile_section,
     page: () => const ProfileSectionScreen(),
+  ),
+  GetPage(
+    name: RouteNames.editProfile,
+    page: () => const EditProfileScreen(),
+  ),
+  GetPage(
+    name: RouteNames.passwordChange,
+    page: () => const ChangePasswordScreen(),
+  ),
 
+  GetPage(
+    name: RouteNames.makePayment,
+    page: () => const PaymentScreen(),
   ),
 
 ];

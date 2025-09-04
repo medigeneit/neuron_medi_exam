@@ -27,9 +27,9 @@ class EnrolledCourseCard extends StatelessWidget {
   Color _getStatusColor(CourseStatus status) {
     switch (status) {
       case CourseStatus.active:
-        return AppColor.primaryColor;
-      case CourseStatus.unpaid:
         return AppColor.purple;
+      case CourseStatus.unpaid:
+        return AppColor.orangeColor;
       case CourseStatus.previous:
         return AppColor.greyColor;
     }

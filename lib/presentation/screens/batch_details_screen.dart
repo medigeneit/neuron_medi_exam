@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/banner_card_helpers.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 
-class DetailsScreen extends StatefulWidget {
-  const DetailsScreen({Key? key}) : super(key: key);
+class BatchDetailsScreen extends StatefulWidget {
+  const BatchDetailsScreen({Key? key}) : super(key: key);
 
   @override
-  _DetailsScreenState createState() => _DetailsScreenState();
+  _BatchDetailsScreenState createState() => _BatchDetailsScreenState();
 }
 
-class _DetailsScreenState extends State<DetailsScreen> {
+class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
   final Map<String, bool> _expandedSections = {
     'batchDetails': false,
     'courseOutline': false,
@@ -33,7 +34,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final gradientColors = [AppColor.indigo, AppColor.purple];
 
     // Extracting the required data from the map
@@ -109,7 +110,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w800,
-                                color: isDark ? Colors.white : Colors.black,
+                                color:  Colors.black,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -120,7 +121,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
-                                color: isDark ? Colors.white70 : Colors.grey[700],
+                                color:  Colors.grey[700],
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -143,33 +144,33 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           _InfoPill(
                             icon: Icons.calendar_today_rounded,
                             label: 'Start: $startDate',
-                            bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                            bg:  const Color(0xFFF0F7FF),
                             iconColor: gradientColors[0],
                           ),
                           _InfoPill(
                             icon: Icons.event_repeat_rounded,
                             label: 'Days: $days',
-                            bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                            bg:  const Color(0xFFF0F7FF),
                             iconColor: gradientColors[0],
                           ),
                           _InfoPill(
                             icon: Icons.schedule_rounded,
                             label: 'Time: $time',
-                            bg: isDark ? const Color(0xFF2F3337) : const Color(0xFFF8FBFF),
+                            bg:  const Color(0xFFF8FBFF),
                             iconColor: gradientColors[0],
                           ),
                           if (price != null)
                             _InfoPill(
                               icon: Icons.attach_money_rounded,
                               label: 'Price: $price',
-                              bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                              bg:  const Color(0xFFF0F7FF),
                               iconColor: gradientColors[0],
                             ),
                           if (discount != null)
                             _InfoPill(
                               icon: Icons.discount_rounded,
                               label: 'Discount: $discount',
-                              bg: isDark ? const Color(0xFF2D2F33) : Colors.orange.withOpacity(0.2),
+                              bg:  Colors.orange.withOpacity(0.2),
                               iconColor: Colors.orange,
                             ),
                         ],
@@ -245,7 +246,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(30),
                   onTap: () {
-                    // Handle enroll now action
+                    // Navigate to payment screen with batch data
+                    Get.toNamed(RouteNames.makePayment, arguments: batchData);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),

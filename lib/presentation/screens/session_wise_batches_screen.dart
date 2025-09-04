@@ -68,10 +68,10 @@ class _SessionWiseBatchesScreenState extends State<SessionWiseBatchesScreen> {
               child: ListView.separated(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.only(bottom: 20),
-                itemCount: DemoBatchData.sessionData.length,
+                itemCount: DemoSessionWiseBatchData.sessionData.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final session = DemoBatchData.sessionData[index];
+                  final session = DemoSessionWiseBatchData.sessionData[index];
                   final items = (session['items'] as List<AvailableBatchItem>);
 
                   return Container(
