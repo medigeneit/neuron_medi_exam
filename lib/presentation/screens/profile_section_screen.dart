@@ -48,26 +48,24 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      child:  CustomBackground(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 500),
-              child: Column(
-                children: [
-                  // User Profile Card
-                  _buildProfileCard(),
-                  const SizedBox(height: 28),
+      child:  SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Column(
+              children: [
+                // User Profile Card
+                _buildProfileCard(),
+                const SizedBox(height: 28),
 
-                  // Actions Card
-                  _buildActionsCard(),
-                  const SizedBox(height: 28),
+                // Actions Card
+                _buildActionsCard(),
+                const SizedBox(height: 28),
 
-                  // Logout Button
-                  _buildLogoutButton(),
-                ],
-              ),
+                // Logout Button
+                _buildLogoutButton(),
+              ],
             ),
           ),
         ),

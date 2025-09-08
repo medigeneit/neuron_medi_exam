@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:medi_exam/data/models/available_batch_item.dart';
+import 'package:medi_exam/data/models/course_session_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/available_banner_card.dart';
 import 'package:medi_exam/presentation/widgets/available_screens_helpers.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/header_info_container.dart';
-
 
 class AvailableBatchesScreen extends StatefulWidget {
   const AvailableBatchesScreen({Key? key}) : super(key: key);
@@ -23,11 +22,11 @@ class _AvailableBatchesScreenState extends State<AvailableBatchesScreen> {
   // Variables to store the passed arguments
   late String courseTitle;
   late String disciplineFaculty;
+  late final coursePackageId;
   late String sessionTitle;
-  late List<AvailableBatchItem> items;
+  late List<Batch> batches;
   late IconData icon;
   late bool isBatch;
-
 
   String _query = '';
 
@@ -40,9 +39,10 @@ class _AvailableBatchesScreenState extends State<AvailableBatchesScreen> {
 
     courseTitle = arguments['courseTitle'] ?? 'Available Batches';
     disciplineFaculty = arguments['disciplineFaculty'] ?? '';
+    coursePackageId = (arguments['coursePackageId'] ?? '').toString();
     sessionTitle = arguments['sessionTitle'] ?? '';
     icon = (arguments['icon'] is IconData) ? arguments['icon'] : Icons.school_rounded;
-    items = (arguments['items'] as List<AvailableBatchItem>?) ?? items;
+    batches = (arguments['batches'] as List<Batch>?) ?? [];
     isBatch = arguments['isBatch'] ?? true;
 
     _searchCtrl.addListener(() {
@@ -60,11 +60,14 @@ class _AvailableBatchesScreenState extends State<AvailableBatchesScreen> {
     super.dispose();
   }
 
-  List<AvailableBatchItem> get _filtered {
-    if (_query.isEmpty) return items; // Use the passed items instead of _all
+  List<Batch> get _filtered {
+    if (_query.isEmpty) return batches;
     final q = _query.toLowerCase();
-    return items.where((b) { // Filter the passed items
-      return b.title.toLowerCase().contains(q) || b.subTitle.toLowerCase().contains(q);
+    return batches.where((batch) {
+      return batch.safeName.toLowerCase().contains(q) ||
+          batch.safeExamDays.toLowerCase().contains(q) ||
+          batch.safeExamTime.toLowerCase().contains(q) ||
+          batch.formattedStartDate.toLowerCase().contains(q);
     }).toList();
   }
 
@@ -75,7 +78,7 @@ class _AvailableBatchesScreenState extends State<AvailableBatchesScreen> {
     final Color colors = isBatch ? AppColor.primaryColor : AppColor.purple;
 
     return CommonScaffold(
-      title: 'Available Batches', // Use the passed course title
+      title: 'Available Batches',
       body: Column(
         children: [
           // ---- Information header with passed data ----
@@ -116,14 +119,12 @@ class _AvailableBatchesScreenState extends State<AvailableBatchesScreen> {
                 if (_query.isEmpty)
                   TinyChip(
                     icon: Icons.explore_rounded,
-                    label: 'Showing ${items.length} batches', // Use items.length
-
+                    label: 'Showing ${batches.length} batches',
                   )
                 else
                   TinyChip(
                     icon: Icons.search_rounded,
                     label: '${_filtered.length} match${_filtered.length == 1 ? '' : 'es'} for "$_query"',
-
                   ),
               ],
             ),
@@ -141,18 +142,11 @@ class _AvailableBatchesScreenState extends State<AvailableBatchesScreen> {
               itemCount: _filtered.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final b = _filtered[index];
+                final batch = _filtered[index];
                 return AvailableBannerCard(
-                  title: b.title,
-                  subTitle: b.subTitle,
-                  startDate: b.startDate,
-                  days: b.days,
-                  time: b.time,
-                  price: b.price,
-                  discount: b.discount,
-                  imageUrl: b.imageUrl,
+                  batch: batch,
                   onDetails: () {
-                    _navigateToBatchDetails(b);
+                    _navigateToBatchDetails(batch);
                   },
                 );
               },
@@ -163,28 +157,21 @@ class _AvailableBatchesScreenState extends State<AvailableBatchesScreen> {
     );
   }
 
-  void _navigateToBatchDetails(AvailableBatchItem b) {
+  void _navigateToBatchDetails(Batch batch) {
     Get.toNamed(
       RouteNames.batchDetails,
       arguments: {
-        'title': b.title,
-        'subTitle': b.subTitle,
-        'startDate': b.startDate,
-        'days': b.days,
-        'time': b.time,
-        'price': b.price,
-        'discount': b.discount,
-        'imageUrl': b.imageUrl,
-        'batchDetails': b.batchDetails,
-        'courseOutline': b.courseOutline,
-        'courseFee': b.courseFee,
-        'offer': b.offer,
+        'batchId': batch.safeId.toString(),
+        'coursePackageId': coursePackageId.toString(),
+        'imageUrl': batch.safeBannerUrl,
+        'time': batch.safeExamTime,
+        'days': batch.safeExamDays,
+        'days': batch.safeExamDays,
+        'startDate': batch.safeStartDate,
+        'startDate': batch.safeStartDate,
+        'title': batch.safeName,
       },
     );
   }
+
 }
-
-
-
-
-

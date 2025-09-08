@@ -1,6 +1,7 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:medi_exam/data/models/discipline_faculty.dart';
+import 'package:medi_exam/data/models/courses_model.dart'; // Import Package model
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
@@ -11,24 +12,26 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final bool isBatch;
-  final List<DisciplineFaculty> faculties;
-  final ValueChanged<DisciplineFaculty> onSelected;
+  final List<Package> packages; // Changed from faculties to packages
+  final ValueChanged<Package> onSelected; // Changed to accept Package
 
   const DisciplineFacultyPickerDialog({
     Key? key,
     required this.courseTitle,
     required this.subtitle,
-    required this.faculties,
+    required this.packages, // Changed parameter name
     required this.isBatch,
     required this.icon,
-    required this.onSelected,
+    required this.onSelected, // Changed callback type
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final gradientColors = isBatch ? [AppColor.primaryColor, AppColor.secondaryColor] : [AppColor.indigo, AppColor.purple];
+    final gradientColors = isBatch
+        ? [AppColor.primaryColor, AppColor.secondaryColor]
+        : [AppColor.indigo, AppColor.purple];
 
     return Dialog(
       elevation: 0,
@@ -51,7 +54,7 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Modern Header with Gradient
+            // Header with Gradient (unchanged)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 20, 16, 20),
@@ -69,7 +72,7 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
                   Expanded(
                     child: _header(courseTitle: courseTitle, subtitle: subtitle, icon: icon),
                   ),
-                  SizedBox(width: 6,),
+                  const SizedBox(width: 6),
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).pop(),
@@ -85,49 +88,77 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
               ),
             ),
 
-            // Content Area
-            Flexible(
-              child: Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.6,
-                ),
-                padding: const EdgeInsets.all(20),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final crossAxisCount = (constraints.maxWidth / 300).floor().clamp(2, 4);
-                    return GridView.builder(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      itemCount: faculties.length,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 2.0,
-                      ),
-                      itemBuilder: (context, index) {
-                        final item = faculties[index];
-                        return DisciplineFacultyCard(
-                          title: item.title,
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            Get.toNamed(
-                              RouteNames.session_wise_batches, // Make sure this route is defined
-                              arguments: {
-                                'courseTitle': courseTitle,
-                                'icon': icon,
-                                'title': item.title,
-                                'isBatch': isBatch,
-                              },
-                            );
+            // Content Area — auto sizes to content, scrolls only if needed
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Grid configuration
+                  final crossAxisCount =
+                  (constraints.maxWidth / 300).floor().clamp(2, 4);
+                  const mainSpacing = 16.0;
+                  const crossSpacing = 16.0;
+                  const aspectRatio = 2.0; // width / height
 
-                            onSelected(item);
-                          },
-                          gradientColors: gradientColors,
-                        );
-                      },
-                    );
-                  },
-                ),
+                  // Compute tile size
+                  final gridWidth = constraints.maxWidth;
+                  final itemWidth = (gridWidth - (crossAxisCount - 1) * crossSpacing) / crossAxisCount;
+                  final itemHeight = itemWidth / aspectRatio;
+
+                  // Compute rows & total content height
+                  final itemCount = packages.length;
+                  final rows = (itemCount / crossAxisCount).ceil().clamp(0, 9999);
+                  final totalHeight = rows > 0
+                      ? rows * itemHeight + (rows - 1) * mainSpacing
+                      : 0.0;
+
+                  // Cap height to 60% screen; scroll if over
+                  final maxHeight = MediaQuery.of(context).size.height * 0.6;
+                  final effectiveHeight = math.min(totalHeight, maxHeight);
+                  final shouldScroll = totalHeight > maxHeight;
+
+                  return AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    child: SizedBox(
+                      height: effectiveHeight, // take only the space it needs (up to cap)
+                      child: GridView.builder(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        physics: shouldScroll
+                            ? const BouncingScrollPhysics()
+                            : const NeverScrollableScrollPhysics(),
+                        itemCount: packages.length,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          mainAxisSpacing: mainSpacing,
+                          crossAxisSpacing: crossSpacing,
+                          childAspectRatio: aspectRatio,
+                        ),
+                        itemBuilder: (context, index) {
+                          final package = packages[index];
+                          return DisciplineFacultyCard(
+                            title: package.packageName ?? 'Unknown Package',
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              Get.toNamed(
+                                RouteNames.session_wise_batches,
+                                arguments: {
+                                  'courseTitle': courseTitle,
+                                  'icon': icon,
+                                  'title': package.packageName,
+                                  'isBatch': isBatch,
+                                  'coursePackageId': package.packageId,
+                                },
+                              );
+                              onSelected(package);
+                            },
+                            gradientColors: gradientColors,
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -183,8 +214,6 @@ class _header extends StatelessWidget {
   }
 }
 
-
-
 /// Helper to open the dialog
 Future<void> showDisciplineFacultyPickerDialog(
     BuildContext context, {
@@ -192,8 +221,8 @@ Future<void> showDisciplineFacultyPickerDialog(
       required String subtitle,
       required IconData icon,
       required bool isBatch,
-      required List<DisciplineFaculty> faculties,
-      required ValueChanged<DisciplineFaculty> onSelected,
+      required List<Package> packages, // Changed parameter
+      required ValueChanged<Package> onSelected, // Changed callback type
     }) {
   return showDialog(
     context: context,
@@ -202,7 +231,7 @@ Future<void> showDisciplineFacultyPickerDialog(
     builder: (_) => DisciplineFacultyPickerDialog(
       courseTitle: title,
       subtitle: subtitle,
-      faculties: faculties,
+      packages: packages, // Pass packages directly
       icon: icon,
       isBatch: isBatch,
       onSelected: onSelected,

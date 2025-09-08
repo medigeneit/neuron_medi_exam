@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:medi_exam/data/models/slider_image.dart';
+import 'package:carousel_slider/carousel_controller.dart';
+import 'package:medi_exam/data/models/slide_items_model.dart';
+import 'package:medi_exam/presentation/widgets/youtube_video_dialog.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+
 import 'package:medi_exam/presentation/utils/app_colors.dart';
-
-
+// Assume you have a SlideItem with fields/safe getters used below.
 
 class ImageSliderBanner extends StatefulWidget {
-  final List<SliderImage> images;
+  final List<SlideItem> slideItems;
   final double height;
   final double borderRadius;
   final BoxFit fit;
 
   const ImageSliderBanner({
     Key? key,
-    required this.images,
+    required this.slideItems,
     this.height = 200,
     this.borderRadius = 24,
     this.fit = BoxFit.cover,
@@ -26,6 +30,70 @@ class ImageSliderBanner extends StatefulWidget {
 class _ImageSliderBannerState extends State<ImageSliderBanner> {
   int _currentIndex = 0;
   final CarouselSliderController _carouselController = CarouselSliderController();
+  List<SlideItem> _displayItems = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareDisplayItems();
+  }
+
+  void _prepareDisplayItems() {
+    _displayItems = [];
+
+    for (final item in widget.slideItems) {
+      if (item.isValidForDisplay) {
+        _displayItems.add(item);
+
+        final repeatAfter = item.repeatAfter ?? 0;
+        if (repeatAfter > 0) {
+          for (int i = 0; i < repeatAfter; i++) {
+            _displayItems.add(item);
+          }
+        }
+      }
+    }
+  }
+
+  void _handleItemTap(SlideItem item) async {
+    final linkType = item.safeLinkType;
+    final link = item.safeLink;
+
+    if (linkType == 'video_link') {
+      _showYouTubeDialog(item);
+    } else if (linkType == 'web_link') {
+      final uri = Uri.tryParse(link);
+      if (uri != null && await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    }
+  }
+
+  void _showYouTubeDialog(SlideItem item) {
+    final videoId = _extractYouTubeId(item.safeLink);
+    if (videoId == null) {
+      // Fallback: open as normal web link if somehow not a valid YouTube URL
+      final uri = Uri.tryParse(item.safeLink);
+      if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => YouTubeVideoDialog(
+        videoId: videoId,
+        title: item.hasValidTitle ? item.safeTitle : null,
+      ),
+    );
+  }
+
+  String? _extractYouTubeId(String url) {
+    // Handles: https://youtu.be/VIDEOID , https://www.youtube.com/watch?v=VIDEOID
+    // and other common formats
+    final id = YoutubePlayer.convertUrlToId(url);
+    return (id != null && id.isNotEmpty) ? id : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,11 +104,28 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
 
     final height = isMobile ? widget.height * 0.8 : widget.height;
 
+    if (_displayItems.isEmpty) {
+      return Container(
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          color: isDark ? Colors.grey[800] : Colors.grey[200],
+        ),
+        child: Center(
+          child: Icon(
+            Icons.image_not_supported,
+            color: isDark ? Colors.white70 : Colors.grey[500],
+            size: 40,
+          ),
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       child: Column(
         children: [
-          // Main Carousel with improved styling
+          // Main Carousel
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.borderRadius),
@@ -56,7 +141,7 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
               borderRadius: BorderRadius.circular(widget.borderRadius),
               child: CarouselSlider.builder(
                 carouselController: _carouselController,
-                itemCount: widget.images.length,
+                itemCount: _displayItems.length,
                 options: CarouselOptions(
                   height: height,
                   autoPlay: true,
@@ -75,8 +160,11 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
                   },
                 ),
                 itemBuilder: (context, index, realIndex) {
+                  final item = _displayItems[index];
+                  final isVideo = item.safeLinkType == 'video_link';
+
                   return GestureDetector(
-                    onTap: widget.images[index].onTap,
+                    onTap: () => _handleItemTap(item),
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
@@ -93,13 +181,13 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
                         borderRadius: BorderRadius.circular(widget.borderRadius),
                         child: Stack(
                           children: [
-                            // Image with proper rounded corners
+                            // Image
                             Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(widget.borderRadius),
                               ),
                               child: Image.network(
-                                widget.images[index].imageUrl,
+                                item.safeThumb,
                                 width: double.infinity,
                                 height: double.infinity,
                                 fit: widget.fit,
@@ -138,7 +226,7 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
                               ),
                             ),
 
-                            // Gradient overlay for better text readability
+                            // Gradient overlay
                             Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(widget.borderRadius),
@@ -155,8 +243,27 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
                               ),
                             ),
 
-                            // Caption with improved styling
-                            if (widget.images[index].caption != null)
+                            // Play overlay for videos
+                            if (isVideo)
+                              Positioned.fill(
+                                child: Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.6),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.play_arrow_rounded,
+                                      color: Colors.white,
+                                      size: 40,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                            // Caption
+                            if (item.hasValidTitle)
                               Positioned(
                                 left: 20,
                                 right: 20,
@@ -168,7 +275,7 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    widget.images[index].caption!,
+                                    item.safeTitle,
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: isMobile ? 16 : 18,
@@ -193,10 +300,10 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
 
           const SizedBox(height: 20),
 
-          // Modern dot indicators
+          // Dot indicators
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: widget.images.asMap().entries.map((entry) {
+            children: _displayItems.asMap().entries.map((entry) {
               final bool isActive = _currentIndex == entry.key;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
@@ -205,9 +312,7 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(4),
-                  color: isActive
-                      ? AppColor.primaryColor
-                      : Colors.grey[400],
+                  color: isActive ? AppColor.primaryColor : Colors.grey[400],
                 ),
               );
             }).toList(),
@@ -217,3 +322,5 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
     );
   }
 }
+
+

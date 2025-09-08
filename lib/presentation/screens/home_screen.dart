@@ -1,226 +1,238 @@
 import 'package:flutter/material.dart';
-import 'package:medi_exam/data/models/course_item.dart';
-import 'package:medi_exam/data/models/slider_image.dart';
+import 'package:medi_exam/data/models/courses_model.dart';
+import 'package:medi_exam/data/models/slide_items_model.dart';
+import 'package:medi_exam/data/services/active_batch_courses_service.dart';
+import 'package:medi_exam/data/services/slide_items_service.dart';
+import 'package:medi_exam/presentation/widgets/coming_soon_widget.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
-import 'package:medi_exam/presentation/widgets/animated_text_widget.dart';
 import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
+import 'package:medi_exam/presentation/widgets/home_screen_helpers.dart';
+import '../widgets/image_slider_banner.dart';
 
-import '../widgets/image_slider_banner.dart'; // Import the fixed widget
-
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Dummy list for demo
-    final List<CourseItem> demoCourse = demoCourses;
-
-    return SafeArea(
-      child: Container(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image Slider Banner at the top
-              ImageSliderBanner(
-                images: sliderImages,
-                height: 240,
-              ),
-
-              const SizedBox(height: 8),
-
-              AvailableCourseContainerWidget(
-                title: "Batch Wise Preparation",
-                courses: demoCourse,
-                isBatch: true,
-              ),
-
-              const SizedBox(height: 8),
-
-              ComingSoonWidget(
-                title: "Subject Wise Preparation",
-                courses: demoCourse,
-                isBatch: false,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-///demonstrates a section  for subject wise preparation.
-///demonstrates a section  for subject wise preparation.
-
-class ComingSoonWidget extends StatefulWidget {
-  final String title;
-  final List<CourseItem> courses;
-  final bool isBatch;
-
-  const ComingSoonWidget({
-    Key? key,
-    required this.title,
-    required this.courses,
-    required this.isBatch,
-  }) : super(key: key);
+class _HomeScreenState extends State<HomeScreen> {
+  final ActiveBatchCoursesService _coursesService = ActiveBatchCoursesService();
+  final SlidingItemsService _slidingItemsService = SlidingItemsService();
+  CoursesModel? _batchCourses;
+  SlideItemsModel? _slideItemsModel;
+  bool _isLoading = true;
+  bool _isSlidingLoading = true;
+  String? _errorMessage;
+  String? _slidingErrorMessage;
 
   @override
-  State<ComingSoonWidget> createState() => _ComingSoonWidgetState();
-}
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
 
-class _ComingSoonWidgetState extends State<ComingSoonWidget>
-    with TickerProviderStateMixin {
+  Future<void> _fetchData() async {
+    await Future.wait([
+      _fetchBatchCourses(),
+      _fetchSlidingItems(),
+    ]);
+  }
+
+  Future<void> _fetchBatchCourses() async {
+    try {
+      final response = await _coursesService.fetchActiveBatchCourses();
+
+      if (response.isSuccess && response.responseData != null) {
+        setState(() {
+          _batchCourses = response.responseData as CoursesModel;
+        });
+      } else {
+        setState(() {
+          _errorMessage = response.errorMessage ?? 'Failed to load courses';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Network error: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchSlidingItems() async {
+    try {
+      final response = await _slidingItemsService.fetchSlidingItems();
+
+      if (response.isSuccess && response.responseData != null) {
+        setState(() {
+          _slideItemsModel = response.responseData as SlideItemsModel;
+        });
+      } else {
+        setState(() {
+          _slidingErrorMessage = response.errorMessage ?? 'Failed to load slides';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _slidingErrorMessage = 'Network error: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isSlidingLoading = false;
+      });
+    }
+  }
+
+  void _refreshData() {
+    setState(() {
+      _isLoading = true;
+      _isSlidingLoading = true;
+      _errorMessage = null;
+      _slidingErrorMessage = null;
+      _batchCourses = null;
+      _slideItemsModel = null;
+    });
+    _fetchData();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final radius = BorderRadius.circular(20);
+    final isDark = theme.brightness == Brightness.dark;
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
 
-    final gradientStroke =
-        widget.isBatch ? AppColor.primaryGradient : AppColor.secondaryGradient;
+    return Container(
+      child: RefreshIndicator(
+        onRefresh: _fetchData,
+        color: AppColor.primaryColor,
+        backgroundColor: isDark ? Colors.grey[800] : Colors.white,
+        child: CustomScrollView(
+          slivers: [
+            // Header with subtle gradient
+            SliverToBoxAdapter(
+              child: Container(
+                decoration: BoxDecoration(
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome to Neuron Exam',
+                      style: TextStyle(
+                        fontSize: Sizes.subTitleText(context),
+                        fontWeight: FontWeight.bold,
+                        color: AppColor.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Prepare for your medical exams with expert courses',
+                      style: TextStyle(
+                        fontSize: Sizes.normalText(context),
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-    final textColor = const Color(0xFF111827);
+            // Slider Section
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 16 : 24,
+                  vertical: 16,
+                ),
+                child: _buildSliderSection(),
+              ),
+            ),
 
-    return Semantics(
-      container: true,
-      label: '${widget.title} section',
-      child: DecoratedBox(
-        // outer gradient border
-        decoration: BoxDecoration(
-          gradient: gradientStroke.withOpacity(0.5),
-          borderRadius: radius,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
+            // Courses Section
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 16 : 24,
+                  vertical: 8,
+                ),
+                child: _buildCoursesSection(),
+              ),
+            ),
+
+            // Coming Soon Section
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 16 : 24,
+                  vertical: 8,
+                ),
+                child: ComingSoonWidget(
+                  title: "Subject Wise Preparation",
+                  isBatch: false,
+                ),
+              ),
+            ),
+
+            // Bottom spacing
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 32),
             ),
           ],
         ),
-        child: Container(
-          margin: const EdgeInsets.all(1.6), // border thickness
-          decoration: BoxDecoration(
-            gradient: gradientStroke,
-            color: Colors.white.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Material(
-            type: MaterialType.card,
-            color: Colors.white.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(18),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // Header
-                  _Header(
-                    title: widget.title,
-                    count: widget.courses.length,
-                    textColor: textColor,
-                    isBatch: widget.isBatch,
-                  ),
-
-                  const SizedBox(height: 12),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Colors.black.withOpacity(0.04),
-                  ),
-                  const SizedBox(height: 12),
-
-/*
-                  AnimatedText(
-                    text: 'Coming soon...',
-                    color: textColor,
-                    fontSize: Sizes.bodyText(context),
-                    animationType: AnimationType.pulse,
-                    duration: Duration(milliseconds: 1500),
-                    intensity: 0.3,
-                  ),
-*/
-
-/*                  AnimatedText(
-                    text: 'Loading...',
-                    color: Colors.blue,
-                    fontSize: 16,
-                    animationType: AnimationType.bounce,
-                    intensity: 0.5,
-                  ),*/
-
-                  AnimatedText(
-                    text: 'Coming Soon...',
-                    color: Colors.black54,
-                    animationType: AnimationType.colorShift,
-                    colorPalette: [Colors.grey.shade400, Colors.grey.shade800, Colors.black87],
-                    duration: Duration(seconds: 2),
-                    fontSize: Sizes.bodyText(context),
-                    fontWeight: FontWeight.w600,
-                  ),
-
-/*                  AnimatedText(
-                    text: 'Coming Soon...',
-                    color: Colors.grey.shade700,
-                    animationType: AnimationType.blink,
-                    intensity: 0.7,
-                  ),*/
-
-/*                  AnimatedText(
-                    text: 'Welcome!',
-                    color: Colors.purple,
-                    animationType: AnimationType.wave,
-                    intensity: 0.4,
-                  ),*/
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
-}
 
-class _Header extends StatelessWidget {
-  final String title;
-  final int count;
-  final Color textColor;
-  final bool isBatch;
+  Widget _buildSliderSection() {
+    if (_isSlidingLoading) {
+      return SliderShimmerLoading();
+    } else if (_slidingErrorMessage != null) {
+      return SliderErrorWidget(
+        errorMessage: _slidingErrorMessage!,
+        onRetry: _fetchSlidingItems,
+      );
+    } else if (_slideItemsModel?.slideItems?.isEmpty ?? true) {
+      return SliderEmptyWidget();
+    } else {
+      return ImageSliderBanner(
+        slideItems: _slideItemsModel!.slideItems!,
+        height: 240,
+      );
+    }
+  }
 
-  const _Header({
-    required this.title,
-    required this.count,
-    required this.textColor,
-    required this.isBatch,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              Flexible(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontSize: Sizes.bodyText(context),
-                    fontWeight: FontWeight.w800,
-                    color: textColor,
-                    letterSpacing: 0.1,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+  Widget _buildCoursesSection() {
+    if (_isLoading) {
+      return CoursesShimmerLoading();
+    } else if (_errorMessage != null) {
+      return BatchErrorWidget(
+        title: "Batch Wise Preparation",
+        errorMessage: _errorMessage!,
+        onRetry: _fetchBatchCourses,
+        isBatch: true,
+      );
+    } else if (_batchCourses?.courses?.isEmpty ?? true) {
+      return EmptyWidget(
+        title: "Batch Wise Preparation",
+        isBatch: true,
+      );
+    } else {
+      return AvailableCourseContainerWidget(
+        title: "Batch Wise Preparation",
+        batchCourses: _batchCourses!,
+        isBatch: true,
+      );
+    }
   }
 }
+
+
+
+

@@ -1,30 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:medi_exam/data/models/course_session_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/widgets/date_formatter_widget.dart';
 
 class SessionWiseBatchCard extends StatefulWidget {
-  final String title;
-  final String subTitle;
-  final String startDate;
-  final String days;
-  final String time;
-  final String? price; // Add price parameter
-  final String? discount;
-  final String? imageUrl; // Add imageUrl parameter
+  final Batch batch;
   final VoidCallback? onDetails;
-  final Map<String, dynamic>? navigationData; // Add navigation data
 
   const SessionWiseBatchCard({
     Key? key,
-    required this.title,
-    required this.subTitle,
-    required this.startDate,
-    required this.days,
-    required this.time,
-    this.price,
-    this.discount,
-    this.imageUrl,
+    required this.batch,
     this.onDetails,
-    this.navigationData,
   }) : super(key: key);
 
   @override
@@ -50,7 +36,6 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
     // Modern gradient colors
     final gradientColors = [AppColor.indigo, AppColor.purple]; // Indigo to purple
 
-
     return AnimatedScale(
       duration: const Duration(milliseconds: 120),
       scale: _pressed ? 0.98 : (_hovered ? 1.01 : 1.0),
@@ -71,8 +56,6 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
             child: Material(
               color: isDark ? const Color(0xFF1A1D21) : Colors.white,
               borderRadius: BorderRadius.circular(19),
-
-              // ---------- changed to Stack so we can overlay the ribbon
               child: Stack(
                 children: [
                   InkWell(
@@ -90,7 +73,7 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
                         children: [
                           // Title & subtitle with improved hierarchy
                           Text(
-                            widget.title,
+                            widget.batch.safeName,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -98,17 +81,6 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
                               fontWeight: FontWeight.w800,
                               height: 1.1,
                               color: isDark ? Colors.white : AppColor.primaryTextColor,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.subTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: subTitleSize,
-                              color: isDark ? Colors.white70 : const Color(0xFF6B7280),
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
 
@@ -135,30 +107,43 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
                             spacing: 6,
                             runSpacing: 6,
                             children: [
-                              _InfoChip(
-                                icon: Icons.calendar_today_rounded,
-                                title: 'Start Date: ',
-                                label: widget.startDate,
-                                fontSize: infoSize,
-                                bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
-                                iconColor: gradientColors[0],
-                              ),
-                              _InfoChip(
-                                icon: Icons.event_repeat_rounded,
-                                title: 'Days: ',
-                                label: widget.days,
-                                fontSize: infoSize,
-                                bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
-                                iconColor: gradientColors[0],
-                              ),
-                              _InfoChip(
-                                icon: Icons.schedule_rounded,
-                                title: 'Time: ',
-                                label: widget.time,
-                                fontSize: infoSize,
-                                bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
-                                iconColor: gradientColors[0],
-                              ),
+                              if (widget.batch.hasValidStartDate)
+                                _InfoChip(
+                                  icon: Icons.calendar_today_rounded,
+                                  title: 'Start: ',
+                                  label: formatDateStr(widget.batch.formattedStartDate),
+                                  fontSize: infoSize,
+                                  bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                                  iconColor: gradientColors[0],
+                                ),
+                              if (widget.batch.hasValidExamDays)
+                                _InfoChip(
+                                  icon: Icons.event_repeat_rounded,
+                                  title: 'Days: ',
+                                  label: widget.batch.safeExamDays,
+                                  fontSize: infoSize,
+                                  bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                                  iconColor: gradientColors[0],
+                                ),
+                              if (widget.batch.hasValidExamTime)
+                                _InfoChip(
+                                  icon: Icons.schedule_rounded,
+                                  title: 'Time: ',
+                                  label: widget.batch.safeExamTime,
+                                  fontSize: infoSize,
+                                  bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                                  iconColor: gradientColors[0],
+                                ),
+                   /*           // Show schedule summary if available
+                              if (widget.batch.hasValidExamDays || widget.batch.hasValidExamTime)
+                                _InfoChip(
+                                  icon: Icons.timeline_rounded,
+                                  title: 'Schedule: ',
+                                  label: widget.batch.scheduleSummary,
+                                  fontSize: infoSize,
+                                  bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
+                                  iconColor: gradientColors[0],
+                                ),*/
                             ],
                           ),
 
@@ -188,11 +173,7 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
                                   color: Colors.transparent,
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(12),
-                                    onTap: () {
-                                      if (widget.onDetails != null) {
-                                        widget.onDetails!();
-                                      }
-                                    },
+                                    onTap: widget.onDetails,
                                     child: Container(
                                       padding: EdgeInsets.symmetric(
                                         horizontal: isMobile ? 14 : 16,
@@ -228,65 +209,38 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
                     ),
                   ),
 
-                  // --------- Discount / Free ribbon (same behavior as your Subjects card)
-
-                  if (widget.discount != null)
+/*                  // Banner availability indicator
+                  if (widget.batch.hasValidBannerUrl)
                     Positioned(
                       top: 8,
-                      right: -20,
-                      child: Transform.rotate(
-                        angle: 0.785,
-                        child: Container(
-                          width: 80,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: widget.discount == 'Free'
-                                  ? [Colors.green.shade500, Colors.green.shade700] // FREE
-                                  : [Colors.orange.shade500, Colors.orange.shade700], // DISCOUNT
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.image_rounded,
+                              size: 12,
+                              color: Colors.white,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.green.withOpacity(0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Banner',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
                               ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (widget.discount == 'Free')
-                                Icon(
-                                  Icons.celebration_rounded,
-                                  size: 10,
-                                  color: Colors.white,
-                                ),
-                              const SizedBox(width: 4),
-                              Text(
-                                widget.discount!,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 10,
-                                  letterSpacing: 0.5,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black.withOpacity(0.3),
-                                      offset: const Offset(0, 1),
-                                      blurRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+                    ),*/
                 ],
               ),
             ),

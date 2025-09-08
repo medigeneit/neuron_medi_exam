@@ -64,25 +64,6 @@ class NetworkCaller {
         );
       }
 
-/*      else if (response.statusCode == 423) {
-        logger.e('423: Device not verified');
-        Get.snackbar(
-          "Device is not verified",
-          "Please Verify your device",
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 3),
-        );
-
-
-        Get.offNamed(RouteNames.deviceVerification); // 👈 redirect to login
-        return NetworkResponse(
-          statusCode: 423,
-          isSuccess: false,
-          errorMessage: "Device is not verified",
-        );
-      }*/
       else if (response.statusCode == 500) {
         logger.e('500: Server Error');
         Get.snackbar(

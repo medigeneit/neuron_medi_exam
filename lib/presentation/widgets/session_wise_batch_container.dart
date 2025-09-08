@@ -1,31 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:medi_exam/data/models/available_batch_item.dart';
+import 'package:medi_exam/data/models/course_session_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'session_wise_batch_card.dart';
 
 class SessionWiseBatchContainer extends StatefulWidget {
-  final List<AvailableBatchItem> items;
-  final EdgeInsetsGeometry padding;
+  final String title;
+  final String subtitle;
+  final bool isBatch;
+  final List<Batch> batches;
+  final VoidCallback onTapShowAllBatches;
+  final Function(Batch) onTapBatch;
+  final EdgeInsets padding;
   final double borderRadius;
   final Color borderColor;
-  final String title;
-  final String? subtitle;
-  final bool isBatch;
-  final VoidCallback? onTapShowAllBatches;
 
   const SessionWiseBatchContainer({
     Key? key,
-    required this.items,
     required this.title,
+    required this.subtitle,
+    required this.isBatch,
+    required this.batches,
+    required this.onTapShowAllBatches,
+    required this.onTapBatch,
     this.padding = const EdgeInsets.all(16),
-    this.borderRadius = 20,
-    this.borderColor = AppColor.primaryColor,
-    this.subtitle,
-    this.isBatch = false,
-    this.onTapShowAllBatches,
+    this.borderRadius = 12,
+    this.borderColor = Colors.transparent,
   }) : super(key: key);
 
   @override
@@ -64,8 +66,6 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
 
   @override
   Widget build(BuildContext context) {
-
-
     return LayoutBuilder(builder: (context, constraints) {
       final isMobile = constraints.maxWidth < 600;
       _itemsPerViewport = isMobile ? 2 : 3;
@@ -99,7 +99,6 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(widget.borderRadius),
                 gradient: widget.isBatch ? AppColor.primaryGradient.withOpacity(0.06) : AppColor.secondaryGradient.withOpacity(0.06),
-
                 border: Border.all(
                   color: widget.isBatch ? AppColor.primaryColor.withOpacity(0.2) : AppColor.purple.withOpacity(0.2),
                   width: 1.5,
@@ -144,12 +143,20 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
                                   color: widget.isBatch ? AppColor.primaryColor : AppColor.purple,
                                 ),
                               ),
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.subtitle,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        if (widget.items.isNotEmpty)
+                        if (widget.batches.isNotEmpty)
                           GestureDetector(
-                            onTap: () => widget.onTapShowAllBatches?.call(),
+                            onTap: widget.onTapShowAllBatches,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
@@ -170,57 +177,53 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
                     ),
                   ),
 
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
 
                   // Carousel with improved styling
-                  Scrollbar(
-                    controller: _controller,
-                    thickness: 3,
-                    radius: const Radius.circular(3),
-                    interactive: true,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: SingleChildScrollView(
-                        controller: _controller,
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          children: [
-                            for (int i = 0; i < widget.items.length; i++) ...[
-                              Container(
-                                width: isMobile ? constraints.maxWidth * 0.65 : _itemWidth,
-                                margin: EdgeInsets.only(right: i != widget.items.length - 1 ? _spacing : 0),
-                                child: SessionWiseBatchCard(
-                                  title: widget.items[i].title,
-                                  subTitle: widget.items[i].subTitle,
-                                  startDate: widget.items[i].startDate,
-                                  days: widget.items[i].days,
-                                  time: widget.items[i].time,
-                                  discount: widget.items[i].discount,
-                                  onDetails: () {
-                                    // Navigate to details screen with arguments
-                                    navigateToBatchDetails(i);
-                                  },
+                  if (widget.batches.isEmpty)
+                    _buildEmptyBatches()
+                  else
+                    Scrollbar(
+                      controller: _controller,
+                      thickness: 3,
+                      radius: const Radius.circular(3),
+                      interactive: true,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: SingleChildScrollView(
+                          controller: _controller,
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: [
+                              for (int i = 0; i < widget.batches.length; i++) ...[
+                                Container(
+                                  width: isMobile ? constraints.maxWidth * 0.65 : _itemWidth,
+                                  margin: EdgeInsets.only(right: i != widget.batches.length - 1 ? _spacing : 0),
+                                  child: SessionWiseBatchCard(
+                                    batch: widget.batches[i],
+                                    onDetails: () {
+                                      widget.onTapBatch(widget.batches[i]);
+                                    },
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
                   const SizedBox(height: 16),
 
                   // Modern dot indicator instead of progress bar
-                  if (widget.items.length > 1)
+                  if (widget.batches.length > 1)
                     Center(
                       child: Wrap(
                         spacing: 6,
-                        children: List.generate(widget.items.length, (index) {
-
-                          final bool isActive = _progress >= index / (widget.items.length - 1) &&
-                              _progress <= (index + 1) / (widget.items.length - 1);
+                        children: List.generate(widget.batches.length, (index) {
+                          final bool isActive = _progress >= index / (widget.batches.length - 1) &&
+                              _progress <= (index + 1) / (widget.batches.length - 1);
 
                           return AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
@@ -246,23 +249,38 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
     });
   }
 
-  void navigateToBatchDetails(int i) {
-                                 Get.toNamed(
-      RouteNames.batchDetails, // Make sure this route is defined
-      arguments: {
-        'title': widget.items[i].title,
-        'subTitle': widget.items[i].subTitle,
-        'startDate': widget.items[i].startDate,
-        'days': widget.items[i].days,
-        'time': widget.items[i].time,
-        'price': widget.items[i].price,
-        'discount': widget.items[i].discount,
-        'imageUrl': widget.items[i].imageUrl,
-        'batchDetails': widget.items[i].batchDetails,
-        'courseOutline': widget.items[i].courseOutline,
-        'courseFee': widget.items[i].courseFee,
-        'offer': widget.items[i].offer,
-      },
+  Widget _buildEmptyBatches() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.event_busy_rounded,
+            size: 40,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'No batches available',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Check back later for new batches',
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

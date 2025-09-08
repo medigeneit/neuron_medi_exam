@@ -1,28 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:medi_exam/data/models/course_session_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/widgets/banner_card_helpers.dart';
+import 'package:medi_exam/presentation/widgets/date_formatter_widget.dart';
 
 class AvailableBannerCard extends StatefulWidget {
-  final String title;
-  final String subTitle;
-  final String startDate;
-  final String days;
-  final String time;
-  final String? price;
-  final String? discount;
-  final String? imageUrl;
+  final Batch batch;
   final VoidCallback onDetails;
 
   const AvailableBannerCard({
     Key? key,
-    required this.title,
-    required this.subTitle,
-    required this.startDate,
-    required this.days,
-    required this.time,
-    this.price,
-    this.discount,
-    this.imageUrl,
+    required this.batch,
     required this.onDetails,
   }) : super(key: key);
 
@@ -84,58 +72,61 @@ class _AvailableBannerCardState extends State<AvailableBannerCard> {
                           children: [
                             // Background image
                             Positioned.fill(
-                              child: BannerImage(url: widget.imageUrl),
+                              child: BannerImage(url: widget.batch.safeBannerUrl),
                             ),
 
-                            // Discount ribbon
-                            if (widget.discount != null && widget.discount!.trim().isNotEmpty)
-                              Positioned(
-                                top: 8,
-                                right: -20,
-                                child: Transform.rotate(
-                                  angle: 0.785,
-                                  child: Container(
-                                    width: 86,
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: widget.discount!.toLowerCase() == 'free'
-                                            ? [Colors.green.shade500, Colors.green.shade700]
-                                            : [Colors.orange.shade500, Colors.orange.shade700],
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.25),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (widget.discount!.toLowerCase() == 'free')
-                                          const Icon(Icons.celebration_rounded, size: 10, color: Colors.white),
-                                        if (widget.discount!.toLowerCase() == 'free') const SizedBox(width: 4),
-                                        Text(
-                                          widget.discount!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 10,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+/*                            // Batch ID ribbon
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'ID: ${widget.batch.safeId}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
+                            ),*/
+
+/*                            // Schedule indicator
+                            Positioned(
+                              bottom: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.schedule_rounded,
+                                      size: 12,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      widget.batch.safeExamTime,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),*/
                           ],
                         ),
                       ),
@@ -149,7 +140,7 @@ class _AvailableBannerCardState extends State<AvailableBannerCard> {
                             children: [
                               // Title and subtitle
                               Text(
-                                widget.title,
+                                widget.batch.safeName,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -160,7 +151,7 @@ class _AvailableBannerCardState extends State<AvailableBannerCard> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                widget.subTitle,
+                                'Starts: ${formatDateStr(widget.batch.formattedStartDate)}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -172,16 +163,17 @@ class _AvailableBannerCardState extends State<AvailableBannerCard> {
 
                               const SizedBox(height: 8),
 
-                              // Price if available
-                              if (widget.price != null && widget.price!.trim().isNotEmpty)
+                              // Schedule summary
+                              if (widget.batch.scheduleSummary.isNotEmpty)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 6),
                                   child: Text(
-                                    widget.price!,
+                                    widget.batch.scheduleSummary,
                                     style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
                                       color: gradientColors[0],
+                                      fontStyle: FontStyle.italic,
                                     ),
                                   ),
                                 ),
@@ -189,30 +181,7 @@ class _AvailableBannerCardState extends State<AvailableBannerCard> {
                               const SizedBox(height: 8),
 
                               // Info chips - Using Wrap for dynamic wrapping
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  InfoPill(
-                                    icon: Icons.calendar_today_rounded,
-                                    label: 'Start: ${widget.startDate}',
-                                    bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
-                                    iconColor: gradientColors[0],
-                                  ),
-                                  InfoPill(
-                                    icon: Icons.event_repeat_rounded,
-                                    label: 'Days: ${widget.days}',
-                                    bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
-                                    iconColor: gradientColors[0],
-                                  ),
-                                  InfoPill(
-                                    icon: Icons.schedule_rounded,
-                                    label: 'Time: ${widget.time}',
-                                    bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
-                                    iconColor: gradientColors[0],
-                                  ),
-                                ],
-                              ),
+
 
                               const Spacer(),
 
@@ -247,7 +216,7 @@ class _AvailableBannerCardState extends State<AvailableBannerCard> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Text(
-                                                'Details',
+                                                'View Details',
                                                 style: TextStyle(
                                                   fontSize: 13.5,
                                                   fontWeight: FontWeight.w600,

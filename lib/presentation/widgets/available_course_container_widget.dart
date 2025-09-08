@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:medi_exam/data/models/course_item.dart';
-import 'package:medi_exam/data/models/discipline_faculty.dart';
+import 'package:medi_exam/data/models/courses_model.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/available_course_card_widget.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
-import 'package:medi_exam/presentation/widgets/discipline_faculty_picker_dialog.dart';
+import 'package:medi_exam/presentation/widgets/show_disciplne_dialog.dart';
 
 class AvailableCourseContainerWidget extends StatefulWidget {
   final String title;
-  final List<CourseItem> courses;
+  final CoursesModel batchCourses;
   final bool isBatch;
 
   const AvailableCourseContainerWidget({
     Key? key,
     required this.title,
-    required this.courses,
+    required this.batchCourses,
     required this.isBatch,
   }) : super(key: key);
 
@@ -38,10 +37,11 @@ class _AvailableCourseContainerWidgetState
 
     final textColor = const Color(0xFF111827);
 
-    // Determine which courses to show
+    // Get courses from batchCourses
+    final courses = widget.batchCourses.courses ?? [];
     final displayedCourses = _isExpanded
-        ? widget.courses
-        : widget.courses.take(_initialItemCount).toList();
+        ? courses
+        : courses.take(_initialItemCount).toList();
 
     return Semantics(
       container: true,
@@ -77,7 +77,7 @@ class _AvailableCourseContainerWidgetState
                   // Header
                   _Header(
                     title: widget.title,
-                    count: widget.courses.length,
+                    count: courses.length,
                     textColor: textColor,
                     isBatch: widget.isBatch,
                   ),
@@ -93,22 +93,36 @@ class _AvailableCourseContainerWidgetState
                   // Responsive grid + animated height for expand/collapse
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final crossAxisCount =
-                      _crossAxisCountForWidth(constraints.maxWidth);
-                      // approximate square-ish cards
-                      final childAspectRatio =
-                      _childAspectRatioForWidth(constraints.maxWidth);
+                      final crossAxisCount = _crossAxisCountForWidth(constraints.maxWidth);
+                      final childAspectRatio = _childAspectRatioForWidth(constraints.maxWidth);
+
+                      // Calculate the actual number of items to display
+                      final itemCount = displayedCourses.length;
 
                       return AnimatedSize(
                         duration: const Duration(milliseconds: 220),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.topCenter,
-                        child: GridView.builder(
-                          itemCount: displayedCourses.length,
+                        child: itemCount == 1
+                            ? Center(
+                          child: AvailableCourseCardWidget(
+                            icon: Icons.school_rounded,
+                            title: displayedCourses[0].courseName ?? 'Unknown Course',
+                            onTap: () => showDisciplineDialog(
+                              context,
+                              displayedCourses[0].courseName ?? 'Unknown Course',
+                              Icons.school_rounded,
+                              widget.isBatch,
+                              displayedCourses[0].package ?? [],
+                            ),
+                            isBatch: widget.isBatch,
+                          ),
+                        )
+                            : GridView.builder(
+                          itemCount: itemCount,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                          SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: crossAxisCount,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
@@ -117,9 +131,15 @@ class _AvailableCourseContainerWidgetState
                           itemBuilder: (context, i) {
                             final course = displayedCourses[i];
                             return AvailableCourseCardWidget(
-                              icon: course.icon,
-                              title: course.title,
-                              onTap: () => _showDisciplineDialog(context, course.title, course.icon, widget.isBatch),
+                              icon: Icons.school_rounded,
+                              title: course.courseName ?? 'Unknown Course',
+                              onTap: () => showDisciplineDialog(
+                                context,
+                                course.courseName ?? 'Unknown Course',
+                                Icons.school_rounded,
+                                widget.isBatch,
+                                course.package ?? [],
+                              ),
                               isBatch: widget.isBatch,
                             );
                           },
@@ -127,9 +147,8 @@ class _AvailableCourseContainerWidgetState
                       );
                     },
                   ),
-
                   // Toggle button (shown only when needed)
-                  if (widget.courses.length > _initialItemCount) ...[
+                  if (courses.length > _initialItemCount) ...[
                     const SizedBox(height: 8),
                     _ShowMoreButton(
                       expanded: _isExpanded,
@@ -139,7 +158,7 @@ class _AvailableCourseContainerWidgetState
                   ],
 
                   // Empty state
-                  if (widget.courses.isEmpty) ...[
+                  if (courses.isEmpty) ...[
                     const SizedBox(height: 8),
                     Opacity(
                       opacity: 0.7,
@@ -172,6 +191,7 @@ class _AvailableCourseContainerWidgetState
     if (w < 760) return 0.95;
     return 1.05;
   }
+
 }
 
 /// Header with title, count badge, and animated toggle button.
@@ -181,13 +201,11 @@ class _Header extends StatelessWidget {
   final Color textColor;
   final bool isBatch;
 
-
   const _Header({
     required this.title,
     required this.count,
     required this.textColor,
     required this.isBatch,
-
   });
 
   @override
@@ -229,7 +247,7 @@ class _CountBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradient =isBatch? AppColor.primaryGradient : AppColor.secondaryGradient;
+    final gradient = isBatch ? AppColor.primaryGradient : AppColor.secondaryGradient;
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: gradient,
@@ -303,37 +321,6 @@ class _HeaderToggleButtonState extends State<_HeaderToggleButton> {
   }
 }
 
-void _showDisciplineDialog(BuildContext context, String courseTitle, IconData courseIcon, bool isBatch) {
-  final faculties = _facultiesForCourse(courseTitle);
-
-  showDisciplineFacultyPickerDialog(
-    context,
-    title: courseTitle, // title based on the course.title
-    subtitle: 'Select a discipline to proceed.',
-    icon: courseIcon,
-    isBatch: isBatch,
-    faculties: faculties,
-    onSelected: (picked) {
-      // TODO: Navigate or trigger action with the selected faculty
-      // e.g., Navigator.pushNamed(context, Routes.facultyDetails, arguments: picked);
-      debugPrint('Selected: ${picked.title} from $courseTitle');
-    },
-  );
-}
-
-/// Map course -> faculties (extend as you add more datasets)
-List<DisciplineFaculty> _facultiesForCourse(String title) {
-  final t = title.toLowerCase();
-
-  if (t.contains('residency')) {
-    return demoResidencyFaculties;
-  }
-
-  // Fallback for other course types (until you add more lists)
-  // You can return an empty list to show an empty state in the dialog,
-  // or re-use residency as placeholder.
-  return demoResidencyFaculties;
-}
 
 /// Centered Show More/Less button for small screens (optional)
 class _ShowMoreButton extends StatelessWidget {
@@ -381,7 +368,4 @@ class _ShowMoreButton extends StatelessWidget {
       ),
     );
   }
-
-
-
 }

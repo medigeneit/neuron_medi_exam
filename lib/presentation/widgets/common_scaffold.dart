@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/responsive.dart';
 import 'package:medi_exam/presentation/widgets/custom_drawer.dart';
 
 
@@ -11,6 +12,12 @@ class CommonScaffold extends StatelessWidget {
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
 
+  /// Max content width used on tablet/desktop
+  final double maxContentWidth;
+
+  /// Optional horizontal padding around the clamped content on larger screens
+  final EdgeInsetsGeometry largeScreenPadding;
+
   const CommonScaffold({
     super.key,
     required this.title,
@@ -19,10 +26,28 @@ class CommonScaffold extends StatelessWidget {
     this.actions,
     this.bottomNavigationBar,
     this.floatingActionButton,
+    this.maxContentWidth = 900, // tweak to taste
+    this.largeScreenPadding = const EdgeInsets.symmetric(horizontal: 16.0),
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = Responsive.isMobile(context);
+
+    // Mobile -> raw body
+    // Tablet/Desktop -> centered, width-constrained body
+    final Widget responsiveBody = isMobile
+        ? body
+        : Center(
+      child: Padding(
+        padding: largeScreenPadding,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxContentWidth),
+          child: body,
+        ),
+      ),
+    );
+
     return SafeArea(
       child: Scaffold(
         backgroundColor: AppColor.backgroundColor,
@@ -34,7 +59,7 @@ class CommonScaffold extends StatelessWidget {
           actions: actions,
         ),
         endDrawer: showDrawer ? const CustomDrawer() : null,
-        body: body,
+        body: responsiveBody,
         bottomNavigationBar: bottomNavigationBar,
         floatingActionButton: floatingActionButton,
       ),
