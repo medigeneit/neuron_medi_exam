@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:medi_exam/data/models/course_session_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
-import 'package:medi_exam/presentation/widgets/banner_card_helpers.dart';
+import 'package:medi_exam/presentation/widgets/helpers/banner_card_helpers.dart';
 import 'package:medi_exam/presentation/widgets/date_formatter_widget.dart';
 
 class AvailableBannerCard extends StatefulWidget {

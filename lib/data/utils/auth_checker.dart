@@ -1,9 +1,9 @@
-// auth_service.dart
+// auth_checker.dart
 import 'package:get/get.dart';
 import 'local_storage_service.dart';
 
-class AuthService extends GetxService {
-  static AuthService get to => Get.find();
+class AuthChecker extends GetxService {
+  static AuthChecker get to => Get.find();
 
   Future<bool> isAuthenticated() async {
     await LocalStorageService.init();
@@ -16,7 +16,7 @@ class AuthService extends GetxService {
     await LocalStorageService.remove(LocalStorageService.userData);
   }
 
-  Future<AuthService> init() async {
+  Future<AuthChecker> init() async {
     await LocalStorageService.init();
     return this;
   }

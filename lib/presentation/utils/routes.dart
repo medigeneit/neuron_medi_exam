@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/screens/available_batches_screen.dart';
+import 'package:medi_exam/presentation/screens/batch_schedule_screen.dart';
 import 'package:medi_exam/presentation/screens/change_password_screen.dart';
 import 'package:medi_exam/presentation/screens/courses_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
@@ -38,6 +39,7 @@ class RouteNames {
   static const String subscriptions = '/subscriptions';
   static const String notice = '/notice';
   static const String batchDetails = '/batch_details';
+  static const String batchSchedule = '/batch_schedule';
   static const String enrollment = '/enrollment';
   static const String makePayment = '/makePayment';
   static const String courseSchedule = '/courseSchedule';
@@ -95,6 +97,11 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.batchDetails,
     page: () => const BatchDetailsScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.batchSchedule,
+    page: () => const BatchScheduleScreen(),
   ),
 
   GetPage(

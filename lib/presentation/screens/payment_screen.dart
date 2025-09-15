@@ -4,6 +4,8 @@ import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:slide_to_act/slide_to_act.dart';
+import 'package:medi_exam/presentation/widgets/hero_header_with_image.dart';
+import 'package:medi_exam/presentation/utils/responsive.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({Key? key}) : super(key: key);
@@ -27,15 +29,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final gradientColors = [AppColor.indigo, AppColor.purple];
+    final bool isMobile = Responsive.isMobile(context);
 
     // Extracting the required data from the map
-    final title = batchData['title'] ?? '';
-    final startDate = batchData['startDate'] ?? '';
-    final days = batchData['days'] ?? '';
-    final time = batchData['time'] ?? '';
-    final priceString = batchData['price'] ?? '0';
-    final discountString = batchData['discount'] ?? '0';
-    final imageUrl = batchData['imageUrl'] ?? '';
+    final String title = (batchData['title'] ?? '').toString();
+    final String startDate = (batchData['startDate'] ?? '').toString();
+    final String days = (batchData['days'] ?? '').toString();
+    final String time = (batchData['time'] ?? '').toString();
+    final String priceString = (batchData['price'] ?? '0').toString();
+    final String discountString = (batchData['discount'] ?? '0').toString();
+    final String imageUrl = (batchData['imageUrl'] ?? '').toString();
 
     // Parse numeric values from strings
     final double price = _parsePrice(priceString);
@@ -43,41 +46,74 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     // Calculate final amount
     final double discountedPrice =
-        discountPercent > 0 ? price - (price * discountPercent / 100) : price;
+    discountPercent > 0 ? price - (price * discountPercent / 100) : price;
     final double totalAmount = discountedPrice + _processingFee;
+
+    // extra bottom padding so content isn't hidden under the pinned slider
+    const double contentBottomPadding = 140;
 
     return CommonScaffold(
       title: 'Payment',
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Batch Info Card with modern hero banner
-            _buildBatchInfoCard(title, startDate, days, time, imageUrl),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              // Collapsible hero header (same pattern as BatchScheduleScreen)
+              SliverAppBar(
+                automaticallyImplyLeading: false,
+                toolbarHeight: 0,
+                collapsedHeight: 0,
+                pinned: false,
+                stretch: true,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                expandedHeight: isMobile ? 260 : 340,
+                flexibleSpace: FlexibleSpaceBar(
+                  collapseMode: CollapseMode.parallax,
+                  background: HeroHeader(
+                    banner: imageUrl,
+                    headerTitle: title.isEmpty ? 'Course' : title,
+                    headerSubtitle: 'Secure Checkout',
+                    time: time,
+                    days: days,
+                    startDate: startDate,
+                  ),
+                ),
+              ),
 
-            const SizedBox(height: 20),
+              // Body content (payment details)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                sliver: SliverToBoxAdapter(
+                  child: _buildPaymentDetails(
+                    price,
+                    discountPercent,
+                    _processingFee,
+                    discountedPrice,
+                    totalAmount,
+                  ),
+                ),
+              ),
 
-            // Payment Details
-            _buildPaymentDetails(
-              price,
-              discountPercent,
-              _processingFee,
-              discountedPrice,
-              totalAmount,
-            ),
+              // Payment methods
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                sliver: SliverToBoxAdapter(child: _buildPaymentMethods()),
+              ),
 
-            const SizedBox(height: 20),
+              // spacer at bottom so last card isn't obscured by slider
+              const SliverToBoxAdapter(child: SizedBox(height: contentBottomPadding)),
+            ],
+          ),
 
-            // Payment Methods
-            _buildPaymentMethods(),
-
-            const SizedBox(height: 28),
-
-            // Pay Button
-            _buildPayButton(gradientColors, totalAmount),
-          ],
-        ),
+          // Pinned slide-to-pay at bottom
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 16,
+            child: _buildPayButton(gradientColors, totalAmount),
+          ),
+        ],
       ),
     );
   }
@@ -91,7 +127,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           .replaceAll(' ', '')
           .trim();
       return double.parse(cleaned);
-    } catch (e) {
+    } catch (_) {
       return 0.0;
     }
   }
@@ -99,167 +135,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // Helper method to parse discount string (extracts numeric percentage)
   double _parseDiscount(String discountString) {
     try {
-      // Remove non-numeric characters except decimal point and percentage
       String cleaned = discountString.replaceAll(RegExp(r'[^0-9.%]'), '');
-
       if (cleaned.contains('%')) {
         String numberPart = cleaned.split('%').first;
         return double.parse(numberPart);
       }
       return double.parse(cleaned);
-    } catch (e) {
+    } catch (_) {
       return 0.0;
     }
   }
 
-  Widget _buildBatchInfoCard(String title, String startDate, String days,
-      String time, String imageUrl) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-        gradient: LinearGradient(
-          colors: [Colors.white, Colors.white.withOpacity(0.92)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hero banner with overlay & soft gradient
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: imageUrl.isNotEmpty
-                      ? Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                  color: AppColor.purple.withOpacity(0.15)),
-                        )
-                      : Container(color: AppColor.purple.withOpacity(0.15)),
-                ),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.black.withOpacity(0.4),
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.35),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                ),
-                // Title on banner
-                Positioned(
-                  right: 16,
-                  bottom: 14,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.25),
-                          ),
-                        ),
-                        child: Text(
-                          title.isEmpty ? 'Course' : title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            height: 1.2,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            // Details
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _chip(icon: Icons.date_range, label: startDate),
-                      _chip(icon: Icons.calendar_today_rounded, label: days),
-                      _chip(icon: Icons.access_time_rounded, label: time),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _chip({required IconData icon, required String label}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColor.indigo),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ---------- UI sections (unchanged visuals, just used inside slivers) ----------
 
   Widget _buildPaymentDetails(double price, double discount,
       double processingFee, double discountedPrice, double totalAmount) {
@@ -268,10 +155,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         gradient: LinearGradient(
-          colors: [
-            Colors.white,
-            Colors.white.withOpacity(0.94),
-          ],
+          colors: [Colors.white, Colors.white.withOpacity(0.94)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -293,10 +177,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const Expanded(
                 child: Text(
                   'Payment Details',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -348,11 +229,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _buildAmountRow(
-    String label,
-    String value, {
-    bool isDiscount = false,
-    bool isTotal = false,
-  }) {
+      String label,
+      String value, {
+        bool isDiscount = false,
+        bool isTotal = false,
+      }) {
     return Row(
       children: [
         Expanded(
@@ -376,7 +257,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color:
-                  isTotal ? AppColor.indigo.withOpacity(0.3) : Colors.black12,
+              isTotal ? AppColor.indigo.withOpacity(0.3) : Colors.black12,
             ),
           ),
           child: Text(
@@ -423,10 +304,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const Expanded(
                 child: Text(
                   'Select Payment Method',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -434,16 +312,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 14),
           const Divider(height: 1),
           const SizedBox(height: 14),
-
-          // bKash
           _buildPaymentMethodOption(
             'bkash',
             AssetsPath.bkashLogo,
             'Fast and secure payment with bKash',
           ),
           const SizedBox(height: 12),
-
-          // SSLCommerz
           _buildPaymentMethodOption(
             'sslcommerz',
             AssetsPath.sslcommerzLogo,
@@ -468,18 +342,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
           borderRadius: BorderRadius.circular(14),
           gradient: selected
               ? LinearGradient(
-                  colors: [
-                    AppColor.indigo.withOpacity(0.08),
-                    AppColor.purple.withOpacity(0.08),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
+            colors: [
+              AppColor.indigo.withOpacity(0.08),
+              AppColor.purple.withOpacity(0.08),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
               : null,
           color: selected ? null : Colors.grey[50],
           border: Border.all(
-            color:
-                selected ? AppColor.indigo.withOpacity(0.45) : Colors.black12,
+            color: selected ? AppColor.indigo.withOpacity(0.45) : Colors.black12,
             width: selected ? 1.5 : 1,
           ),
           boxShadow: [
@@ -543,11 +416,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 color: selected ? AppColor.indigo : Colors.transparent,
               ),
-              child: const Icon(
-                Icons.check,
-                size: 14,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.check, size: 14, color: Colors.white),
             ),
           ],
         ),
@@ -578,12 +447,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           padding: const EdgeInsets.all(2), // subtle glossy edge
           child: SlideAction(
             key: _slideKey,
-            // optional
             height: 56,
             elevation: 0,
             borderRadius: 32,
-            outerColor: Colors.transparent,
-            // show parent gradient
+            outerColor: Colors.transparent, // show parent gradient
             innerColor: Colors.white,
             text: 'Slide to Pay ৳${totalAmount.toStringAsFixed(2)}',
             textStyle: const TextStyle(
@@ -593,13 +460,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
               letterSpacing: 0.2,
             ),
             sliderRotate: true,
-            // custom arrow so it's visible even with transparent outerColor
-            sliderButtonIcon: const Icon(Icons.arrow_forward_ios,
-                color: Colors.black, size: 18),
+            sliderButtonIcon:
+            const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 18),
             submittedIcon: const Icon(Icons.check, color: Colors.white),
             onSubmit: () async {
               _processPayment();
-              // No manual reset needed — your SlideAction calls reset() after onSubmit().
             },
           ),
         ),
@@ -621,7 +486,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   void _processPayment() {
-    // Handle payment based on selected method (unchanged)
     if (_selectedPaymentMethod == 'bkash') {
       Get.snackbar(
         'bKash Payment',

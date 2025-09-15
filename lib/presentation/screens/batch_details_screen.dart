@@ -4,9 +4,13 @@ import 'package:get/get.dart';
 import 'package:medi_exam/data/models/batch_details_model.dart';
 import 'package:medi_exam/data/services/batch_details_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/responsive.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
-import 'package:medi_exam/presentation/widgets/banner_card_helpers.dart';
-import 'package:medi_exam/presentation/widgets/batch_details_screen_helpers.dart';
+import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/animated_gradient_button.dart';
+import 'package:medi_exam/presentation/widgets/date_formatter_widget.dart';
+import 'package:medi_exam/presentation/widgets/helpers/banner_card_helpers.dart';
+import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
@@ -66,7 +70,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     });
 
     final response =
-        await _batchDetailsService.fetchBatchDetails(batchId, coursePackageId);
+    await _batchDetailsService.fetchBatchDetails(batchId, coursePackageId);
 
     if (response.isSuccess && response.responseData is BatchDetailsModel) {
       setState(() {
@@ -91,7 +95,9 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = Responsive.isMobile(context);
     final gradientColors = [AppColor.indigo, AppColor.purple];
+    final gradientButtonColors = [Colors.purple, Colors.blue];
 
     return CommonScaffold(
       title: 'Batch Details',
@@ -117,7 +123,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
               ),
             )
           else
-            // ------------------ CHANGED: Scroll view with collapsible hero ------------------
+          // ------------------ CHANGED: Scroll view with collapsible hero ------------------
             CustomScrollView(
               slivers: [
                 // Collapsible/minimizable hero image
@@ -131,7 +137,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                   stretch: true,
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  expandedHeight: 240,
+                  expandedHeight: isMobile? 260 : 420,
                   flexibleSpace: FlexibleSpaceBar(
                     stretchModes: const [
                       StretchMode.zoomBackground,
@@ -211,11 +217,11 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                           mainAxisSpacing: 10,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: 3.5,
+                          childAspectRatio: isMobile? 3.5 : 5.5,
                           children: [
                             BatchInfoPill(
                               icon: Icons.calendar_today_rounded,
-                              label: 'Start: $startDate',
+                              label: 'Start: ${formatDateStr(startDate)}',
                               bg: const Color(0xFFF0F7FF),
                               iconColor: gradientColors[0],
                             ),
@@ -243,16 +249,80 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
 
                         const SizedBox(height: 18),
 
+                        // NEW: Schedule Button
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: AppColor.blueGradient,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.4),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () {
+                                Get.toNamed(
+                                  RouteNames.batchSchedule,
+                                  arguments: {
+                                    'batchPackageId': _batchDetails?.batchPackageId?.toString() ?? '',
+                                    'coursePackageId': _batchDetails?.coursePackageId?.toString() ?? '',
+                                    'batchId': batchId,
+                                    'title': title, // batch title
+                                    'subTitle': _batchDetails?.coursePackageName ?? '', // course_package_name
+                                    'startDate': startDate,
+                                    'imageUrl': imageUrl,
+                                    'time': time ?? '',
+                                    'days': days ?? '',
+                                  },
+                                );
+                                print('batchPackageID: ${_batchDetails?.batchPackageId}');
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 16, horizontal: 20),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_month_rounded,
+                                      color: Colors.white,
+                                      size: Sizes.verySmallIcon(context),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'View Full Schedule',
+                                      style: TextStyle(
+                                        fontSize: Sizes.normalText(context),
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
                         // Offers (unchanged)
                         if ((_batchDetails?.newDoctorDiscount ?? 0) > 0 ||
                             (_batchDetails?.oldDoctorDiscount ?? 0) > 0)
                           OfferSection(
                             basePrice:
-                                _tryParsePrice(_batchDetails?.coursePrice),
+                            _tryParsePrice(_batchDetails?.coursePrice),
                             newDoctorDiscount:
-                                _batchDetails?.newDoctorDiscount, // taka amount
+                            _batchDetails?.newDoctorDiscount, // taka amount
                             oldDoctorDiscount:
-                                _batchDetails?.oldDoctorDiscount, // taka amount
+                            _batchDetails?.oldDoctorDiscount, // taka amount
                             gradientColors: gradientColors,
                           ),
 
@@ -311,66 +381,22 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
               left: 16,
               right: 16,
               bottom: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: LinearGradient(
-                    colors: gradientColors,
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: gradientColors[0].withOpacity(0.4),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(30),
-                    onTap: () {
-                      final paymentData = {
-                        'batchId': batchId,
-                        'coursePackageId': coursePackageId,
-                        'title': title,
-                        'subTitle': subTitle,
-                        'imageUrl': imageUrl,
-                        'time': time,
-                        'days': days,
-                        'startDate': startDate,
-                        'coursePrice': _batchDetails?.coursePrice,
-                        'newDoctorDiscount': _batchDetails?.newDoctorDiscount,
-                        'oldDoctorDiscount': _batchDetails?.oldDoctorDiscount,
-                      };
-                      Get.toNamed(RouteNames.makePayment,
-                          arguments: paymentData);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 16, horizontal: 24),
-                      alignment: Alignment.center,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.shopping_cart_rounded,
-                              color: Colors.white, size: 20),
-                          SizedBox(width: 10),
-                          Text(
-                            'Enroll Now',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+              child: GradientCTA(
+                colors: gradientButtonColors,
+                onTap: () {
+                  // Same behavior as BatchDetailsScreen
+                  final paymentData = {
+                    'batchId': batchId,
+                    'coursePackageId': coursePackageId,
+                    'title': title,
+                    'subTitle': subTitle,
+                    'imageUrl': imageUrl,
+                    'time': time,
+                    'days': days,
+                    'startDate': startDate,
+                  };
+                  Get.toNamed(RouteNames.makePayment, arguments: paymentData);
+                },
               ),
             ),
         ],
@@ -378,5 +404,3 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     );
   }
 }
-
-

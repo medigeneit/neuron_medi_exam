@@ -7,7 +7,7 @@ import 'package:medi_exam/presentation/widgets/coming_soon_widget.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
-import 'package:medi_exam/presentation/widgets/home_screen_helpers.dart';
+import 'package:medi_exam/presentation/widgets/helpers/home_screen_helpers.dart';
 import '../widgets/image_slider_banner.dart';
 
 class HomeScreen extends StatefulWidget {

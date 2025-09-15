@@ -113,26 +113,44 @@ class NetworkCaller {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
-        ...?headers, // ✅ allow override or addition
+        ...?headers,
       };
 
       final encodedBody = jsonEncode(body);
       logger.i('POST: $url');
       logger.d('Request Body: $encodedBody');
 
-      final response = await http.post(Uri.parse(url), headers: combinedHeaders, body: encodedBody);
+      final response = await http.post(
+        Uri.parse(url),
+        headers: combinedHeaders,
+        body: encodedBody,
+      );
 
       logger.i('Response (${response.statusCode}): ${response.body}');
 
+      // Parse response body
+      dynamic responseData;
+      try {
+        responseData = jsonDecode(response.body);
+      } catch (e) {
+        responseData = response.body; // Fallback to string if not JSON
+      }
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final decoded = jsonDecode(response.body);
         return NetworkResponse(
           statusCode: response.statusCode,
           isSuccess: true,
-          responseData: decoded,
+          responseData: responseData,
         );
-      }
-      else if (response.statusCode == 401) {
+      } else if (response.statusCode == 409) {
+        // Conflict - user already exists
+        return NetworkResponse(
+          statusCode: response.statusCode,
+          isSuccess: false,
+          responseData: responseData,
+          errorMessage: _extractErrorMessage(responseData),
+        );
+      } else if (response.statusCode == 401) {
         logger.e('401: Unauthorized: Token expired or invalid');
         await LocalStorageService.remove(LocalStorageService.token);
 
@@ -145,15 +163,14 @@ class NetworkCaller {
           duration: const Duration(seconds: 3),
         );
 
-
-        Get.offAllNamed(RouteNames.login); // 👈 redirect to login
+        Get.offAllNamed(RouteNames.login);
         return NetworkResponse(
           statusCode: 401,
           isSuccess: false,
+          responseData: responseData,
           errorMessage: "Session expired or logged out",
         );
-      }
-      else if (response.statusCode == 500) {
+      } else if (response.statusCode == 500) {
         logger.e('500: Server Error');
         Get.snackbar(
           "Server Error",
@@ -166,15 +183,16 @@ class NetworkCaller {
         return NetworkResponse(
           statusCode: 500,
           isSuccess: false,
+          responseData: responseData,
           errorMessage: "Server Error",
         );
-      }
-      else {
+      } else {
         logger.e('Error Response (${response.statusCode}): ${response.body}');
         return NetworkResponse(
           statusCode: response.statusCode,
           isSuccess: false,
-          errorMessage: response.body,
+          responseData: responseData,
+          errorMessage: _extractErrorMessage(responseData),
         );
       }
     } catch (e) {
@@ -182,8 +200,19 @@ class NetworkCaller {
       return NetworkResponse(
         statusCode: -1,
         isSuccess: false,
+        responseData: null,
         errorMessage: e.toString(),
       );
     }
+  }
+
+// Helper method to extract error message from response data
+  String _extractErrorMessage(dynamic responseData) {
+    if (responseData is Map<String, dynamic>) {
+      return responseData['message'] ?? 'Something went wrong';
+    } else if (responseData is String) {
+      return responseData;
+    }
+    return 'Something went wrong';
   }
 }

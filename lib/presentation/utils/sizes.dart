@@ -69,6 +69,10 @@ class Sizes {
     return Responsive.isMobile(context) ? 44 : (Responsive.isTablet(context) ? 60 : 72);
   }
 
+  static double normalIcon(BuildContext context) {
+    return Responsive.isMobile(context) ? 30 : (Responsive.isTablet(context) ? 32 : 34);
+  }
+
   static double smallIcon(BuildContext context) {
     return Responsive.isMobile(context) ? 26 : (Responsive.isTablet(context) ? 28 : 30);
   }

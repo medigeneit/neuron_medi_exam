@@ -1,7 +1,7 @@
 // navbar_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:medi_exam/data/utils/auth_service.dart';
+import 'package:medi_exam/data/utils/auth_checker.dart';
 import 'package:medi_exam/presentation/screens/courses_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
 import 'package:medi_exam/presentation/screens/home_screen.dart';
@@ -21,7 +21,7 @@ class NavBarScreen extends StatefulWidget {
 
 class _NavBarScreenState extends State<NavBarScreen> {
   late int _currentIndex;
-  final AuthService _authService = Get.find<AuthService>();
+  final AuthChecker _authService = Get.find<AuthChecker>();
 
   @override
   void initState() {

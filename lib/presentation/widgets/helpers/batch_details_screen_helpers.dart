@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'package:medi_exam/presentation/utils/sizes.dart';
 
 class OfferSection extends StatelessWidget {
   final double? basePrice;
@@ -132,7 +133,7 @@ class OfferCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      width: 220, // Reduced width
+      width: 240, // Reduced width
       padding: const EdgeInsets.all(12), // Reduced padding
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -505,7 +506,7 @@ class BatchInfoPill extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: iconColor),
+          Icon(icon, size: Sizes.extraSmallIcon(context), color: iconColor),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -513,7 +514,7 @@ class BatchInfoPill extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: Sizes.smallText(context),
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
               ),

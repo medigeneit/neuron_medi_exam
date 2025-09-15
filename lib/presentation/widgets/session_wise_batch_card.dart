@@ -54,7 +54,7 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
           child: Container(
             padding: const EdgeInsets.all(1.5),
             child: Material(
-              color: isDark ? const Color(0xFF1A1D21) : Colors.white,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(19),
               child: Stack(
                 children: [
@@ -80,7 +80,7 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
                               fontSize: titleSize,
                               fontWeight: FontWeight.w800,
                               height: 1.1,
-                              color: isDark ? Colors.white : AppColor.primaryTextColor,
+                              color: AppColor.primaryTextColor,
                             ),
                           ),
 

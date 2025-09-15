@@ -67,7 +67,7 @@ class NoticeCardWidget extends StatelessWidget {
                   // Unread indicator
                   if (!noticeItem.isRead)
                     AnimatedCircleContainer(
-                      size: Sizes.smallIcon(context),
+                      size: Sizes.normalIcon(context),
                       color: Colors.transparent,
                       borderColor: AppColor.primaryColor,
                       borderWidth: 1,

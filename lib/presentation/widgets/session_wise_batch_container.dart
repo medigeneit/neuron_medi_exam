@@ -42,6 +42,7 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
   int _itemsPerViewport = 3;
 
   double _progress = 0.0;
+  bool _showFloatingButton = true;
 
   @override
   void initState() {
@@ -62,6 +63,13 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
     final offset = _controller.offset;
     final p = max > 0 ? (offset / max).clamp(0.0, 1.0) : 0.0;
     if (p != _progress) setState(() => _progress = p);
+
+    // Hide floating button when scrolled to the end
+    if (max > 0 && offset >= max - 50) {
+      if (_showFloatingButton) setState(() => _showFloatingButton = false);
+    } else {
+      if (!_showFloatingButton) setState(() => _showFloatingButton = true);
+    }
   }
 
   @override
@@ -158,7 +166,7 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
                           GestureDetector(
                             onTap: widget.onTapShowAllBatches,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: AppColor.primaryColor.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(12),
@@ -166,7 +174,7 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
                               child: Text(
                                 'See All',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: Sizes.normalText(context),
                                   fontWeight: FontWeight.w700,
                                   color: AppColor.primaryTextColor,
                                 ),
@@ -183,35 +191,72 @@ class _SessionWiseBatchContainerState extends State<SessionWiseBatchContainer> {
                   if (widget.batches.isEmpty)
                     _buildEmptyBatches()
                   else
-                    Scrollbar(
-                      controller: _controller,
-                      thickness: 3,
-                      radius: const Radius.circular(3),
-                      interactive: true,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: SingleChildScrollView(
+                    Stack(
+                      children: [
+                        Scrollbar(
                           controller: _controller,
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          child: Row(
-                            children: [
-                              for (int i = 0; i < widget.batches.length; i++) ...[
-                                Container(
-                                  width: isMobile ? constraints.maxWidth * 0.65 : _itemWidth,
-                                  margin: EdgeInsets.only(right: i != widget.batches.length - 1 ? _spacing : 0),
-                                  child: SessionWiseBatchCard(
-                                    batch: widget.batches[i],
-                                    onDetails: () {
-                                      widget.onTapBatch(widget.batches[i]);
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ],
+                          thickness: 3,
+                          radius: const Radius.circular(3),
+                          interactive: true,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: SingleChildScrollView(
+                              controller: _controller,
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: Row(
+                                children: [
+                                  for (int i = 0; i < widget.batches.length; i++) ...[
+                                    Container(
+                                      width: isMobile ? constraints.maxWidth * 0.55 : _itemWidth,
+                                      margin: EdgeInsets.only(right: i != widget.batches.length - 1 ? _spacing : 0),
+                                      child: SessionWiseBatchCard(
+                                        batch: widget.batches[i],
+                                        onDetails: () {
+                                          widget.onTapBatch(widget.batches[i]);
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+
+                        // Floating "See All" button - Alternative Modern Design
+                        if (_showFloatingButton  && widget.batches.length > _itemsPerViewport)
+                          Positioned(
+                            right: 12,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(
+                              child: GestureDetector(
+                                onTap: widget.onTapShowAllBatches,
+                                child: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.8),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.15),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.arrow_forward_rounded,
+                                    color: widget.isBatch ? AppColor.primaryColor : AppColor.purple,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
 
                   const SizedBox(height: 16),

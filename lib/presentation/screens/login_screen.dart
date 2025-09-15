@@ -1,14 +1,20 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:medi_exam/data/network_response.dart';
+import 'package:medi_exam/data/services/auth_service.dart';
 import 'package:medi_exam/data/utils/local_storage_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
-
-// NEW: import the reusable background
+// Background & glass card you already have
 import 'package:medi_exam/presentation/widgets/custom_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
+import 'package:medi_exam/presentation/widgets/helpers/login_screen_helpers.dart';
+
+enum _AuthStep { enterPhone, login, verifyOtp, completeRegistration }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,55 +25,327 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  // Services
+  final _auth = AuthService();
+
+  // Controllers
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscure = true;
+  final _confirmPasswordController = TextEditingController();
+  final _otpController = TextEditingController(); // holds concatenated 6 digits
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  // OTP widget key so we can clear boxes on resend
+  final GlobalKey<OtpCodeInputState> _otpFieldKey =
+      GlobalKey<OtpCodeInputState>();
+
+  // State
+  _AuthStep _step = _AuthStep.enterPhone;
   bool _isLoading = false;
+  bool _obscure = true;
+  String? _otpToken; // from /register/verify
+
+  // Timer state
+  Timer? _otpTimer;
+  int _otpRemainingSeconds = 0;
 
   @override
   void dispose() {
+    _otpTimer?.cancel();
     _phoneController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _otpController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
-// login_screen.dart
-  Future<void> _onLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+  // ------------------ ACTIONS ------------------
+
+  Future<void> _startOrMoveToLogin() async {
+    if (!_validatePhone()) return;
+
     setState(() => _isLoading = true);
+    try {
+      final res = await _auth.startRegistration(phoneNumber: _cleanPhone());
 
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 900));
+      if (res.isSuccess && res.statusCode == 200) {
+        // New user -> OTP step
+        final data = res.responseData as Map<String, dynamic>;
+        _toast(data['message'] ?? 'OTP sent');
 
-    // Save token
-    final fakeToken = 'your_auth_token_here';
-    await LocalStorageService.setString(LocalStorageService.token, fakeToken);
+        // get minutes from response and start countdown
+        final minutes = (data['otp_expires_in_minutes'] is num)
+            ? (data['otp_expires_in_minutes'] as num).toInt()
+            : 5;
+        _startOtpTimer(minutes);
 
-    setState(() => _isLoading = false);
+        // switch to OTP UI and clear previous input
+        _otpController.clear();
+        _otpFieldKey.currentState?.clear();
 
+        setState(() => _step = _AuthStep.verifyOtp);
+      } else if (res.statusCode == 409) {
+        // Already exists -> go to login
+        final msg = _tryParseMessage(res.errorMessage);
+/*        _toast(msg ??
+            'এই নম্বরটি দিয়ে আগে রেজিস্টার করা হয়েছে। অনুগ্রহ করে লগইন করুন।');*/
+        _stopOtpTimer();
+        setState(() => _step = _AuthStep.login);
+      } else {
+        _error(_extractAnyMessage(res) ?? 'Something went wrong');
+      }
+    } catch (e) {
+      _error(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _login() async {
+    if (!_validatePhone()) return;
+    if (_passwordController.text.trim().length < 6) {
+      _error('Password must be at least 6 characters');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await _auth.login(
+        phoneNumber: _cleanPhone(),
+        password: _passwordController.text.trim(),
+      );
+
+      if (res.isSuccess && res.statusCode == 200) {
+        final data = res.responseData as Map<String, dynamic>;
+        await _persistAuthAndNavigate(data);
+      } else if (res.statusCode == 422) {
+        final msg =
+            _tryParseMessage(res.errorMessage) ?? 'Invalid credentials.';
+        _error(msg);
+      } else {
+        _error(_extractAnyMessage(res) ?? 'Login failed');
+      }
+    } catch (e) {
+      _error(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    final otp = _otpController.text.trim();
+    if (otp.length != 6 || int.tryParse(otp) == null) {
+      _error('Enter the 6-digit OTP');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await _auth.verifyOtp(
+        phoneNumber: _cleanPhone(),
+        otp: otp,
+      );
+
+      if (res.isSuccess && res.statusCode == 200) {
+        final data = res.responseData as Map<String, dynamic>;
+        _otpToken = data['otp_token']?.toString();
+        _toast(data['message'] ?? 'OTP verified');
+        _stopOtpTimer();
+        setState(() => _step = _AuthStep.completeRegistration);
+      } else {
+        _error(_extractAnyMessage(res) ?? 'OTP verification failed');
+      }
+    } catch (e) {
+      _error(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _completeRegistration() async {
+    if (_nameController.text.trim().isEmpty) {
+      _error('Please enter your name');
+      return;
+    }
+    if (_passwordController.text.trim().length < 6) {
+      _error('Password must be at least 6 characters');
+      return;
+    }
+    if (_passwordController.text.trim() !=
+        _confirmPasswordController.text.trim()) {
+      _error('Passwords do not match');
+      return;
+    }
+    if (_otpToken == null || _otpToken!.isEmpty) {
+      _error('Missing OTP token. Please verify again.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await _auth.completeRegistration(
+        phoneNumber: _cleanPhone(),
+        otpToken: _otpToken!,
+        name: _nameController.text.trim(),
+        password: _passwordController.text.trim(),
+        passwordConfirmation: _confirmPasswordController.text.trim(),
+        email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+      );
+
+      // ✅ treat any 2xx as success (covers 200, 201, 204...)
+      final ok = res.isSuccess && res.statusCode >= 200 && res.statusCode < 300;
+      if (ok) {
+        final data = res.responseData as Map<String, dynamic>;
+        _toast(data['message'] ?? 'Registration complete');
+        await _persistAuthAndNavigate(data);
+      } else {
+        _error(_extractAnyMessage(res) ?? 'Registration failed');
+      }
+    } catch (e) {
+      _error(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ------------------ HELPERS ------------------
+
+  void _startOtpTimer(int minutes) {
+    _otpTimer?.cancel();
+    setState(() => _otpRemainingSeconds = minutes * 60);
+    _otpTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      if (_otpRemainingSeconds <= 1) {
+        t.cancel();
+        setState(() => _otpRemainingSeconds = 0);
+        // Clear boxes when expired
+        _otpController.clear();
+        _otpFieldKey.currentState?.clear();
+        FocusScope.of(context).unfocus();
+      } else {
+        setState(() => _otpRemainingSeconds -= 1);
+      }
+    });
+  }
+
+  void _stopOtpTimer() {
+    _otpTimer?.cancel();
+    _otpTimer = null;
+    setState(() => _otpRemainingSeconds = 0);
+  }
+
+  String _formatMmSs(int totalSeconds) {
+    final m = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final s = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  String _cleanPhone() {
+    // Keep digits only, enforce 11-digit BD starting with 01
+    final digits = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    return digits;
+  }
+
+  bool _validatePhone() {
+    final digits = _cleanPhone();
+    if (!RegExp(r'^01\d{9}$').hasMatch(digits)) {
+      _error('Enter a valid 11-digit phone number (starts with 01)');
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _persistAuthAndNavigate(Map<String, dynamic> data) async {
+    final token = data['token']?.toString();
+    final doctor = data['doctor'] as Map<String, dynamic>?;
+
+    if (token == null || token.isEmpty) {
+      _error('No token received');
+      return;
+    }
+
+    // Existing
+    await LocalStorageService.setString(LocalStorageService.token, token);
+    if (doctor != null) {
+      await LocalStorageService.setObject(LocalStorageService.userData, doctor);
+    }
+
+    // NEW: mark logged in and store snapshot
+    await LocalStorageService.setString(LocalStorageService.isLoggedIn, 'true');
+    await LocalStorageService.setString(
+      LocalStorageService.loggedInAt,
+      DateTime.now().toIso8601String(),
+    );
+
+    // Optional but handy: keep last whole auth response (message/token/doctor)
+    await LocalStorageService.setObject(
+      LocalStorageService.lastAuthSnapshot,
+      data,
+    );
+
+    // Optional security: clear OTP artifacts now that we're authenticated
+    await LocalStorageService.setString(LocalStorageService.lastOtpCode, '');
+    await LocalStorageService.setString(LocalStorageService.otpToken, '');
+    await LocalStorageService.setString(LocalStorageService.lastOtpExpiresAt, '');
+    await LocalStorageService.setString(LocalStorageService.lastOtpVerifiedAt, '');
+
+    // Navigate (unchanged)
     final arguments = Get.arguments;
     if (arguments != null && arguments is Map<String, dynamic>) {
       final returnRoute = arguments['returnRoute'];
       final returnArguments = arguments['returnArguments'];
-
       if (returnRoute != null) {
         Get.offAllNamed(returnRoute, arguments: returnArguments);
-      } else {
-        Get.offAllNamed(RouteNames.navBar);
+        return;
       }
-    } else {
-      Get.offAllNamed(RouteNames.navBar);
     }
+    Get.offAllNamed(RouteNames.navBar);
   }
 
-  void _onForgotPassword() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Forgot Password tapped')));
+  String? _tryParseMessage(String? raw) {
+    if (raw == null) return null;
+    try {
+      final m = jsonDecode(raw);
+      if (m is Map && m['message'] != null) return m['message'].toString();
+    } catch (_) {}
+    return null;
   }
 
-  void _onSignUp() {
-    Get.offNamed(RouteNames.registration);
+  String? _extractAnyMessage(NetworkResponse res) {
+    if (res.responseData is Map &&
+        (res.responseData as Map)['message'] != null) {
+      return (res.responseData as Map)['message'].toString();
+    }
+    return _tryParseMessage(res.errorMessage);
   }
+
+  void _toast(String msg) {
+    Get.snackbar(
+      'Success',
+      msg,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.green,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  void _error(String msg) {
+    Get.snackbar(
+      'Error',
+      msg,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 3),
+    );
+  }
+
+  // ------------------ UI ------------------
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +360,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Padding(
                   padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
                   child: GlassCard(
                     child: Padding(
                       padding: const EdgeInsets.all(22.0),
@@ -95,158 +373,156 @@ class _LoginScreenState extends State<LoginScreen> {
                             Image.asset(AssetsPath.appLogo),
                             const SizedBox(height: 12),
                             Text(
-                              'Welcome back',
+                              _titleForStep(),
                               style: Theme.of(context)
                                   .textTheme
                                   .headlineSmall
                                   ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColor.primaryTextColor),
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColor.primaryTextColor,
+                                  ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Log in to continue',
+                              _subtitleForStep(),
+                              textAlign: TextAlign.center,
                               style: Theme.of(context)
                                   .textTheme
                                   .bodyMedium
-                                  ?.copyWith(color: cs.onSurfaceVariant),
+                                  ?.copyWith(
+                                      color: cs.onSurface.withOpacity(.7)),
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
 
-                            // Phone
-                            TextFormField(
+                            // Phone is visible on all steps
+                            PhoneField(
                               controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              autofillHints: const [AutofillHints.telephoneNumber],
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9+\s-]')),
-                                LengthLimitingTextInputFormatter(18),
-                              ],
-                              decoration: const InputDecoration(
-                                labelText: 'Phone number',
-                                prefixText: '+88',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.phone_outlined),
-                              ),
-                              validator: (v) {
-                                final value =
-                                (v ?? '').replaceAll(RegExp(r'[\s-]'), '');
-                                if (value.isEmpty) {
-                                  return 'Enter your phone number';
-                                }
-                                final digits =
-                                value.replaceAll(RegExp(r'[^0-9+]'), '');
-                                if (digits.replaceAll('+88', '').length != 11) {
-                                  return 'Enter a valid phone number';
-                                }
-                                return null;
-                              },
+                              enabled: _step == _AuthStep.enterPhone,
                             ),
+
                             const SizedBox(height: 14),
 
-                            // Password
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _obscure,
-                              autofillHints: const [AutofillHints.password],
-                              decoration: InputDecoration(
-                                labelText: 'Password',
-                                border: const OutlineInputBorder(),
-                                prefixIcon: const Icon(Icons.lock_outline),
-                                suffixIcon: IconButton(
-                                  onPressed: () =>
-                                      setState(() => _obscure = !_obscure),
-                                  icon: Icon(_obscure
-                                      ? Icons.visibility_off
-                                      : Icons.visibility),
-                                  tooltip: _obscure
-                                      ? 'Show password'
-                                      : 'Hide password',
-                                ),
+                            if (_step == _AuthStep.login) ...[
+                              PasswordField(
+                                controller: _passwordController,
+                                obscure: _obscure,
+                                onToggleObscure: () =>
+                                    setState(() => _obscure = !_obscure),
                               ),
-                              validator: (v) {
-                                if ((v ?? '').isEmpty) {
-                                  return 'Enter your password';
-                                }
-                                if ((v ?? '').length < 6) {
-                                  return 'Must be at least 6 characters';
-                                }
-                                return null;
-                              },
-                            ),
-
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: _onForgotPassword,
-                                child: const Text('Forgot password?'),
+                              const SizedBox(height: 18),
+                              PrimaryButton(
+                                label: _isLoading ? 'Logging in...' : 'Login',
+                                icon: Icons.login,
+                                loading: _isLoading,
+                                onPressed: _isLoading ? null : _login,
                               ),
-                            ),
-
-                            const SizedBox(height: 8),
-
-                            // Login button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 52,
-                              child: FilledButton.icon(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: AppColor.primaryColor,
-                                  foregroundColor: AppColor.whiteColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                            ] else if (_step == _AuthStep.verifyOtp) ...[
+                              if (_otpRemainingSeconds > 0) ...[
+                                // --- OTP code input (6 boxes) ---
+                                OtpCodeInput(
+                                  key: _otpFieldKey,
+                                  length: 6,
+                                  onChanged: (code) =>
+                                      _otpController.text = code,
+                                  onCompleted: (code) {
+                                    _otpController.text = code;
+                                    // optionally auto-submit:
+                                    // _verifyOtp();
+                                  },
                                 ),
-                                onPressed: _isLoading ? null : _onLogin,
-                                icon: _isLoading
-                                    ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2))
-                                    : const Icon(Icons.login),
-                                label: const Text(
-                                  'Log in',
-                                  style:
-                                  TextStyle(fontWeight: FontWeight.w600),
+                                const SizedBox(height: 10),
+
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.timer_outlined, size: 18),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Resend in ${_formatMmSs(_otpRemainingSeconds)}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                    ),
+                                  ],
                                 ),
+
+                                const SizedBox(height: 18),
+                                PrimaryButton(
+                                  label: _isLoading ? 'Verifying...' : 'Verify',
+                                  icon: Icons.verified_outlined,
+                                  loading: _isLoading,
+                                  onPressed: _isLoading ? null : _verifyOtp,
+                                ),
+                              ] else ...[
+                                // Timer over → hide OTP input and verify button; show ONLY Resend
+                                TextButton.icon(
+                                  onPressed: _isLoading
+                                      ? null
+                                      : () async {
+                                          await _startOrMoveToLogin(); // resend & restart timer
+                                        },
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Resend OTP'),
+                                ),
+                              ],
+                            ] else if (_step ==
+                                _AuthStep.completeRegistration) ...[
+                              NameField(controller: _nameController),
+                              const SizedBox(height: 12),
+                              EmailField(controller: _emailController),
+                              const SizedBox(height: 12),
+                              PasswordField(
+                                controller: _passwordController,
+                                obscure: _obscure,
+                                onToggleObscure: () =>
+                                    setState(() => _obscure = !_obscure),
                               ),
-                            ),
+                              const SizedBox(height: 12),
+                              ConfirmPasswordField(
+                                  controller: _confirmPasswordController),
+                              const SizedBox(height: 18),
+                              PrimaryButton(
+                                label: _isLoading ? 'Joining...' : 'Join us',
+                                icon: Icons.check_circle_outline,
+                                loading: _isLoading,
+                                onPressed:
+                                    _isLoading ? null : _completeRegistration,
+                              ),
+                            ] else ...[
+                              // _AuthStep.enterPhone
+                              PrimaryButton(
+                                label:
+                                    _isLoading ? 'Please wait...' : 'Join us',
+                                icon: Icons.person_add_alt_1_outlined,
+                                loading: _isLoading,
+                                onPressed:
+                                    _isLoading ? null : _startOrMoveToLogin,
+                              ),
+                            ],
 
                             const SizedBox(height: 16),
 
-                            // Divider
-                            Row(
-                              children: [
-                                Expanded(
-                                    child:
-                                    Divider(color: cs.outlineVariant)),
-                                const Padding(
-                                  padding:
-                                  EdgeInsets.symmetric(horizontal: 8.0),
-                                  child: Text('or'),
-                                ),
-                                Expanded(
-                                    child:
-                                    Divider(color: cs.outlineVariant)),
-                              ],
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // Sign up
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  "Don't have an account? ",
-                                  style: TextStyle(color: cs.onSurfaceVariant),
-                                ),
-                                TextButton(
-                                  onPressed: _onSignUp,
-                                  child: const Text('Sign up'),
-                                ),
+                                if (_step != _AuthStep.enterPhone)
+                                  TextButton.icon(
+                                    onPressed: _isLoading
+                                        ? null
+                                        : () {
+                                            _stopOtpTimer();
+                                            setState(() {
+                                              _step = _AuthStep.enterPhone;
+                                              _otpController.clear();
+                                              _passwordController.clear();
+                                              _confirmPasswordController
+                                                  .clear();
+                                              _otpToken = null;
+                                            });
+                                          },
+                                    icon: const Icon(Icons.arrow_back),
+                                    label: const Text('Change number'),
+                                  ),
                               ],
                             ),
                           ],
@@ -262,7 +538,30 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
+  String _titleForStep() {
+    switch (_step) {
+      case _AuthStep.enterPhone:
+        return 'Neuron Exam';
+      case _AuthStep.login:
+        return 'Welcome back';
+      case _AuthStep.verifyOtp:
+        return 'Verify your phone';
+      case _AuthStep.completeRegistration:
+        return 'Complete registration';
+    }
+  }
+
+  String _subtitleForStep() {
+    switch (_step) {
+      case _AuthStep.enterPhone:
+        return 'Enter your 11-digit phone number to get started';
+      case _AuthStep.login:
+        return 'Enter your password to login';
+      case _AuthStep.verifyOtp:
+        return 'Enter the OTP sent to your phone';
+      case _AuthStep.completeRegistration:
+        return 'Complete your registration details';
+    }
+  }
 }
-
-// keep your existing _GlassCard
-

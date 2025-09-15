@@ -9,7 +9,7 @@ void showDisciplineDialog(BuildContext context, String courseTitle,
   showDisciplineFacultyPickerDialog(
     context,
     title: courseTitle,
-    subtitle: 'Select a Disciple/Faculty to proceed.',
+    subtitle: 'Select a Discipline/Faculty to proceed.',
     icon: courseIcon,
     isBatch: isBatch,
     packages: packages, // Pass packages directly

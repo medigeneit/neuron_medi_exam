@@ -4,7 +4,6 @@ import 'package:medi_exam/data/utils/local_storage_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
-import 'package:medi_exam/presentation/widgets/custom_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/fancy_card_background.dart';
 
@@ -16,6 +15,15 @@ class ProfileSectionScreen extends StatefulWidget {
 }
 
 class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
+  // ---- Local values loaded from storage ----
+  String? _name;
+  String? _phone;
+  String? _photoUrl;
+
+  // Use your existing placeholder image URL when user photo is empty
+  static const String _kPlaceholderAvatarUrl =
+      'https://img.freepik.com/free-vector/doctor-character-background_1270-84.jpg?w=200&t=st=1720102342~exp=1720102942~hmac=2d2b5a7a9b3d8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8';
+
   final List<ProfileAction> _actions = [
     ProfileAction(
       icon: Icons.edit_rounded,
@@ -46,27 +54,42 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   bool _isLoggingOut = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadProfileFromStorage();
+  }
+
+  Future<void> _loadProfileFromStorage() async {
+    try {
+      final data =
+      await LocalStorageService.getObject(LocalStorageService.userData);
+      if (data is Map) {
+        setState(() {
+          _name = (data!['name'] as String?)?.trim();
+          _phone = (data!['phone_number'] as String?)?.trim();
+          _photoUrl = (data!['photo'] as String?)?.trim();
+        });
+      }
+    } catch (_) {
+      // ignore; keep defaults
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      child:  SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: Column(
-              children: [
-                // User Profile Card
-                _buildProfileCard(),
-                const SizedBox(height: 28),
-
-                // Actions Card
-                _buildActionsCard(),
-                const SizedBox(height: 28),
-
-                // Logout Button
-                _buildLogoutButton(),
-              ],
-            ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            children: [
+              _buildProfileCard(),
+              const SizedBox(height: 28),
+              _buildActionsCard(),
+              const SizedBox(height: 28),
+              _buildLogoutButton(),
+            ],
           ),
         ),
       ),
@@ -74,22 +97,26 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   }
 
   Widget _buildProfileCard() {
+    final displayName =
+    (_name != null && _name!.isNotEmpty) ? _name! : 'User Name';
+    final displayPhone = (_phone != null && _phone!.isNotEmpty) ? _phone! : '—';
+    final avatarUrl = (_photoUrl != null && _photoUrl!.isNotEmpty)
+        ? _photoUrl!
+        : _kPlaceholderAvatarUrl;
+
     return FancyBackground(
       gradient: AppColor.primaryGradient,
       child: Stack(
         children: [
           Column(
             children: [
-
+              // ---- Avatar ----
               Container(
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColor.whiteColor,
-                    width: 3,
-                  ),
+                  border: Border.all(color: AppColor.whiteColor, width: 3),
                   boxShadow: [
                     BoxShadow(
                       color: AppColor.secondaryColor.withOpacity(0.6),
@@ -116,7 +143,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                   children: [
                     ClipOval(
                       child: Image.network(
-                        'https://img.freepik.com/free-vector/doctor-character-background_1270-84.jpg?w=200&t=st=1720102342~exp=1720102942~hmac=2d2b5a7a9b3d8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8',
+                        avatarUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => Container(
                           decoration: BoxDecoration(
@@ -138,8 +165,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                         ),
                       ),
                     ),
-
-                    // Online status indicator
+                    // Online status
                     Positioned(
                       bottom: 6,
                       right: 6,
@@ -149,10 +175,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                         decoration: BoxDecoration(
                           color: Colors.green,
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColor.whiteColor,
-                            width: 2,
-                          ),
+                          border: Border.all(color: AppColor.whiteColor, width: 2),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.3),
@@ -168,9 +191,9 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
               ),
               const SizedBox(height: 20),
 
-              // User Name with modern typography
+              // ---- Name ----
               Text(
-                'Dr. Imrul Ibtehaz Orvee',
+                displayName,
                 style: TextStyle(
                   fontSize: Sizes.titleText(context),
                   fontWeight: FontWeight.w900,
@@ -189,10 +212,11 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
 
               const SizedBox(height: 16),
 
-              // Phone info with modern card
+              // ---- Phone ----
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 42),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
                   color: AppColor.whiteColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
@@ -218,7 +242,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      '+880 1234 567890',
+                      displayPhone,
                       style: TextStyle(
                         fontSize: Sizes.normalText(context),
                         fontWeight: FontWeight.w600,
@@ -229,14 +253,12 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                   ],
                 ),
               ),
-
             ],
           ),
         ],
       ),
     );
   }
-
 
   Widget _buildActionsCard() {
     return GlassCard(
@@ -254,7 +276,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
               ),
             ),
             const SizedBox(height: 20),
-
             ..._actions.map((action) => _buildActionTile(action)).toList(),
           ],
         ),
@@ -271,7 +292,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
             onTap: () => _handleActionTap(action),
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 gradient: LinearGradient(
@@ -283,7 +305,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
               ),
               child: Row(
                 children: [
-                  // Icon with gradient background
                   Container(
                     width: 48,
                     height: 48,
@@ -298,15 +319,9 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                       ),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      action.icon,
-                      color: action.color,
-                      size: 24,
-                    ),
+                    child: Icon(action.icon, color: action.color, size: 24),
                   ),
                   const SizedBox(width: 16),
-
-                  // Title
                   Expanded(
                     child: Text(
                       action.title,
@@ -317,8 +332,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                       ),
                     ),
                   ),
-
-                  // Arrow with gradient
                   Container(
                     width: 32,
                     height: 32,
@@ -326,11 +339,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                       gradient: AppColor.primaryGradient,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 16,
-                      color: AppColor.whiteColor,
-                    ),
+                    child: Icon(Icons.arrow_forward_ios_rounded,
+                        size: 16, color: AppColor.whiteColor),
                   ),
                 ],
               ),
@@ -353,7 +363,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
           onTap: _isLoggingOut ? null : _showLogoutConfirmation,
           borderRadius: BorderRadius.circular(18),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+            padding:
+            const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
             decoration: BoxDecoration(
               gradient: AppColor.warningGradient,
               borderRadius: BorderRadius.circular(18),
@@ -374,18 +385,16 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColor.whiteColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColor.whiteColor),
                 ),
               ),
             )
                 : Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.logout_rounded,
-                  size: 22,
-                  color: AppColor.whiteColor,
-                ),
+                Icon(Icons.logout_rounded,
+                    size: 22, color: AppColor.whiteColor),
                 const SizedBox(width: 12),
                 Text(
                   'Logout',
@@ -405,7 +414,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   }
 
   void _handleActionTap(ProfileAction action) {
-    // You can add any pre-navigation logic here
     Get.toNamed(action.route);
   }
 
@@ -419,7 +427,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Icon
               Container(
                 width: 60,
                 height: 60,
@@ -427,15 +434,10 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                   color: AppColor.purple.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.logout_rounded,
-                  size: 30,
-                  color: AppColor.purple,
-                ),
+                child: Icon(Icons.logout_rounded,
+                    size: 30, color: AppColor.purple),
               ),
               const SizedBox(height: 16),
-
-              // Title
               Text(
                 'Logout',
                 style: TextStyle(
@@ -445,8 +447,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-
-              // Message
               Text(
                 'Are you sure you want to logout?',
                 style: TextStyle(
@@ -456,8 +456,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-
-              // Buttons
               Row(
                 children: [
                   Expanded(
@@ -508,21 +506,10 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   }
 
   Future<void> _performLogout() async {
-    setState(() {
-      _isLoggingOut = true;
-    });
-
-    // Clear all data from local storage
+    setState(() => _isLoggingOut = true);
     await LocalStorageService.clearAll();
-
-    // Simulate logout process (optional delay)
     await Future.delayed(const Duration(seconds: 2));
-
-    setState(() {
-      _isLoggingOut = false;
-    });
-
-    // Navigate to public screen (home screen at index 2)
+    setState(() => _isLoggingOut = false);
     Get.offAllNamed(RouteNames.navBar, arguments: 2);
   }
 }

@@ -45,4 +45,11 @@ class AppColor {
     end: Alignment.topLeft,
   );
 
+
+  static  Gradient blueGradient = LinearGradient(
+    colors: [Colors.blue.shade600, Colors.blue.shade800],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
 }

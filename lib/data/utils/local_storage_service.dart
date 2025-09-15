@@ -14,6 +14,18 @@ class LocalStorageService {
   static const String deviceId = 'device_id';
   static const String platform = 'platform';
 
+
+  // NEW: auth/otp session keys
+  static const lastPhone = 'last_phone';
+  static const lastOtpCode = 'last_otp_code';
+  static const otpToken = 'otp_token';
+  static const lastOtpExpiresAt = 'otp_expires_at';      // ISO string
+  static const lastOtpVerifiedAt = 'otp_verified_at';    // ISO string
+  static const isLoggedIn = 'is_logged_in';              // "true"/"false"
+  static const loggedInAt = 'logged_in_at';              // ISO string
+  static const lastAuthSnapshot = 'last_auth_snapshot';  // JSON
+
+
   // Initialize
   static Future<void> init() async {
     _prefs ??= await SharedPreferences.getInstance();

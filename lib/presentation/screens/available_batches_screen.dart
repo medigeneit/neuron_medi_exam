@@ -4,7 +4,7 @@ import 'package:medi_exam/data/models/course_session_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/available_banner_card.dart';
-import 'package:medi_exam/presentation/widgets/available_screens_helpers.dart';
+import 'package:medi_exam/presentation/widgets/helpers/available_screens_helpers.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/header_info_container.dart';
 
