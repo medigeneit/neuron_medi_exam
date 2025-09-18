@@ -139,7 +139,7 @@ class SliderErrorWidget extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
-              errorMessage,
+              'Something went wrong',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -266,7 +266,7 @@ class BatchErrorWidget extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              errorMessage,
+              'Something went wrong',
               style: TextStyle(
                 color: isDark ? Colors.grey[400] : Colors.grey[600],
                 fontSize: 14,

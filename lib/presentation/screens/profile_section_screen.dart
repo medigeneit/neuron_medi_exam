@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:medi_exam/data/services/auth_service.dart';
 import 'package:medi_exam/data/utils/local_storage_service.dart';
+import 'package:medi_exam/data/utils/notice_read_store.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/fancy_card_background.dart';
 
@@ -420,85 +423,97 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   void _showLogoutConfirmation() {
     Get.dialog(
       Dialog(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.all(20),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: AppColor.purple.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.logout_rounded,
-                    size: 30, color: AppColor.purple),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Logout',
-                style: TextStyle(
-                  fontSize: Sizes.subTitleText(Get.context!),
-                  fontWeight: FontWeight.w800,
-                  color: AppColor.primaryTextColor,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Are you sure you want to logout?',
-                style: TextStyle(
-                  fontSize: Sizes.bodyText(Get.context!),
-                  color: AppColor.secondaryTextColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Get.back(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        side: BorderSide(color: AppColor.primaryColor),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: 600,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: CustomBlobBackground(
+              backgroundColor: Colors.white,
+              blobColor: AppColor.purple,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: AppColor.purple.withOpacity(0.1),
+                        shape: BoxShape.circle,
                       ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: AppColor.primaryColor,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Icon(Icons.logout_rounded,
+                          size: 30, color: AppColor.purple),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Logout',
+                      style: TextStyle(
+                        fontSize: Sizes.subTitleText(Get.context!),
+                        fontWeight: FontWeight.w800,
+                        color: AppColor.primaryTextColor,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Get.back();
-                        _performLogout();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColor.purple,
-                        foregroundColor: AppColor.whiteColor,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
+                    const SizedBox(height: 8),
+                    Text(
+                      'Are you sure you want to logout?',
+                      style: TextStyle(
+                        fontSize: Sizes.bodyText(Get.context!),
+                        color: AppColor.secondaryTextColor,
                       ),
-                      child: const Text('Logout'),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Get.back(),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              side: BorderSide(color: AppColor.primaryColor),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: AppColor.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Get.back();
+                              _performLogout();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColor.purple,
+                              foregroundColor: AppColor.whiteColor,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: const Text('Logout'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -507,9 +522,22 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
 
   Future<void> _performLogout() async {
     setState(() => _isLoggingOut = true);
-    await LocalStorageService.clearAll();
-    await Future.delayed(const Duration(seconds: 2));
+
+    // 1) Capture the user id *before* clearing anything
+    final userId = await AuthService.getCurrentUserIdOrNull();
+
+    // 2) Build the exception set (keep this user's read ids)
+    final except = <String>{ NoticeReadStore.keyForUser(userId) };
+
+    // 3) Clear everything else, but preserve read flags for this user
+    await LocalStorageService.clearAll(exceptKeys: except);
+
+    // (Optional) small UX delay
+    // await Future.delayed(const Duration(milliseconds: 400));
+
     setState(() => _isLoggingOut = false);
+
+    // 4) Navigate out
     Get.offAllNamed(RouteNames.navBar, arguments: 2);
   }
 }

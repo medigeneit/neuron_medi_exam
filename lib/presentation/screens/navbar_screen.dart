@@ -7,6 +7,7 @@ import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
 import 'package:medi_exam/presentation/screens/home_screen.dart';
 import 'package:medi_exam/presentation/screens/notice_screen.dart';
 import 'package:medi_exam/presentation/screens/profile_section_screen.dart';
+import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/custom_nav_bar.dart';
@@ -66,14 +67,17 @@ class _NavBarScreenState extends State<NavBarScreen> {
       if (!isAuthenticated) {
         // Navigate to login and pass the intended destination
         Get.snackbar('Login Required', 'Please log in to access this section.',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: Colors.redAccent.withOpacity(0.8),
-            colorText: Colors.white);
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            duration: Duration(seconds: 2)
+        );
         Get.toNamed(
           RouteNames.login,
           arguments: {
             'returnRoute': RouteNames.navBar,
             'returnArguments': index,
+            'message': "Join us to access your personalized features."
           },
         );
         return;
@@ -111,13 +115,13 @@ class _NavBarScreenState extends State<NavBarScreen> {
       case 1:
         return 'Courses';
       case 2:
-        return 'Neuron Exam';
+        return '${AssetsPath.appName}';
       case 3:
         return 'Notice';
       case 4:
         return 'Profile';
       default:
-        return 'Neuron Exam';
+        return '${AssetsPath.appName}';
     }
   }
 

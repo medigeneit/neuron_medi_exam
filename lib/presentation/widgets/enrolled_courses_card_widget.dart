@@ -1,110 +1,138 @@
 import 'package:flutter/material.dart';
-import 'package:medi_exam/data/models/enrolled_course_item.dart';
+import 'package:get/get.dart';
+import 'package:medi_exam/data/models/all_enrolled_batches_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 
 import 'fancy_card_background.dart';
+import 'dart:math' as math;
 
 class EnrolledCourseCard extends StatelessWidget {
-  final EnrolledCourseItem courseItem;
+  final EnrolledBatch batch;
 
   const EnrolledCourseCard({
     super.key,
-    required this.courseItem,
+    required this.batch,
   });
 
-  Gradient _getGradientByStatus(CourseStatus status) {
-    switch (status) {
-      case CourseStatus.active:
-        return AppColor.secondaryGradient;
-      case CourseStatus.unpaid:
-        return AppColor.warningGradient;
-      case CourseStatus.previous:
-        return AppColor.silverGradient;
-    }
+  // --- Helpers: status mapping ---
+  String get _status => (batch.paymentStatus ?? '').trim().toLowerCase();
+
+  bool get _isCompleted => _status == 'completed';
+  bool get _isNoPayment => _status == 'no payment';
+  bool get _isPrevious => _status == 'previous';
+
+  // Fallback title: batchName → courseName → 'Unnamed Batch'
+  String get _title {
+    if ((batch.batchName ?? '').isNotEmpty) return batch.batchName!;
+    if ((batch.courseName ?? '').isNotEmpty) return batch.courseName!;
+    return 'Unnamed Batch';
+    // If your model exposed displayName getter, you could use it here instead.
   }
 
-  Color _getStatusColor(CourseStatus status) {
-    switch (status) {
-      case CourseStatus.active:
-        return AppColor.purple;
-      case CourseStatus.unpaid:
-        return AppColor.orangeColor;
-      case CourseStatus.previous:
-        return AppColor.greyColor;
-    }
-  }
-  Color _getTextColor(CourseStatus status) {
-    switch (status) {
-      case CourseStatus.active:
-        return AppColor.whiteColor;
-      case CourseStatus.unpaid:
-        return AppColor.whiteColor;
-      case CourseStatus.previous:
-        return Colors.black54;
-    }
+  double get _progress {
+    final p = (batch.progressCount ?? 0).toDouble();
+    // assume 0..100
+    return (math.max(0, math.min(100, p))) / 100.0;
   }
 
-  Widget _buildActionButton(CourseStatus status, BuildContext context) {
-    switch (status) {
-      case CourseStatus.active:
-        return OutlinedButton(
-          onPressed: courseItem.onContinue,
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: AppColor.whiteColor.withOpacity(0.7)),
-            foregroundColor: AppColor.whiteColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  // --- UI style mapping ---
+  Gradient get _gradient {
+    if (_isCompleted) return AppColor.secondaryGradient;
+    if (_isNoPayment) return AppColor.warningGradient;
+    return AppColor.silverGradient; // previous / default
+  }
+
+  Color get _statusColor {
+    if (_isCompleted) return AppColor.purple;
+    if (_isNoPayment) return AppColor.orangeColor;
+    return AppColor.greyColor; // previous / default
+  }
+
+  Color get _textColor {
+    if (_isCompleted) return AppColor.whiteColor;
+    if (_isNoPayment) return AppColor.whiteColor;
+    return Colors.black54; // previous
+  }
+
+  // --- Actions ---
+  Widget _buildActionButton(BuildContext context) {
+    if (_isCompleted) {
+      return OutlinedButton(
+        onPressed: () {
+          // TODO: route to continue learning screen
+          // e.g., Get.toNamed(RouteNames.batchDetails, arguments: batch);
+        },
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: AppColor.whiteColor.withOpacity(0.7)),
+          foregroundColor: AppColor.whiteColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+        child: const Text(
+          'Continue',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+            color: AppColor.whiteColor,
           ),
-          child: const Text(
-            'Continue',
-            style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-                color: AppColor.whiteColor),
-          ),
-        );
-      case CourseStatus.unpaid:
-        return OutlinedButton(
-          onPressed: () {},
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: AppColor.whiteColor.withOpacity(0.7)),
-            foregroundColor: AppColor.whiteColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          ),
-          child: const Text(
-            'Pay Now',
-            style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-                color: AppColor.whiteColor),
-          ),
-        );
-      case CourseStatus.previous:
-        return OutlinedButton(
-          onPressed: () {},
-          style: OutlinedButton.styleFrom(
-            side: BorderSide(color: _getTextColor(courseItem.status).withOpacity(0.7)),
-            foregroundColor: _getTextColor(courseItem.status),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          ),
-          child: Text(
-            'Check Result',
-            style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-                color: _getTextColor(courseItem.status)),
-          ),
-        );
+        ),
+      );
     }
+
+    if (_isNoPayment) {
+      return OutlinedButton(
+        onPressed: () {
+          // TODO: route to payment screen
+          final paymentData = {
+            'admissionId': batch!.id ?? '', // safe pass-through
+          };
+          Get.toNamed(
+            RouteNames.makePayment,
+            arguments: paymentData,
+            preventDuplicates: true,
+          );
+          // e.g., Get.toNamed(RouteNames.payment, arguments: batch);
+        },
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: AppColor.whiteColor.withOpacity(0.7)),
+          foregroundColor: AppColor.whiteColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+        child: const Text(
+          'Pay Now',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+            color: AppColor.whiteColor,
+          ),
+        ),
+      );
+    }
+
+    // previous
+    return OutlinedButton(
+      onPressed: () {
+        // TODO: open result screen
+        // e.g., Get.toNamed(RouteNames.result, arguments: batch);
+      },
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: _textColor.withOpacity(0.7)),
+        foregroundColor: _textColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      ),
+      child: Text(
+        'Check Result',
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          color: _textColor,
+        ),
+      ),
+    );
   }
 
   void _showCourseDetails(BuildContext context) {
@@ -116,108 +144,113 @@ class EnrolledCourseCard extends StatelessWidget {
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         return ScaleTransition(
-          scale: CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutBack,
-          ),
+          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
           child: FadeTransition(
             opacity: animation,
             child: Dialog(
               backgroundColor: Colors.transparent,
               insetPadding: const EdgeInsets.all(20),
-              child: CustomBlobBackground(
-                blobColor: _getStatusColor(courseItem.status),
-                backgroundColor: AppColor.whiteColor,
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header with icon and title
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 600,
+                ),
+                child: CustomBlobBackground(
+                  blobColor: _statusColor,
+                  backgroundColor: AppColor.whiteColor,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header with icon and title
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: _statusColor.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.school_rounded,
+                                    color: _statusColor,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                 Text(
+                                  'Batch Details',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColor.primaryTextColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: _getStatusColor(courseItem.status)
-                                      .withOpacity(0.1),
+                                  color: Colors.grey.withOpacity(0.1),
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(
-                                  Icons.school_rounded,
-                                  color: _getStatusColor(courseItem.status),
-                                  size: 24,
-                                ),
+                                child: const Icon(Icons.close, size: 20),
                               ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Batch Details',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColor.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                          IconButton(
-                            icon: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close, size: 20),
+                              onPressed: () => Navigator.pop(context),
+                              color: AppColor.greyColor,
                             ),
-                            onPressed: () => Navigator.pop(context),
-                            color: AppColor.greyColor,
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // Course info with improved styling
-                      _buildDetailCard(
-                        icon: Icons.class_rounded,
-                        label: 'Course',
-                        value: courseItem.courseName,
-                        color: _getStatusColor(courseItem.status),
-                      ),
+                        _buildDetailCard(
+                          icon: Icons.class_rounded,
+                          label: 'Course',
+                          value: (batch.courseName ?? '—'),
+                          color: _statusColor,
+                        ),
+                        const SizedBox(height: 16),
 
-                      const SizedBox(height: 16),
+                        _buildDetailCard(
+                          icon: Icons.layers_rounded,
+                          label: 'Discipline/Faculty',
+                          value: (batch.coursePackageName ?? '—'),
+                          color: _statusColor,
+                        ),
+                        const SizedBox(height: 16),
 
-                      _buildDetailCard(
-                        icon: Icons.medical_services_rounded,
-                        label: 'Discipline',
-                        value: courseItem.disciplineName,
-                        color: _getStatusColor(courseItem.status),
-                      ),
+                /*                      _buildDetailCard(
+                          icon: Icons.group_rounded,
+                          label: 'Batch',
+                          value: (batch.batchName ?? '—'),
+                          color: _statusColor,
+                        ),
+                        const SizedBox(height: 16),*/
 
-                      const SizedBox(height: 16),
+                        _buildDetailCard(
+                          icon: Icons.calendar_today_rounded,
+                          label: 'Session',
+                          value: (batch.year ?? '—'),
+                          color: _statusColor,
+                        ),
+                        const SizedBox(height: 16),
 
-                      _buildDetailCard(
-                        icon: Icons.schedule_rounded,
-                        label: 'Session',
-                        value: courseItem.sessionName,
-                        color: _getStatusColor(courseItem.status),
-                      ),
+                        _buildDetailCard(
+                          icon: Icons.confirmation_number_rounded,
+                          label: 'Reg No',
+                          value: (batch.regNo ?? '—'),
+                          color: _statusColor,
+                        ),
 
-                      const SizedBox(height: 16),
-
-                      _buildDetailCard(
-                        icon: Icons.confirmation_number_rounded,
-                        label: 'Reg No',
-                        value: courseItem.regNo,
-                        color: _getStatusColor(courseItem.status),
-                      ),
-
-                      const SizedBox(height: 24),
-                    ],
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -228,7 +261,7 @@ class EnrolledCourseCard extends StatelessWidget {
     );
   }
 
-// Enhanced detail row with card style
+  // Enhanced detail row with card style
   Widget _buildDetailCard({
     required IconData icon,
     required String label,
@@ -253,11 +286,7 @@ class EnrolledCourseCard extends StatelessWidget {
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 18,
-            ),
+            child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -289,11 +318,10 @@ class EnrolledCourseCard extends StatelessWidget {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return FancyBackground(
-      gradient: _getGradientByStatus(courseItem.status),
+      gradient: _gradient,
       boxShadow: [
         BoxShadow(
           color: Colors.black.withOpacity(0.1),
@@ -310,9 +338,9 @@ class EnrolledCourseCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  courseItem.title,
+                  _title,
                   style: TextStyle(
-                    color:  _getTextColor(courseItem.status),
+                    color: _textColor,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     height: 1.3,
@@ -322,8 +350,7 @@ class EnrolledCourseCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon:  Icon(Icons.info_outline_rounded,
-                    color: _getTextColor(courseItem.status), size: 20),
+                icon: Icon(Icons.info_outline_rounded, color: _textColor, size: 20),
                 onPressed: () => _showCourseDetails(context),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -335,9 +362,9 @@ class EnrolledCourseCard extends StatelessWidget {
 
           // Registration number
           Text(
-            'Reg: ${courseItem.regNo}',
+            'Reg: ${batch.regNo ?? '—'}',
             style: TextStyle(
-              color: _getTextColor(courseItem.status),
+              color: _textColor,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -355,15 +382,15 @@ class EnrolledCourseCard extends StatelessWidget {
                   Text(
                     'Progress',
                     style: TextStyle(
-                      color: _getTextColor(courseItem.status),
+                      color: _textColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   Text(
-                    '${(courseItem.progress * 100).toStringAsFixed(0)}%',
+                    '${(_progress * 100).toStringAsFixed(0)}%',
                     style: TextStyle(
-                      color: _getTextColor(courseItem.status),
+                      color: _textColor,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -382,16 +409,14 @@ class EnrolledCourseCard extends StatelessWidget {
                   children: [
                     LayoutBuilder(
                       builder: (context, constraints) => Container(
-                        width: constraints.maxWidth * courseItem.progress,
+                        width: constraints.maxWidth * _progress,
                         decoration: BoxDecoration(
-                          color: courseItem.status == CourseStatus.previous
-                              ? _getTextColor(courseItem.status)
-                              : _getTextColor(courseItem.status),
+                          color: _textColor,
                           borderRadius: BorderRadius.circular(3),
                           boxShadow: [
-                            if (courseItem.status != CourseStatus.previous)
+                            if (!_isPrevious)
                               BoxShadow(
-                                color: _getTextColor(courseItem.status).withOpacity(0.5),
+                                color: _textColor.withOpacity(0.5),
                                 blurRadius: 4,
                                 spreadRadius: 1,
                               ),
@@ -408,8 +433,9 @@ class EnrolledCourseCard extends StatelessWidget {
           const SizedBox(height: 16),
 
           Align(
-              alignment: Alignment.center,
-              child: _buildActionButton(courseItem.status, context)),
+            alignment: Alignment.center,
+            child: _buildActionButton(context),
+          ),
         ],
       ),
     );

@@ -32,6 +32,10 @@ class Sizes {
     return Responsive.isMobile(context) ? 18 : (Responsive.isTablet(context) ? 20 : 22);
   }
 
+  static double bigText(BuildContext context) {
+    return Responsive.isMobile(context) ? 28 : (Responsive.isTablet(context) ? 30 : 32);
+  }
+
   static double headingText(BuildContext context) {
     return Responsive.isMobile(context) ? 24 : (Responsive.isTablet(context) ? 26 : 28);
   }
@@ -69,20 +73,24 @@ class Sizes {
     return Responsive.isMobile(context) ? 44 : (Responsive.isTablet(context) ? 60 : 72);
   }
 
-  static double normalIcon(BuildContext context) {
+  static double bigIcon(BuildContext context) {
     return Responsive.isMobile(context) ? 30 : (Responsive.isTablet(context) ? 32 : 34);
   }
 
-  static double smallIcon(BuildContext context) {
+  static double normalIcon(BuildContext context) {
     return Responsive.isMobile(context) ? 26 : (Responsive.isTablet(context) ? 28 : 30);
   }
 
-  static double verySmallIcon(BuildContext context) {
+  static double smallIcon(BuildContext context) {
     return Responsive.isMobile(context) ? 20 : (Responsive.isTablet(context) ? 22 : 26);
   }
 
+  static double verySmallIcon(BuildContext context) {
+    return Responsive.isMobile(context) ? 18 : (Responsive.isTablet(context) ? 20 : 24);
+  }
+
   static double extraSmallIcon(BuildContext context) {
-    return Responsive.isMobile(context) ? 16 : (Responsive.isTablet(context) ? 20 : 22);
+    return Responsive.isMobile(context) ? 16 : (Responsive.isTablet(context) ? 18 : 22);
   }
 
   static double veryExtraSmallIcon(BuildContext context) {

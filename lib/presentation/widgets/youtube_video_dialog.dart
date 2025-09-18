@@ -53,7 +53,7 @@ class _YouTubeVideoDialogState extends State<YouTubeVideoDialog> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(
           maxHeight: 250,
-          maxWidth: 800,
+          maxWidth: 600,
         ),
         child: Container(
           decoration: BoxDecoration(

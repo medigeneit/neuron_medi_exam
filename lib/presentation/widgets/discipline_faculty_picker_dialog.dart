@@ -183,7 +183,7 @@ class _header extends StatelessWidget {
         Row(
           crossAxisAlignment:  CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: Sizes.verySmallIcon(context), color: Colors.white),
+            Icon(icon, size: Sizes.smallIcon(context), color: Colors.white),
             const SizedBox(width: 6),
             Expanded(
               child: Text(

@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:medi_exam/data/models/batch_schedule_model.dart';
 import 'package:medi_exam/data/services/batch_schedule_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/data/utils/payment_navigator.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
@@ -34,6 +35,8 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
   bool _isLoading = true;
   String _errorMessage = '';
   BatchScheduleModel? _schedule;
+
+  bool _isPrinting = false;
 
   // From arguments (if provided)
   late String batchId;
@@ -76,7 +79,7 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
     }
 
     // ✅ use the actual batchPackageId (was hardcoded "3")
-    final response = await _service.fetchBatchSchedule('3');
+    final response = await _service.fetchBatchSchedule(batchPackageId);
     if (!mounted) return;
 
     if (response.isSuccess && response.responseData is BatchScheduleModel) {
@@ -95,11 +98,14 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
 
 
   Future<void> _onPrintPressed() async {
+    if (_isPrinting) return; // guard
+    setState(() => _isPrinting = true);
+
     try {
       final bytes = await _buildSchedulePdf();
       await Printing.layoutPdf(
         onLayout: (format) async => bytes,
-        name: 'Batch_Schedule.pdf',
+        name: '$title-Schedule.pdf',
       );
     } catch (e) {
       Get.snackbar(
@@ -109,6 +115,8 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
         backgroundColor: Colors.red.shade100,
         colorText: Colors.black,
       );
+    } finally {
+      if (mounted) setState(() => _isPrinting = false); // NEW
     }
   }
 
@@ -425,7 +433,10 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
 
                           // Top-right print action (only when data is ready)
                           if (!_isLoading && _errorMessage.isEmpty)
-                            PrintButton(onPressed: _onPrintPressed),
+                            PrintButton(
+                              onPressed: _onPrintPressed,
+                              isLoading: _isPrinting,
+                            ),
                         ],
                       ),
                     ),
@@ -469,18 +480,17 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
                 child: GradientCTA(
                   colors: gradientButtonColors,
                   onTap: () {
-                    // Same behavior as BatchDetailsScreen
-                    final paymentData = {
-                      'batchId': batchId,
-                      'coursePackageId': coursePackageId,
-                      'title': headerTitle,
-                      'subTitle': headerSubtitle,
-                      'imageUrl': banner,
-                      'time': time,
-                      'days': days,
-                      'startDate': startDate,
-                    };
-                    Get.toNamed(RouteNames.makePayment, arguments: paymentData);
+                    onEnrollPressed(
+                      batchId: batchId,
+                      coursePackageId: coursePackageId,
+                      batchPackageId: batchPackageId,
+                      title: headerTitle,
+                      subTitle: headerSubtitle,
+                      imageUrl: banner,
+                      time: time,
+                      days: days,
+                      startDate: startDate,
+                    );
                   },
                 ),
               ),

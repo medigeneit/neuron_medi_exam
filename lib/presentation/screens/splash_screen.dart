@@ -135,12 +135,23 @@ class _SplashScreenState extends State<SplashScreen>
                     const LoadingWidget(),
                     const SizedBox(height: 40),
                     Text(
-                      'Welcome to Neuron',
+                      'Welcome to ${AssetsPath.appName}',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppColor.primaryColor,
                         fontSize: Sizes.subTitleText(context),
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      AssetsPath.appTagline,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        letterSpacing: 0.8,
+                        color: AppColor.primaryColor.withOpacity(0.6),
+                        fontSize: Sizes.normalText(context),
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],

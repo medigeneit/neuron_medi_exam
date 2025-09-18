@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:medi_exam/data/models/enrolled_course_item.dart';
+import 'package:get/get.dart';
+
+import 'package:medi_exam/data/models/all_enrolled_batches_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
@@ -16,10 +18,50 @@ class _EnrolledCoursesScreenState extends State<EnrolledCoursesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  // Full list and buckets
+  late final List<EnrolledBatch> _all;
+  late final List<EnrolledBatch> _active;   // payment_status == completed
+  late final List<EnrolledBatch> _unpaid;   // payment_status == No Payment
+  late final List<EnrolledBatch> _previous; // payment_status == previous
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+
+    // Parse the navigation argument(s)
+    final args = Get.arguments;
+    _all = _parseArgs(args);
+
+    // Split into tabs by payment_status
+    String norm(String? s) => (s ?? '').trim().toLowerCase();
+    _active   = _all.where((b) => norm(b.paymentStatus) == 'completed').toList();
+    _unpaid   = _all.where((b) => norm(b.paymentStatus) == 'no payment').toList();
+    _previous = _all.where((b) => norm(b.paymentStatus) == 'previous').toList();
+  }
+
+  List<EnrolledBatch> _parseArgs(dynamic a) {
+    if (a == null) return <EnrolledBatch>[];
+
+    if (a is List<EnrolledBatch>) return a;
+
+    if (a is AllEnrolledBatchesModel) {
+      return a.enrolledBatches ?? <EnrolledBatch>[];
+    }
+
+    if (a is List) {
+      // Be generous and convert from maps if needed
+      return a.map<EnrolledBatch?>((e) {
+        if (e is EnrolledBatch) return e;
+        if (e is Map<String, dynamic>) return EnrolledBatch.fromJson(e);
+        if (e is Map) {
+          return EnrolledBatch.fromJson(Map<String, dynamic>.from(e));
+        }
+        return null;
+      }).whereType<EnrolledBatch>().toList();
+    }
+
+    return <EnrolledBatch>[];
   }
 
   @override
@@ -34,18 +76,8 @@ class _EnrolledCoursesScreenState extends State<EnrolledCoursesScreen>
       title: 'Enrolled Courses',
       body: Column(
         children: [
-          // Custom Tab Bar with gradient background
+          // Tab Bar
           Container(
-/*            decoration: BoxDecoration(
-              gradient: AppColor.primaryGradient,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),*/
             child: TabBar(
               controller: _tabController,
               indicator: BoxDecoration(
@@ -81,28 +113,28 @@ class _EnrolledCoursesScreenState extends State<EnrolledCoursesScreen>
             ),
           ),
 
-          // Tab Bar View
+          // Tab views
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                // Active Courses Tab
+                // Active (completed)
                 _buildCourseList(
-                  courses: DemoEnrolledCourses.activeCourses,
+                  courses: _active,
                   emptyMessage: 'No active courses found',
                   emptyIcon: Icons.play_circle_outline_rounded,
                 ),
 
-                // Unpaid Courses Tab
+                // Unpaid (No Payment)
                 _buildCourseList(
-                  courses: DemoEnrolledCourses.unpaidCourses,
+                  courses: _unpaid,
                   emptyMessage: 'No unpaid courses',
                   emptyIcon: Icons.payment_outlined,
                 ),
 
-                // Previous Courses Tab
+                // Previous
                 _buildCourseList(
-                  courses: DemoEnrolledCourses.previousCourses,
+                  courses: _previous,
                   emptyMessage: 'No previous courses',
                   emptyIcon: Icons.history_toggle_off_rounded,
                 ),
@@ -115,7 +147,7 @@ class _EnrolledCoursesScreenState extends State<EnrolledCoursesScreen>
   }
 
   Widget _buildCourseList({
-    required List<EnrolledCourseItem> courses,
+    required List<EnrolledBatch> courses,
     required String emptyMessage,
     required IconData emptyIcon,
   }) {
@@ -156,10 +188,10 @@ class _EnrolledCoursesScreenState extends State<EnrolledCoursesScreen>
       physics: const BouncingScrollPhysics(),
       itemCount: courses.length,
       itemBuilder: (context, index) {
-        final course = courses[index];
+        final batch = courses[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: EnrolledCourseCard(courseItem: course),
+          child: EnrolledCourseCard(batch: batch), // ← uses real model
         );
       },
     );

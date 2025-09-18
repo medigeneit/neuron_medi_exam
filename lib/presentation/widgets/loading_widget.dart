@@ -16,11 +16,11 @@ class LoadingWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LoadingAnimationWidget.discreteCircle(
+    return LoadingAnimationWidget.fourRotatingDots(
       color: color ?? AppColor.primaryColor.withOpacity(0.7),
       size: size ?? Sizes.loaderBig(context) ,
-      secondRingColor: AppColor.secondaryColor,
-      thirdRingColor: AppColor.secondaryColor.withOpacity(0.5),
+/*      secondRingColor: AppColor.secondaryColor,
+      thirdRingColor: AppColor.secondaryColor.withOpacity(0.5),*/
     );
   }
 }

@@ -9,10 +9,17 @@ class Urls {
   static const String registerVerify = "${_baseUrl}register/verify";
   static const String registerComplete = "${_baseUrl}register/complete";
 
-  // ===== Other APIs you already had =====
+
   static const String allBatchCourses = "${_baseUrl}batch-courses";
   static const String activeBatchCourses = "${_baseUrl}active-batch-courses";
   static const String slider = "${_baseUrl}hero-slider";
+  static const String noticeList = "${_baseUrl}notices";
+  static const String allEnrolledBatches = "${_baseUrl}doctor/admission-batches";
+
+
+  static String noticeDetails(String noticeId) {
+    return "${_baseUrl}notices/$noticeId";
+  }
 
   static String courseSession(String coursePackageId) {
     return "${_baseUrl}batches/course-package/$coursePackageId";
@@ -29,4 +36,9 @@ class Urls {
   static String batchEnroll(String batchPackageId) {
     return "${_baseUrl}doctor/enroll/batch-package/$batchPackageId";
   }
+
+  static String paymentDetails(String admissionId) {
+    return "${_baseUrl}doctor/admission-batch-payment/$admissionId";
+  }
+
 }

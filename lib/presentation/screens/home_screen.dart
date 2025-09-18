@@ -3,11 +3,14 @@ import 'package:medi_exam/data/models/courses_model.dart';
 import 'package:medi_exam/data/models/slide_items_model.dart';
 import 'package:medi_exam/data/services/active_batch_courses_service.dart';
 import 'package:medi_exam/data/services/slide_items_service.dart';
-import 'package:medi_exam/presentation/widgets/coming_soon_widget.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
+import 'package:medi_exam/presentation/widgets/coming_soon_widget.dart';
+import 'package:medi_exam/presentation/widgets/floating_customer_care.dart';
 import 'package:medi_exam/presentation/widgets/helpers/home_screen_helpers.dart';
+
 import '../widgets/image_slider_banner.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -74,7 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       } else {
         setState(() {
-          _slidingErrorMessage = response.errorMessage ?? 'Failed to load slides';
+          _slidingErrorMessage =
+              response.errorMessage ?? 'Failed to load slides';
         });
       }
     } catch (e) {
@@ -107,86 +111,103 @@ class _HomeScreenState extends State<HomeScreen> {
     final width = MediaQuery.of(context).size.width;
     final isMobile = width < 600;
 
-    return Container(
-      child: RefreshIndicator(
-        onRefresh: _fetchData,
-        color: AppColor.primaryColor,
-        backgroundColor: isDark ? Colors.grey[800] : Colors.white,
-        child: CustomScrollView(
-          slivers: [
-            // Header with subtle gradient
-            SliverToBoxAdapter(
-              child: Container(
-                decoration: BoxDecoration(
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome to Neuron Exam',
-                      style: TextStyle(
-                        fontSize: Sizes.subTitleText(context),
-                        fontWeight: FontWeight.bold,
-                        color: AppColor.primaryColor,
-                      ),
+    return Stack(
+      children: [
+        // Your current scrollable content
+        Container(
+          child: RefreshIndicator(
+            onRefresh: _fetchData,
+            color: AppColor.primaryColor,
+            backgroundColor: isDark ? Colors.grey[800] : Colors.white,
+            child: CustomScrollView(
+              slivers: [
+                // Header with subtle gradient
+                SliverToBoxAdapter(
+                  child: Container(
+                    decoration: BoxDecoration(),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome to ${AssetsPath.appName}',
+                          style: TextStyle(
+                            fontSize: Sizes.subTitleText(context),
+                            fontWeight: FontWeight.bold,
+                            color: AppColor.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Prepare for your medical exams with expert courses',
+                          style: TextStyle(
+                            fontSize: Sizes.normalText(context),
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Prepare for your medical exams with expert courses',
-                      style: TextStyle(
-                        fontSize: Sizes.normalText(context),
-                        color: Colors.grey[600],
-                      ),
+                  ),
+                ),
+
+                // Slider Section
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 16 : 24,
+                      vertical: 16,
                     ),
-                  ],
+                    child: _buildSliderSection(),
+                  ),
                 ),
-              ),
-            ),
 
-            // Slider Section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 16 : 24,
-                  vertical: 16,
+                // Courses Section
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 16 : 24,
+                      vertical: 8,
+                    ),
+                    child: _buildCoursesSection(),
+                  ),
                 ),
-                child: _buildSliderSection(),
-              ),
-            ),
 
-            // Courses Section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 16 : 24,
-                  vertical: 8,
+                // Coming Soon Section
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 16 : 24,
+                      vertical: 8,
+                    ),
+                    child: ComingSoonWidget(
+                      title: "Subject Wise Preparation",
+                      isBatch: false,
+                    ),
+                  ),
                 ),
-                child: _buildCoursesSection(),
-              ),
-            ),
 
-            // Coming Soon Section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 16 : 24,
-                  vertical: 8,
-                ),
-                child: ComingSoonWidget(
-                  title: "Subject Wise Preparation",
-                  isBatch: false,
-                ),
-              ),
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
+              ],
             ),
-
-            // Bottom spacing
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 32),
-            ),
-          ],
+          ),
         ),
-      ),
+
+        // 💬 Floating Customer Care (bottom-right)
+        Positioned.fill(
+          child: IgnorePointer(
+            ignoring: false,
+            child: Align(
+              alignment: Alignment.bottomRight,
+              child: FloatingCustomerCare(
+                messengerUrl: 'https://www.facebook.com/messages/t/168865486570992',
+                whatsappPhone: '8801795331001', // without '+'
+                phoneNumber: '+8801795331001',
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -232,7 +253,3 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 }
-
-
-
-

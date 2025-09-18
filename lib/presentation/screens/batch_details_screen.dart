@@ -3,7 +3,9 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/batch_details_model.dart';
 import 'package:medi_exam/data/services/batch_details_service.dart';
+import 'package:medi_exam/data/utils/auth_checker.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/data/utils/payment_navigator.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
@@ -293,7 +295,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                                     Icon(
                                       Icons.calendar_month_rounded,
                                       color: Colors.white,
-                                      size: Sizes.verySmallIcon(context),
+                                      size: Sizes.smallIcon(context),
                                     ),
                                     SizedBox(width: 12),
                                     Text(
@@ -384,18 +386,17 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
               child: GradientCTA(
                 colors: gradientButtonColors,
                 onTap: () {
-                  // Same behavior as BatchDetailsScreen
-                  final paymentData = {
-                    'batchId': batchId,
-                    'coursePackageId': coursePackageId,
-                    'title': title,
-                    'subTitle': subTitle,
-                    'imageUrl': imageUrl,
-                    'time': time,
-                    'days': days,
-                    'startDate': startDate,
-                  };
-                  Get.toNamed(RouteNames.makePayment, arguments: paymentData);
+                  onEnrollPressed(
+                    batchId: batchId,
+                    coursePackageId: coursePackageId,
+                    batchPackageId: _batchDetails?.batchPackageId?.toString() ?? '',
+                    title: title,
+                    subTitle: subTitle,
+                    imageUrl: imageUrl,
+                    time: time,
+                    days: days,
+                    startDate: startDate,
+                  );
                 },
               ),
             ),

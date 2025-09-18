@@ -1,32 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:medi_exam/data/models/notice_item.dart';
+import 'package:medi_exam/data/models/notice_list_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/animated_container_widget.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
+import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
 class NoticeCardWidget extends StatelessWidget {
-  final NoticeItem noticeItem;
+  final Notice notice;
+  final bool isLoading;
   final VoidCallback? onTap;
 
   const NoticeCardWidget({
     super.key,
-    required this.noticeItem,
+    required this.notice,
+    this.isLoading = false,
     this.onTap,
   });
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
+  String _formatDate(String dateString) {
+    if (dateString.isEmpty) return 'No date';
 
-    if (difference.inDays == 0) {
-      return 'Today';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return dateString;
     }
   }
 
@@ -43,8 +53,8 @@ class NoticeCardWidget extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: CustomBlobBackground(
-        blobColor: noticeItem.isRead ? Colors.grey.shade700 : AppColor.primaryColor,
-        backgroundColor: _getCardColor(noticeItem.isRead),
+        blobColor: notice.isRead ? Colors.grey.shade700 : AppColor.primaryColor,
+        backgroundColor: _getCardColor(notice.isRead),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -54,20 +64,17 @@ class NoticeCardWidget extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Date
                   Text(
-                    _formatDate(noticeItem.date),
+                    _formatDate(notice.safePublishDate),
                     style: TextStyle(
                       fontSize: Sizes.smallText(context),
-                      color: _getTextColor(noticeItem.isRead),
+                      color: _getTextColor(notice.isRead),
                       fontWeight: FontWeight.w400,
                     ),
                   ),
-
-                  // Unread indicator
-                  if (!noticeItem.isRead)
+                  if (!notice.isRead)
                     AnimatedCircleContainer(
-                      size: Sizes.normalIcon(context),
+                      size: Sizes.bigIcon(context),
                       color: Colors.transparent,
                       borderColor: AppColor.primaryColor,
                       borderWidth: 1,
@@ -86,26 +93,23 @@ class NoticeCardWidget extends StatelessWidget {
                     )
                 ],
               ),
-
               const SizedBox(height: 12),
-
-              // Title
               Text(
-                noticeItem.title,
+                notice.safeTitle,
                 style: TextStyle(
                   fontSize: Sizes.normalText(context),
-                  color: _getTextColor(noticeItem.isRead),
-                  fontWeight: noticeItem.isRead ? FontWeight.w500 : FontWeight.bold,
+                  color: _getTextColor(notice.isRead),
+                  fontWeight: notice.isRead ? FontWeight.w500 : FontWeight.bold,
                   height: 1.4,
                 ),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
-
             ],
           ),
         ),
       ),
     );
   }
+
 }

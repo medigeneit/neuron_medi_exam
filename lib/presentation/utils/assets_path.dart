@@ -1,9 +1,15 @@
 class AssetsPath {
+
+  static const String appName = 'PGEasy';
+  static const String appTagline = 'Simulated tests, real confidence';
+
+
   static const String _images = 'assets/images';
   static const String appLogo = '$_images/neuron_logo.png';
   static const String placeholderImage = '$_images/placeholder_image.png';
   static const String sslcommerzLogo = '$_images/sslcommerz_logo.png';
   static const String bkashLogo = '$_images/bkash_logo.png';
+  static const String nagadLogo = '$_images/nagad_logo.png';
 
 
 
@@ -20,7 +26,6 @@ class AssetsPath {
   static const String webIcon = '$_icons/web.svg';
 
 
-  static const String nagadLogo = '$_icons/nagad_logo.svg';
   static const String visaLogo = '$_icons/visa_logo.svg';
 
   static const String examIcon = '$_icons/exam_icon.png';

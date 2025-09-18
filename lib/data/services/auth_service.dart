@@ -66,4 +66,12 @@ class AuthService {
     // On 200 -> { status, message, token, doctor { ... } }
     // On 422 -> { message: "Invalid credentials.", errors: { phone_number: ["Invalid credentials."] } }
   }
+
+  /// Return the currently logged-in user's unique ID (string), or null if none.
+  static Future<String?> getCurrentUserIdOrNull() async {
+    // TODO: wire to your real auth/user profile source
+    // e.g., return FirebaseAuth.instance.currentUser?.uid;
+    // or read from your LocalStorageService
+    return null;
+  }
 }

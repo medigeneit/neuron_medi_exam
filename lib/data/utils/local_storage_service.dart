@@ -84,7 +84,16 @@ class LocalStorageService {
     await _prefs?.remove(key);
   }
 
-  static Future<void> clearAll() async {
-    await _prefs?.clear();
+
+  /// Clear everything EXCEPT keys listed in [exceptKeys].
+  static Future<void> clearAll({Set<String> exceptKeys = const {}}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
+
+    for (final k in keys) {
+      if (!exceptKeys.contains(k)) {
+        await prefs.remove(k);
+      }
+    }
   }
 }

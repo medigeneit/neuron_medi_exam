@@ -1,11 +1,16 @@
+// lib/presentation/screens/payment/payment_screen.dart
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
-import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
+import 'package:medi_exam/presentation/widgets/helpers/payment_screen_helpers.dart';
+import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:slide_to_act/slide_to_act.dart';
 import 'package:medi_exam/presentation/widgets/hero_header_with_image.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
+import 'package:medi_exam/data/services/payment_details_service.dart';
+import 'package:medi_exam/data/models/payment_details_model.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({Key? key}) : super(key: key);
@@ -16,14 +21,68 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   late Map<String, dynamic> batchData;
-  String _selectedPaymentMethod = 'bkash';
-  final double _processingFee = 50.0;
+
+  final PaymentDetailsService _paymentDetailsService = PaymentDetailsService();
+
+  PaymentDetailsModel? _paymentDetails;
+  bool _loading = true;
+  String? _error;
+
+  String? _selectedVendor; // 'bkash' | 'sslcommerz' | 'nagad'
   final GlobalKey<SlideActionState> _slideKey = GlobalKey<SlideActionState>();
 
   @override
   void initState() {
     super.initState();
     batchData = Get.arguments ?? {};
+    _fetchPaymentDetails();
+  }
+
+  Future<void> _fetchPaymentDetails() async {
+    final String admissionId = (batchData['admissionId'] ?? '').toString();
+    if (admissionId.isEmpty) {
+      setState(() {
+        _loading = false;
+        _error = 'Admission ID not found.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final response =
+    await _paymentDetailsService.fetchPaymentDetails(admissionId);
+
+    if (!mounted) return;
+
+    if (response.isSuccess) {
+      final PaymentDetailsModel model =
+      response.responseData is PaymentDetailsModel
+          ? response.responseData as PaymentDetailsModel
+          : PaymentDetailsModel.fromJson(
+        (response.responseData as Map<String, dynamic>? ?? {}),
+      );
+
+      // pick first available gateway as default
+      final String? firstVendor =
+      (model.paymentGateways?.isNotEmpty ?? false)
+          ? model.paymentGateways!.first.safeVendor.toLowerCase()
+          : null;
+
+      setState(() {
+        _paymentDetails = model;
+        _selectedVendor = firstVendor;
+        _loading = false;
+      });
+    } else {
+      setState(() {
+        _error = response.errorMessage ?? 'Failed to load payment details.';
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -31,26 +90,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final gradientColors = [AppColor.indigo, AppColor.purple];
     final bool isMobile = Responsive.isMobile(context);
 
-    // Extracting the required data from the map
-    final String title = (batchData['title'] ?? '').toString();
-    final String startDate = (batchData['startDate'] ?? '').toString();
-    final String days = (batchData['days'] ?? '').toString();
-    final String time = (batchData['time'] ?? '').toString();
-    final String priceString = (batchData['price'] ?? '0').toString();
-    final String discountString = (batchData['discount'] ?? '0').toString();
-    final String imageUrl = (batchData['imageUrl'] ?? '').toString();
+    // Model shortcuts
+    final admission = _paymentDetails?.admission;
+    final gateways = _paymentDetails?.paymentGateways ?? [];
 
-    // Parse numeric values from strings
-    final double price = _parsePrice(priceString);
-    final double discountPercent = _parseDiscount(discountString);
-
-    // Calculate final amount
-    final double discountedPrice =
-    discountPercent > 0 ? price - (price * discountPercent / 100) : price;
-    final double totalAmount = discountedPrice + _processingFee;
+    final double payableAmount = admission?.safePayableAmount ?? 0.0;
 
     // extra bottom padding so content isn't hidden under the pinned slider
-    const double contentBottomPadding = 140;
+    const double contentBottomPadding = 120;
 
     return CommonScaffold(
       title: 'Payment',
@@ -58,216 +105,319 @@ class _PaymentScreenState extends State<PaymentScreen> {
         children: [
           CustomScrollView(
             slivers: [
-              // Collapsible hero header (same pattern as BatchScheduleScreen)
-              SliverAppBar(
-                automaticallyImplyLeading: false,
-                toolbarHeight: 0,
-                collapsedHeight: 0,
-                pinned: false,
-                stretch: true,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                expandedHeight: isMobile ? 260 : 340,
-                flexibleSpace: FlexibleSpaceBar(
-                  collapseMode: CollapseMode.parallax,
-                  background: HeroHeader(
-                    banner: imageUrl,
-                    headerTitle: title.isEmpty ? 'Course' : title,
-                    headerSubtitle: 'Secure Checkout',
-                    time: time,
-                    days: days,
-                    startDate: startDate,
+              // Collapsible hero header
+              if (_loading)
+                SliverToBoxAdapter(
+                  child: Container(
+                    height: isMobile ? 260 : 340,
+                    child: Center(child: LoadingWidget()),
+                  ),
+                )
+              else if (_error == null && _paymentDetails != null)
+                SliverAppBar(
+                  automaticallyImplyLeading: false,
+                  toolbarHeight: 0,
+                  collapsedHeight: 0,
+                  pinned: false,
+                  stretch: true,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  expandedHeight: isMobile ? 260 : 340,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.parallax,
+                    background: HeroHeader(
+                      banner: admission?.safeBannerUrl ?? '',
+                      headerTitle: admission?.safeCourseName ?? 'Course',
+                      headerSubtitle: 'Secure Checkout',
+                      time: admission?.safeExamTime ?? '-',
+                      days: admission?.safeExamDays ?? '-',
+                      startDate: admission?.safeStartDate ?? '-',
+                    ),
                   ),
                 ),
-              ),
 
-              // Body content (payment details)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                sliver: SliverToBoxAdapter(
-                  child: _buildPaymentDetails(
-                    price,
-                    discountPercent,
-                    _processingFee,
-                    discountedPrice,
-                    totalAmount,
+              // Error state
+              if (_error != null && !_loading)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                    child: ErrorCard(
+                      message: _error!,
+                      onRetry: _fetchPaymentDetails,
+                    ),
                   ),
                 ),
-              ),
 
-              // Payment methods
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                sliver: SliverToBoxAdapter(child: _buildPaymentMethods()),
-              ),
+              // Content when loaded
+              if (!_loading && _error == null) ...[
 
-              // spacer at bottom so last card isn't obscured by slider
-              const SliverToBoxAdapter(child: SizedBox(height: contentBottomPadding)),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: _buildEnrollmentDetails(admission),
+                  ),
+                ),
+
+                // Modern “details” section
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: _buildModernPaymentDetails(admission),
+                  ),
+                ),
+
+                // Dynamic payment methods
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: _buildPaymentMethods(gateways),
+                  ),
+                ),
+
+                // spacer at bottom so last card isn't obscured by slider
+                const SliverToBoxAdapter(
+                    child: SizedBox(height: contentBottomPadding)),
+              ],
             ],
           ),
 
+          // Loading overlay
+          if (_loading)
+            const Positioned.fill(
+              child: IgnorePointer(
+                ignoring: true,
+                child: Center(child: LoadingWidget()),
+              ),
+            ),
+
           // Pinned slide-to-pay at bottom
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 16,
-            child: _buildPayButton(gradientColors, totalAmount),
-          ),
+          if (!_loading && _error == null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: _buildPayButton(gradientColors, payableAmount),
+            ),
         ],
       ),
     );
   }
 
-  // Helper method to parse price string (removes '৳', commas, and spaces)
-  double _parsePrice(String priceString) {
-    try {
-      String cleaned = priceString
-          .replaceAll('৳', '')
-          .replaceAll(',', '')
-          .replaceAll(' ', '')
-          .trim();
-      return double.parse(cleaned);
-    } catch (_) {
-      return 0.0;
-    }
-  }
+  // ---------- Modern details section ----------
 
-  // Helper method to parse discount string (extracts numeric percentage)
-  double _parseDiscount(String discountString) {
-    try {
-      String cleaned = discountString.replaceAll(RegExp(r'[^0-9.%]'), '');
-      if (cleaned.contains('%')) {
-        String numberPart = cleaned.split('%').first;
-        return double.parse(numberPart);
-      }
-      return double.parse(cleaned);
-    } catch (_) {
-      return 0.0;
-    }
-  }
+  Widget _buildModernPaymentDetails(Admission? a) {
+    final double coursePrice = a?.safeCoursePrice ?? 0.0;
+    final double doctorDiscountAmount = a?.safeDoctorDiscountAmount ?? 0.0;
+    final String doctorDiscountTitle =
+    (a?.safeDoctorDiscountTitle ?? '').trim().isEmpty
+        ? 'Doctor Discount'
+        : a!.safeDoctorDiscountTitle;
 
-  // ---------- UI sections (unchanged visuals, just used inside slivers) ----------
+    final double totalAmount = a?.safeTotalAmount ?? 0.0;
+    final double paidAmount = a?.safePaidAmount ?? 0.0;
+    final double payableAmount = a?.safePayableAmount ?? 0.0;
 
-  Widget _buildPaymentDetails(double price, double discount,
-      double processingFee, double discountedPrice, double totalAmount) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
-          colors: [Colors.white, Colors.white.withOpacity(0.94)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColor.indigo.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 12),
-          ),
-        ],
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _circleIcon(Icons.receipt_long, AppColor.purple),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'Payment Details',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const Divider(height: 1),
-          const SizedBox(height: 14),
-          _buildAmountRow('Course Fee', '৳${price.toStringAsFixed(2)}'),
-          if (discount > 0) ...[
-            const SizedBox(height: 8),
-            _buildAmountRow(
-              'Discount (${discount.toStringAsFixed(0)}%)',
-              '-৳${(price * discount / 100).toStringAsFixed(2)}',
-              isDiscount: true,
-            ),
-            const SizedBox(height: 8),
-            _buildAmountRow(
-              'Discounted Price',
-              '৳${discountedPrice.toStringAsFixed(2)}',
-            ),
-          ],
-          const SizedBox(height: 8),
-          _buildAmountRow(
-            'Processing Fee',
-            '৳${processingFee.toStringAsFixed(2)}',
-          ),
-          const SizedBox(height: 12),
-          Container(
-            height: 1,
+    final double progress =
+    (totalAmount > 0) ? (paidAmount.clamp(0, totalAmount) / totalAmount) : 0;
+
+    return Stack(
+      children: [
+        // Gradient glow behind the card
+        Positioned.fill(
+          top: 10,
+          child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.12),
-                  Colors.transparent
+                  AppColor.indigo.withOpacity(0.12),
+                  AppColor.purple.withOpacity(0.12),
                 ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildAmountRow(
-            'Total Amount',
-            '৳${totalAmount.toStringAsFixed(2)}',
-            isTotal: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAmountRow(
-      String label,
-      String value, {
-        bool isDiscount = false,
-        bool isTotal = false,
-      }) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: isTotal ? 16 : 14.5,
-              fontWeight: isTotal ? FontWeight.w800 : FontWeight.w600,
-              color: isTotal ? Colors.black : Colors.black87,
-              letterSpacing: 0.2,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColor.indigo.withOpacity(0.12),
+                  blurRadius: 36,
+                  spreadRadius: 4,
+                  offset: const Offset(0, 12),
+                ),
+              ],
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: isTotal
-                ? AppColor.indigo.withOpacity(0.08)
-                : Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color:
-              isTotal ? AppColor.indigo.withOpacity(0.3) : Colors.black12,
-            ),
-          ),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: isTotal ? 16 : 14.5,
-              fontWeight: isTotal ? FontWeight.w800 : FontWeight.w700,
-              color: isDiscount
-                  ? Colors.green[700]
-                  : (isTotal ? AppColor.indigo : Colors.black87),
+
+        // Glassy card
+        ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.85),
+                    Colors.white.withOpacity(0.70),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.6),
+                  width: 1.0,
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Header row + badge
+                  Row(
+                    children: [
+                      badgeIcon(
+                        icon: Icons.receipt_long_rounded,
+                        colors: [AppColor.indigo, AppColor.purple],
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Payment Summary',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Big due now + mini chips
+                  LayoutBuilder(
+                    builder: (context, c) {
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColor.indigo.withOpacity(0.08),
+                              AppColor.purple.withOpacity(0.08),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          border: Border.all(
+                            color: AppColor.indigo.withOpacity(0.25),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                pill(
+                                  text: 'Due Now',
+                                  icon: Icons.flash_on_rounded,
+                                  fg: Colors.white,
+                                  bg: AppColor.purple,
+                                ),
+                                if (doctorDiscountAmount > 0)
+                                  softChip(
+                                    icon: Icons.local_offer_rounded,
+                                    label: doctorDiscountTitle,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ShaderMask(
+                              shaderCallback: (r) => LinearGradient(
+                                colors: [AppColor.indigo, AppColor.purple],
+                              ).createShader(r),
+                              child: Text(
+                                '৳${payableAmount.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white, // masked by shader
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Two quick tiles (Course price / Discount)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: miniStatTile(
+                          title: 'Course Price',
+                          value: '৳${coursePrice.toStringAsFixed(2)}',
+                          leading: Icons.school_rounded,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (doctorDiscountAmount > 0)
+                        Expanded(
+                          child: miniStatTile(
+                            title: doctorDiscountTitle,
+                            value: doctorDiscountAmount > 0
+                                ? '-৳${doctorDiscountAmount.toStringAsFixed(2)}'
+                                : '৳0.00',
+                            leading: Icons.local_offer_rounded,
+                            isDiscount: doctorDiscountAmount > 0,
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+                  gradientDivider(),
+
+                  if (totalAmount != payableAmount) ...[
+                    const SizedBox(height: 16),
+                    // Breakdown rows
+                    breakdownRow(
+                        'Total Amount', '৳${totalAmount.toStringAsFixed(2)}'),
+                  ],
+
+                  if (paidAmount > 0) ...[
+                    const SizedBox(height: 8),
+                    breakdownRow(
+                        'Paid Amount', '৳${paidAmount.toStringAsFixed(2)}'),
+                  ],
+                  const SizedBox(height: 10),
+                  breakdownRow(
+                    'Payable Amount',
+                    '৳${payableAmount.toStringAsFixed(2)}',
+                    highlight: true,
+                  ),
+
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      'All charges are shown in BDT.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -275,36 +425,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildPaymentMethods() {
+  // ---------- Enrollment section ----------
+
+  Widget _buildEnrollmentDetails(Admission? a) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
-          colors: [Colors.white, Colors.white.withOpacity(0.95)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColor.purple.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 12),
-          ),
-        ],
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
+      decoration: cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _circleIcon(Icons.payment, AppColor.indigo),
+              badgeIcon(
+                icon: Icons.info_outline_rounded,
+                colors: [AppColor.indigo, AppColor.purple],
+              ),
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'Select Payment Method',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  'Enrollment Details',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
               ),
             ],
@@ -312,119 +452,81 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 14),
           const Divider(height: 1),
           const SizedBox(height: 14),
-          _buildPaymentMethodOption(
-            'bkash',
-            AssetsPath.bkashLogo,
-            'Fast and secure payment with bKash',
-          ),
-          const SizedBox(height: 12),
-          _buildPaymentMethodOption(
-            'sslcommerz',
-            AssetsPath.sslcommerzLogo,
-            'Pay with card, bank account or other methods',
-          ),
+          twoColRow('Registration', a?.safeRegNo ?? '—'),
+          const SizedBox(height: 14),
+          twoColRow('Batch', a?.safeBatchName ?? '—'),
+          const SizedBox(height: 8),
+          twoColRow('Course', a?.safeCourseName ?? '—'),
+          const SizedBox(height: 8),
+          twoColRow('Package', a?.safeCoursePackageName ?? '—'),
         ],
       ),
     );
   }
 
-  Widget _buildPaymentMethodOption(
-      String value, String imagePath, String description) {
-    final bool selected = _selectedPaymentMethod == value;
+  // ---------- Payment methods ----------
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => setState(() => _selectedPaymentMethod = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: selected
-              ? LinearGradient(
-            colors: [
-              AppColor.indigo.withOpacity(0.08),
-              AppColor.purple.withOpacity(0.08),
+  Widget _buildPaymentMethods(List<PaymentGateway> gateways) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              badgeIcon(
+                icon: Icons.payment_rounded,
+                colors: [AppColor.indigo, AppColor.purple],
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Select Payment Method',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+              ),
             ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          )
-              : null,
-          color: selected ? null : Colors.grey[50],
-          border: Border.all(
-            color: selected ? AppColor.indigo.withOpacity(0.45) : Colors.black12,
-            width: selected ? 1.5 : 1,
           ),
-          boxShadow: [
-            if (selected)
-              BoxShadow(
-                color: AppColor.indigo.withOpacity(0.12),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 54,
-              height: 36,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                image: DecorationImage(
-                  image: AssetImage(imagePath),
-                  fit: BoxFit.contain,
-                ),
-                color: Colors.white,
-                border: Border.all(color: Colors.black12),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value == 'bkash' ? 'bKash' : 'SSLCommerz',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
+
+          if (gateways.isEmpty)
+            Text(
+              'No payment gateway available.',
+              style: TextStyle(fontSize: 14.5, color: Colors.grey[700]),
+            )
+          else
+            Column(
+              children: gateways.map((g) {
+                final value = g.safeVendor.toLowerCase();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: PaymentMethodOptionTile(
+                    value: value,
+                    imagePath: logoForVendor(g.safeVendor),
+                    title:
+                    g.hasValidName ? g.safeName : titleForVendor(g.safeVendor),
+                    description: subtitleForVendor(g.safeVendor),
+                    selected: _selectedVendor?.toLowerCase() ==
+                        g.safeVendor.toLowerCase(),
+                    onTap: () => setState(() => _selectedVendor = value),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      color: Colors.grey[700],
-                      height: 1.2,
-                    ),
-                  ),
-                ],
-              ),
+                );
+              }).toList(),
             ),
-            const SizedBox(width: 8),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected ? AppColor.indigo : Colors.black26,
-                  width: 2,
-                ),
-                color: selected ? AppColor.indigo : Colors.transparent,
-              ),
-              child: const Icon(Icons.check, size: 14, color: Colors.white),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildPayButton(List<Color> gradientColors, double totalAmount) {
+  // ---------- Pay button ----------
+
+  Widget _buildPayButton(List<Color> gradientColors, double payableAmount) {
+    final bool canPay =
+        payableAmount > 0 && (_selectedVendor?.isNotEmpty ?? false);
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(32),
@@ -452,11 +554,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
             borderRadius: 32,
             outerColor: Colors.transparent, // show parent gradient
             innerColor: Colors.white,
-            text: 'Slide to Pay ৳${totalAmount.toStringAsFixed(2)}',
+            text: 'Slide to Pay ৳${payableAmount.toStringAsFixed(2)}',
             textStyle: const TextStyle(
               color: Colors.white,
               fontSize: 16,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
               letterSpacing: 0.2,
             ),
             sliderRotate: true,
@@ -464,6 +566,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
             const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 18),
             submittedIcon: const Icon(Icons.check, color: Colors.white),
             onSubmit: () async {
+              if (!canPay) {
+                Get.snackbar(
+                  'Payment',
+                  payableAmount <= 0
+                      ? 'No payable amount due.'
+                      : 'Please select a payment method.',
+                  backgroundColor: Colors.yellow[100],
+                  colorText: Colors.black,
+                );
+                _slideKey.currentState?.reset();
+                return;
+              }
               _processPayment();
             },
           ),
@@ -472,34 +586,39 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _circleIcon(IconData icon, Color color) {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withOpacity(0.1),
-        border: Border.all(color: color.withOpacity(0.25)),
-      ),
-      child: Icon(icon, size: 18, color: color),
-    );
-  }
-
   void _processPayment() {
-    if (_selectedPaymentMethod == 'bkash') {
+    final vendor = _selectedVendor?.toLowerCase();
+    if (vendor == 'bkash') {
       Get.snackbar(
         'bKash Payment',
         'Redirecting to bKash payment gateway...',
         backgroundColor: Colors.green[100],
         colorText: Colors.black,
       );
-    } else if (_selectedPaymentMethod == 'sslcommerz') {
+    } else if (vendor == 'sslcommerz') {
       Get.snackbar(
         'SSLCommerz Payment',
         'Redirecting to SSLCommerz payment gateway...',
         backgroundColor: Colors.blue[100],
         colorText: Colors.black,
       );
+    } else if (vendor == 'nagad') {
+      Get.snackbar(
+        'Nagad Payment',
+        'Redirecting to Nagad payment gateway...',
+        backgroundColor: Colors.orange[100],
+        colorText: Colors.black,
+      );
+    } else {
+      Get.snackbar(
+        'Payment',
+        'Unsupported payment method.',
+        backgroundColor: Colors.red[100],
+        colorText: Colors.black,
+      );
     }
+
+    // TODO: Hook your real redirection/initiation here.
+    _slideKey.currentState?.reset();
   }
 }
