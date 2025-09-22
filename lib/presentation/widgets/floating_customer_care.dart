@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -223,8 +225,8 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
                       children: [
                         SlideTransition(
                           position: _slide3,
-                          child: _GlassActionPill(
-                            icon: Icons.facebook,
+                          child: _GlassActionPill.svg(
+                            svgAsset: AssetsPath.fbIcon,
                             label: widget.messengerLabel,
                             onTap: _busy ? null : _openMessenger,
                             isDark: isDark,
@@ -234,8 +236,8 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
                         const SizedBox(height: 10),
                         SlideTransition(
                           position: _slide2,
-                          child: _GlassActionPill(
-                            icon: Icons.message,
+                          child: _GlassActionPill.svg(
+                            svgAsset: AssetsPath.whatsAppIcon,
                             label: widget.whatsappLabel,
                             onTap: _busy ? null : _openWhatsApp,
                             isDark: isDark,
@@ -245,8 +247,8 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
                         const SizedBox(height: 10),
                         SlideTransition(
                           position: _slide1,
-                          child: _GlassActionPill(
-                            icon: Icons.call_rounded,
+                          child: _GlassActionPill.svg(
+                            svgAsset: AssetsPath.callIcon,
                             label: widget.callLabel,
                             onTap: _busy ? null : _callPhone,
                             isDark: isDark,
@@ -299,48 +301,67 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
   }
 }
 
-/// Small glassy pill with icon + label
 class _GlassActionPill extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;       // use this for Material icons
+  final String? svgAsset;     // use this for SVG assets
   final String label;
   final VoidCallback? onTap;
   final bool isDark;
   final Color color;
+  final double iconSize;
 
-  const _GlassActionPill({
+  const _GlassActionPill.icon({
     required this.icon,
     required this.label,
     required this.onTap,
     required this.isDark,
     required this.color,
-  });
+    this.iconSize = 18,
+    this.svgAsset,
+  }) : assert(icon != null && svgAsset == null, 'Use .icon OR .svg, not both.');
+
+  const _GlassActionPill.svg({
+    required this.svgAsset,
+    required this.label,
+    required this.onTap,
+    required this.isDark,
+    required this.color,
+    this.iconSize = 18,
+    this.icon,
+  }) : assert(svgAsset != null && icon == null, 'Use .icon OR .svg, not both.');
 
   @override
   Widget build(BuildContext context) {
+    final Widget leading = svgAsset != null
+        ? SvgPicture.asset(
+      svgAsset!,
+      width: iconSize,
+      height: iconSize,
+    )
+        : Icon(icon, size: iconSize, color: color);
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
         child: Material(
-          color: Colors.white.withOpacity(0.6),
+          color: Colors.grey.withOpacity(0.05),
           child: InkWell(
             onTap: onTap,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: color.withOpacity(0.6),
-                ),
+                border: Border.all(color: color.withOpacity(0.25)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 18, color: color,),
+                  leading,
                   const SizedBox(width: 8),
                   Text(
                     label,
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -372,18 +393,18 @@ class _GlassCircleButton extends StatelessWidget {
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+          borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.withOpacity(0.25), width: 1.5)
       ),
-      child: GlassCard(
-        child: ClipOval(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-            child: Material(
-              color: Colors.white.withOpacity(0.35),
-              child: InkWell(
-                onTap: onTap,
-                child: Center(child: child),
-              ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(23),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+          child: Material(
+            color: AppColor.whiteColor.withOpacity(0.15),
+            child: InkWell(
+              onTap: onTap,
+              child: Center(child: child),
             ),
           ),
         ),

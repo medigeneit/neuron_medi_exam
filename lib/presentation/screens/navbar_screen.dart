@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/utils/auth_checker.dart';
 import 'package:medi_exam/presentation/screens/courses_screen.dart';
-import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/dashboard_screen.dart';
 import 'package:medi_exam/presentation/screens/home_screen.dart';
 import 'package:medi_exam/presentation/screens/notice_screen.dart';
 import 'package:medi_exam/presentation/screens/profile_section_screen.dart';

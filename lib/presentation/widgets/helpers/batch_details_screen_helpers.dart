@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 
 class OfferSection extends StatelessWidget {
   final double? basePrice;
@@ -133,8 +134,8 @@ class OfferCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      width: 240, // Reduced width
-      padding: const EdgeInsets.all(12), // Reduced padding
+      width: 240,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         gradient: LinearGradient(
@@ -144,7 +145,7 @@ class OfferCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Subtle confetti effect
+
           Positioned(
             top: -4,
             right: -4,
@@ -247,7 +248,7 @@ class OfferCard extends StatelessWidget {
   }
 
   String _formatPrice(double v) {
-    // Format price with comma for thousands
+
     if (v == v.roundToDouble()) {
       return v.toStringAsFixed(0).replaceAllMapped(
             RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -288,7 +289,6 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // compute once when layout constraints known
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _recomputeShouldExpand(context);
     });
@@ -297,7 +297,7 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
   void _recomputeShouldExpand(BuildContext context) {
     final box = context.findRenderObject() as RenderBox?;
     final width = box?.constraints.maxWidth ??
-        MediaQuery.of(context).size.width - 32; // padding guess
+        MediaQuery.of(context).size.width - 32;
     if (width <= 0) return;
 
     final plain = _stripHtml(widget.htmlContent);
@@ -361,114 +361,110 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
 
     final collapsedHeight = _fontSize * _lineHeight * _maxLinesCollapsed;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2125) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          sectionHeader,
-          const SizedBox(height: 12),
+    return CustomBlobBackground(
+      backgroundColor: Colors.white,
+      blobColor: Colors.blueAccent,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            sectionHeader,
+            const SizedBox(height: 12),
 
-          // Content (HTML)
-          if (!_shouldAllowExpand || _expanded)
-            Html(
-              data: widget.htmlContent,
-              style: {
-                'body': Style(
-                  margin: Margins.zero,
-                  padding: HtmlPaddings.zero,
-                  fontSize: FontSize(_fontSize),
-                  lineHeight: LineHeight(_lineHeight),
-                  color: isDark ? Colors.white70 : Colors.grey[800],
-                ),
-                'p': Style(margin: Margins.only(bottom: 8)),
-                'li': Style(margin: Margins.only(bottom: 6)),
-              },
-            )
-          else
-            // Collapsed with fade
-            Stack(
-              children: [
-                ClipRect(
-                  child: SizedBox(
-                    height: collapsedHeight,
-                    child: Html(
-                      data: widget.htmlContent,
-                      style: {
-                        'body': Style(
-                          margin: Margins.zero,
-                          padding: HtmlPaddings.zero,
-                          fontSize: FontSize(_fontSize),
-                          lineHeight: LineHeight(_lineHeight),
-                          color: isDark ? Colors.white70 : Colors.grey[800],
-                        ),
-                        'p': Style(margin: Margins.only(bottom: 8)),
-                        'li': Style(margin: Margins.only(bottom: 6)),
-                      },
+            if (!_shouldAllowExpand || _expanded)
+              Html(
+                data: widget.htmlContent,
+                style: {
+                  'body': Style(
+                    margin: Margins.zero,
+                    padding: HtmlPaddings.zero,
+                    fontSize: FontSize(_fontSize),
+                    lineHeight: LineHeight(_lineHeight),
+                    color: isDark ? Colors.white70 : Colors.grey[800],
+                  ),
+                  'p': Style(margin: Margins.only(bottom: 8)),
+                  'li': Style(margin: Margins.only(bottom: 6)),
+                },
+              )
+            else
+
+              Stack(
+                children: [
+                  ClipRect(
+                    child: SizedBox(
+                      height: collapsedHeight,
+                      child: Html(
+                        data: widget.htmlContent,
+                        style: {
+                          'body': Style(
+                            margin: Margins.zero,
+                            padding: HtmlPaddings.zero,
+                            fontSize: FontSize(_fontSize),
+                            lineHeight: LineHeight(_lineHeight),
+                            color: isDark ? Colors.white70 : Colors.grey[800],
+                          ),
+                          'p': Style(margin: Margins.only(bottom: 8)),
+                          'li': Style(margin: Margins.only(bottom: 6)),
+                        },
+                      ),
                     ),
                   ),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 32,
-                  child: IgnorePointer(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            (isDark ? const Color(0xFF1E2125) : Colors.white)
-                                .withOpacity(0),
-                            (isDark ? const Color(0xFF1E2125) : Colors.white),
-                          ],
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 32,
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              (isDark ? const Color(0xFF1E2125) : Colors.white)
+                                  .withOpacity(0),
+                              (isDark ? const Color(0xFF1E2125) : Colors.white),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-
-          if (_shouldAllowExpand) const SizedBox(height: 8),
-          if (_shouldAllowExpand)
-            GestureDetector(
-              onTap: () => setState(() => _expanded = !_expanded),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    _expanded ? 'Show less' : 'Show more',
-                    style: TextStyle(
-                      color: widget.gradientColors[0],
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
-                  Icon(
-                    _expanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    color: widget.gradientColors[0],
-                    size: 20,
-                  ),
                 ],
               ),
-            ),
-        ],
+
+            if (_shouldAllowExpand) const SizedBox(height: 8),
+            if (_shouldAllowExpand)
+              GestureDetector(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      _expanded ? 'Show less' : 'Show more',
+                      style: TextStyle(
+                        color: widget.gradientColors[0],
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: widget.gradientColors[0],
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

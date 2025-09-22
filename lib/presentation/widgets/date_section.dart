@@ -1,26 +1,29 @@
-// schedule_date_section.dart
 import 'package:flutter/material.dart';
-import 'package:medi_exam/data/models/batch_schedule_model.dart';
+import 'package:medi_exam/data/models/doctor_schedule_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
-import 'schedule_content_tile.dart';
 
-/// Renders a single "date section" with its list of contents.
-/// Modern, clean card. View-only: no tap/click handlers in the list.
-class ScheduleDateSection extends StatelessWidget {
+import 'exam_list_section.dart';
+
+/// DateSection is the main item of the schedule list.
+/// It shows the date/time header for a ScheduleDate and lists exams inside
+/// via [ExamListSection]. Each exam may expand with [ExamSolveLinksSection].
+class DateSection extends StatelessWidget {
   final ScheduleDate scheduleDate;
+  final String admissionId;
 
-  const ScheduleDateSection({
+  const DateSection({
     Key? key,
     required this.scheduleDate,
+    required this.admissionId,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final contents = scheduleDate.safeContents;
-    final dateText = scheduleDate.safeDateFormatted;
-    final timeText = scheduleDate.safeTime;
+    final dateText = scheduleDate.dateFormatted;
+    final timeText = scheduleDate.time;
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -32,9 +35,7 @@ class ScheduleDateSection extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Colors.grey.shade300,
-          ),
+          border: Border.all(color: Colors.grey.shade300),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -66,7 +67,7 @@ class ScheduleDateSection extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            dateText,
+                            dateText!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -80,10 +81,10 @@ class ScheduleDateSection extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  if (timeText.isNotEmpty)
+                  if (timeText!.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withOpacity(0.08)
@@ -110,7 +111,7 @@ class ScheduleDateSection extends StatelessWidget {
               ),
               const SizedBox(height: 4),
 
-              // accent divider
+              // Accent divider
               Container(
                 height: 1,
                 decoration: BoxDecoration(
@@ -118,17 +119,15 @@ class ScheduleDateSection extends StatelessWidget {
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                     colors: [
-                      (isDark ? Colors.white : Colors.black)
-                          .withOpacity(0.10),
-                      (isDark ? Colors.white : Colors.black)
-                          .withOpacity(0.02),
+                      (isDark ? Colors.white : Colors.black).withOpacity(0.10),
+                      (isDark ? Colors.white : Colors.black).withOpacity(0.02),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
 
-              // List of contents for this date
+              // Exam list for this date (no header inside)
               if (contents.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -136,22 +135,18 @@ class ScheduleDateSection extends StatelessWidget {
                     'No items for this date',
                     style: TextStyle(
                       fontSize: 13.5,
-                      color: (isDark ? Colors.white : Colors.black)
-                          .withOpacity(0.55),
+                      color: (isDark ? Colors.white : Colors.black).withOpacity(0.55),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 )
               else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: contents.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
-                  itemBuilder: (context, index) {
-                    final content = contents[index];
-                    return ScheduleContentTile(content: content);
-                  },
+                ExamListSection(
+                  date: scheduleDate,
+                  admissionId: admissionId,
+                  showSolveChildren: true,
+                  // keep layout tight, we already have outer padding
+                  padding: EdgeInsets.zero,
                 ),
             ],
           ),

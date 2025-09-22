@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/assets_path.dart';
+import 'package:medi_exam/presentation/utils/sizes.dart';
 
 /// --------------------
 /// Public reusable bits
@@ -190,14 +191,14 @@ BoxDecoration cardDecoration() {
   );
 }
 
-Widget twoColRow(String label, String value) {
+Widget twoColRow(String label, String value, BuildContext context) {
   return Row(
     children: [
       Expanded(
         child: Text(
           label,
-          style: const TextStyle(
-            fontSize: 14.5,
+          style:  TextStyle(
+            fontSize: Sizes.normalText(context),
             fontWeight: FontWeight.w600,
             color: Colors.black87,
             letterSpacing: 0.2,
@@ -205,19 +206,25 @@ Widget twoColRow(String label, String value) {
         ),
       ),
       const SizedBox(width: 8),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.black12),
-        ),
-        child: Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14.5,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
+      Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black12),
+          ),
+          child: Expanded(
+            child: Text(
+              value,
+              style:  TextStyle(
+                fontSize: Sizes.normalText(context),
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
       ),

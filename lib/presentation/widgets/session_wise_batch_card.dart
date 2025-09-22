@@ -134,16 +134,6 @@ class _SessionWiseBatchCardState extends State<SessionWiseBatchCard> {
                                   bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
                                   iconColor: gradientColors[0],
                                 ),
-                   /*           // Show schedule summary if available
-                              if (widget.batch.hasValidExamDays || widget.batch.hasValidExamTime)
-                                _InfoChip(
-                                  icon: Icons.timeline_rounded,
-                                  title: 'Schedule: ',
-                                  label: widget.batch.scheduleSummary,
-                                  fontSize: infoSize,
-                                  bg: isDark ? const Color(0xFF2D2F33) : const Color(0xFFF0F7FF),
-                                  iconColor: gradientColors[0],
-                                ),*/
                             ],
                           ),
 
@@ -274,48 +264,61 @@ class _InfoChip extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fg = isDark ? Colors.white.withOpacity(0.9) : const Color(0xFF374151);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
+// Wrap the chip so it has a reasonable max width (so text can wrap)
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        // tune this if you want wider/narrower chips
+        maxWidth: MediaQuery.of(context).size.width * 0.8,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: iconColor),
-          const SizedBox(width: 6),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: fontSize,
-              color: fg,
-              height: 1.1,
-              fontWeight: FontWeight.w500,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
             ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: fontSize,
-              color: fg,
-              height: 1.1,
-              fontWeight: FontWeight.w500,
+          ],
+        ),
+        child: Row(
+          // <-- let the row use the available width
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.start, // nicer when label wraps
+          children: [
+            Icon(icon, size: 14, color: iconColor),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: fontSize,
+                color: fg,
+                height: 1.1,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            // <-- make the label flexible so it can wrap onto line 2
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 2,            // allow two lines
+                softWrap: true,         // enable wrapping
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  color: fg,
+                  height: 1.1,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -61,8 +61,14 @@ class EnrolledCourseCard extends StatelessWidget {
     if (_isCompleted) {
       return OutlinedButton(
         onPressed: () {
-          // TODO: route to continue learning screen
-          // e.g., Get.toNamed(RouteNames.batchDetails, arguments: batch);
+          final data = {
+            'admissionId': batch!.id ?? '', // safe pass-through
+          };
+          Get.toNamed(
+            RouteNames.doctorSchedule,
+            arguments: data,
+            preventDuplicates: true,
+          );
         },
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: AppColor.whiteColor.withOpacity(0.7)),

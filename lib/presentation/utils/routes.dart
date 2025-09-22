@@ -3,10 +3,11 @@ import 'package:medi_exam/presentation/screens/available_batches_screen.dart';
 import 'package:medi_exam/presentation/screens/batch_schedule_screen.dart';
 import 'package:medi_exam/presentation/screens/change_password_screen.dart';
 import 'package:medi_exam/presentation/screens/courses_screen.dart';
-import 'package:medi_exam/presentation/screens/dashboard_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/dashboard_screen.dart';
 import 'package:medi_exam/presentation/screens/batch_details_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/doctor_schedule_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/enrolled_courses_screen.dart';
 import 'package:medi_exam/presentation/screens/edit_profile_screen.dart';
-import 'package:medi_exam/presentation/screens/enrolled_courses_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
 import 'package:medi_exam/presentation/screens/navbar_screen.dart';
 import 'package:medi_exam/presentation/screens/notice_screen.dart';
@@ -14,6 +15,7 @@ import 'package:medi_exam/presentation/screens/payment_screen.dart';
 import 'package:medi_exam/presentation/screens/profile_section_screen.dart';
 import 'package:medi_exam/presentation/screens/registration_screen.dart';
 import 'package:medi_exam/presentation/screens/session_wise_batches_screen.dart';
+import 'package:medi_exam/presentation/screens/solve_video_screen.dart';
 import 'package:medi_exam/presentation/screens/splash_screen.dart';
 
 class RouteNames {
@@ -43,6 +45,7 @@ class RouteNames {
   static const String enrollment = '/enrollment';
   static const String makePayment = '/makePayment';
   static const String courseSchedule = '/courseSchedule';
+  static const String doctorSchedule = '/doctorSchedule';
   static const String complainRelatedTo = '/complainRelatedTo';
   static const String complainConversation = '/complainConversation';
   static const String deviceVerification = '/deviceVerification';
@@ -53,6 +56,7 @@ class RouteNames {
   static const String vdoChipher = '/vdoChipher';
   static const String examInformation = '/examInformation';
   static const String examQuestion = '/examQuestion';
+  static const String solveVideo = '/solveVideo';
 }
 
 // Define routes
@@ -131,6 +135,17 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.makePayment,
     page: () => const PaymentScreen(),
+  ),
+
+
+  GetPage(
+    name: RouteNames.doctorSchedule,
+    page: () => const DoctorScheduleScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.solveVideo,
+    page: () => const SolveVideoScreen(),
   ),
 
 ];

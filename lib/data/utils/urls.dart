@@ -41,4 +41,17 @@ class Urls {
     return "${_baseUrl}doctor/admission-batch-payment/$admissionId";
   }
 
+  static String doctorSchedule(String admissionId) {
+    return "${_baseUrl}doctor/admission/$admissionId/schedule";
+  }
+
+  static String solveVideo(String admissionId, String solveVideoID) {
+    return "${_baseUrl}doctor/exam-solve-show/$admissionId/$solveVideoID";
+  }
+
+  static String examProperty(String admissionId, String examId) {
+    return "${_baseUrl}doctor/exam-questions-property/$admissionId/$examId";
+  }
+
+
 }
