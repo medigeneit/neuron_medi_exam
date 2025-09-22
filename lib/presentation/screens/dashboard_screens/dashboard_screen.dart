@@ -6,6 +6,7 @@ import 'package:medi_exam/data/services/all_enrolled_batches_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/enrolled_courses_card_widget.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/notification_bell.dart';
@@ -114,126 +115,120 @@ class _DashboardState extends State<Dashboard> {
             const SizedBox(height: 12),
 
             // Enrolled Courses section
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.grey.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Enrolled Courses',
-                        style: TextStyle(
-                          fontSize: Sizes.bodyText(context),
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[800],
+            GlassCard(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Enrolled Courses',
+                          style: TextStyle(
+                            fontSize: Sizes.bodyText(context),
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[800],
+                          ),
                         ),
-                      ),
 
-                      // SEE ALL — passes fetched data as GetX arguments
-                      FutureBuilder<List<EnrolledBatch>>(
-                        future: _batchesFuture,
-                        builder: (context, snap) {
-                          final loaded = snap.connectionState == ConnectionState.done;
-                          final items = snap.data ?? const <EnrolledBatch>[];
+                        // SEE ALL — passes fetched data as GetX arguments
+                        FutureBuilder<List<EnrolledBatch>>(
+                          future: _batchesFuture,
+                          builder: (context, snap) {
+                            final loaded = snap.connectionState == ConnectionState.done;
+                            final items = snap.data ?? const <EnrolledBatch>[];
 
-                          return OutlinedButton(
-                            onPressed: loaded && items.isNotEmpty
-                                ? () {
-                              Get.toNamed(
-                                RouteNames.enrolledCourses,
-                                arguments: items, // 👈 pass the whole fetched list
-                              );
-                            }
-                                : null, // disabled until loaded (or empty)
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColor.primaryColor,
-                              side: BorderSide(
-                                color: AppColor.primaryColor.withOpacity(0.2),
+                            return OutlinedButton(
+                              onPressed: loaded && items.isNotEmpty
+                                  ? () {
+                                Get.toNamed(
+                                  RouteNames.enrolledCourses,
+                                  arguments: items, // 👈 pass the whole fetched list
+                                );
+                              }
+                                  : null, // disabled until loaded (or empty)
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColor.primaryColor,
+                                side: BorderSide(
+                                  color: AppColor.primaryColor.withOpacity(0.2),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 4,
+                                ),
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                              child: const Text(
+                                'See All',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 4,
-                              ),
-                            ),
-                            child: const Text(
-                              'See All',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                              ),
-                            ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Highlight card / empty state
+                    FutureBuilder<List<EnrolledBatch>>(
+                      future: _batchesFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            alignment: Alignment.center,
+                            child: const LoadingWidget(),
                           );
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                        }
 
-                  // Highlight card / empty state
-                  FutureBuilder<List<EnrolledBatch>>(
-                    future: _batchesFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        final items = snapshot.data ?? const <EnrolledBatch>[];
+                        final firstActiveCourse = _pickHighlight(items);
+
+                        if (firstActiveCourse != null) {
+                          return EnrolledCourseCard(batch: firstActiveCourse);
+                        }
+
+                        // Empty (same as your original look)
                         return Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(24),
-                          alignment: Alignment.center,
-                          child: const LoadingWidget(),
-                        );
-                      }
-
-                      final items = snapshot.data ?? const <EnrolledBatch>[];
-                      final firstActiveCourse = _pickHighlight(items);
-
-                      if (firstActiveCourse != null) {
-                        return EnrolledCourseCard(batch: firstActiveCourse);
-                      }
-
-                      // Empty (same as your original look)
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
-                            width: 1,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.school_outlined,
-                              size: 48,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No active courses',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.school_outlined,
+                                size: 48,
+                                color: Colors.grey[400],
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                              const SizedBox(height: 16),
+                              Text(
+                                'No active courses',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
 

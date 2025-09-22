@@ -297,9 +297,9 @@ String _htmlToPlainText(String html) {
   if (html.isEmpty) return '';
   var text = html;
 
-  // Normalize line breaks for common tags
-  text = text.replaceAll(RegExp(r'(?i)<br\s*/?>'), '\n');
-  text = text.replaceAll(RegExp(r'(?i)</p>'), '\n');
+  // Normalize line breaks for common tags (case-insensitive)
+  text = text.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+  text = text.replaceAll(RegExp(r'</p>', caseSensitive: false), '\n');
 
   // Remove all tags
   text = text.replaceAll(RegExp(r'<[^>]+>'), '');
@@ -320,7 +320,7 @@ String _htmlToPlainText(String html) {
 
 /// Extract <p>...</p> blocks as plain text bullets; falls back to stripping tags.
 List<String> _extractHtmlParagraphs(String html) {
-  final reg = RegExp(r'(?is)<p[^>]*>(.*?)</p>');
+  final reg = RegExp(r'<p[^>]*>(.*?)</p>', caseSensitive: false, dotAll: true);
   final matches = reg.allMatches(html).toList();
   if (matches.isEmpty) return const [];
   return matches
