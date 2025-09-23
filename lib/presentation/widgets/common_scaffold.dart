@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
+import 'package:medi_exam/presentation/widgets/app_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_drawer.dart';
 
 
@@ -59,7 +60,7 @@ class CommonScaffold extends StatelessWidget {
           actions: actions,
         ),
         endDrawer: showDrawer ? const CustomDrawer() : null,
-        body: responsiveBody,
+        body: isMobile ? responsiveBody : AppBackground(child: responsiveBody),
         bottomNavigationBar: bottomNavigationBar,
         floatingActionButton: floatingActionButton,
       ),

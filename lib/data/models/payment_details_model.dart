@@ -1,3 +1,28 @@
+// ---------- Shared parsing helpers ----------
+int? _toInt(dynamic v) {
+  if (v == null) return null;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  if (v is String) return int.tryParse(v.trim());
+  return null;
+}
+
+double? _toDouble(dynamic v) {
+  if (v == null) return null;
+  if (v is double) return v;
+  if (v is int) return v.toDouble();
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v.trim());
+  return null;
+}
+
+String? _toStringOrNull(dynamic v) {
+  if (v == null) return null;
+  if (v is String) return v;
+  return v.toString();
+}
+
+// ---------- Root model ----------
 class PaymentDetailsModel {
   final Admission? admission;
   final List<PaymentGateway>? paymentGateways;
@@ -49,6 +74,7 @@ class PaymentDetailsModel {
   List<PaymentGateway> get safePaymentGateways => paymentGateways ?? [];
 }
 
+// ---------- Admission ----------
 class Admission {
   final int? id;
   final String? regNo;
@@ -59,8 +85,8 @@ class Admission {
   final String? batchName;
 
   // NEW FIELDS from API
-  final String? startDate;   // e.g. "2025-09-20"
-  final String? examDays;    // e.g. "Everyday"
+  final String? startDate;   // e.g. "2025-01-02"
+  final String? examDays;    // e.g. "Saturday,Monday,Wednesday"
   final String? examTime;    // e.g. "10:00 AM"
   final String? bannerUrl;   // full URL
 
@@ -101,52 +127,30 @@ class Admission {
 
   factory Admission.fromJson(Map<String, dynamic> json) {
     return Admission(
-      id: json['id'] is int ? json['id'] as int : null,
-      regNo: json['reg_no'] is String ? json['reg_no'] as String : null,
-      year: json['year'] is String ? json['year'] as String : null,
-      batchId: json['batch_id'] is int ? json['batch_id'] as int : null,
-      batchPackageId:
-      json['batch_package_id'] is int ? json['batch_package_id'] as int : null,
-      paymentStatus: json['payment_status'] is String
-          ? json['payment_status'] as String
-          : null,
-      batchName:
-      json['batch_name'] is String ? json['batch_name'] as String : null,
+      id: _toInt(json['id']),
+      regNo: _toStringOrNull(json['reg_no']),
+      year: _toStringOrNull(json['year']),
+      batchId: _toInt(json['batch_id']),
+      batchPackageId: _toInt(json['batch_package_id']),
+      paymentStatus: _toStringOrNull(json['payment_status']),
+      batchName: _toStringOrNull(json['batch_name']),
 
       // NEW FIELDS
-      startDate:
-      json['start_date'] is String ? json['start_date'] as String : null,
-      examDays: json['exam_days'] is String ? json['exam_days'] as String : null,
-      examTime: json['exam_time'] is String ? json['exam_time'] as String : null,
-      bannerUrl:
-      json['banner_url'] is String ? json['banner_url'] as String : null,
+      startDate: _toStringOrNull(json['start_date']),
+      examDays: _toStringOrNull(json['exam_days']),
+      examTime: _toStringOrNull(json['exam_time']),
+      bannerUrl: _toStringOrNull(json['banner_url']),
 
-      coursePackageId:
-      json['course_package_id'] is int ? json['course_package_id'] as int : null,
-      coursePackageName: json['course_package_name'] is String
-          ? json['course_package_name'] as String
-          : null,
-      courseId: json['course_id'] is int ? json['course_id'] as int : null,
-      courseName:
-      json['course_name'] is String ? json['course_name'] as String : null,
-      coursePrice: json['course_price'] is num
-          ? (json['course_price'] as num).toDouble()
-          : null,
-      doctorDiscountTitle: json['doctor_discount_title'] is String
-          ? json['doctor_discount_title'] as String
-          : null,
-      doctorDiscountAmount: json['doctor_discount_amount'] is num
-          ? (json['doctor_discount_amount'] as num).toDouble()
-          : null,
-      totalAmount: json['total_amount'] is num
-          ? (json['total_amount'] as num).toDouble()
-          : null,
-      paidAmount: json['paid_amount'] is num
-          ? (json['paid_amount'] as num).toDouble()
-          : null,
-      payableAmount: json['payable_amount'] is num
-          ? (json['payable_amount'] as num).toDouble()
-          : null,
+      coursePackageId: _toInt(json['course_package_id']),
+      coursePackageName: _toStringOrNull(json['course_package_name']),
+      courseId: _toInt(json['course_id']),
+      courseName: _toStringOrNull(json['course_name']),
+      coursePrice: _toDouble(json['course_price']),
+      doctorDiscountTitle: _toStringOrNull(json['doctor_discount_title']),
+      doctorDiscountAmount: _toDouble(json['doctor_discount_amount']),
+      totalAmount: _toDouble(json['total_amount']),
+      paidAmount: _toDouble(json['paid_amount']),
+      payableAmount: _toDouble(json['payable_amount']),
     );
   }
 
@@ -259,8 +263,43 @@ class Admission {
   bool get hasValidTotalAmount => totalAmount != null && totalAmount! >= 0;
   bool get hasValidPaidAmount => paidAmount != null && paidAmount! >= 0;
   bool get hasValidPayableAmount => payableAmount != null && payableAmount! >= 0;
-  bool get isFullyPaid => safePaidAmount >= safePayableAmount;
+
+  // Payment & schedule helpers
+  List<String> get examDaysList => hasValidExamDays
+      ? examDays!
+      .split(',')
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList()
+      : const [];
+
+  String get paymentStatusNormalized =>
+      (safePaymentStatus).trim().toLowerCase();
+
+  bool get isFullyPaid =>
+      safePayableAmount == 0 ||
+          (safeTotalAmount > 0 && safePaidAmount >= safeTotalAmount);
+
   bool get hasPaymentDue => safePayableAmount > 0;
+
+  // Expanded status handling: Completed/Success/etc also count as paid
+  bool get isPaymentComplete =>
+      isFullyPaid ||
+          paymentStatusNormalized.contains('paid') ||
+          paymentStatusNormalized.contains('complete') ||
+          paymentStatusNormalized.contains('completed') ||
+          paymentStatusNormalized.contains('success');
+
+  bool get isPaymentPending =>
+      !isPaymentComplete &&
+          (hasPaymentDue ||
+              paymentStatusNormalized.contains('pending') ||
+              paymentStatusNormalized.contains('due') ||
+              paymentStatusNormalized.contains('unpaid') ||
+              paymentStatusNormalized.contains('partial') ||
+              paymentStatusNormalized.contains('processing'));
+
+  bool get isNoPayment => paymentStatusNormalized.contains('no payment');
 
   // Safe getters with fallbacks
   int get safeId => id ?? 0;
@@ -313,28 +352,26 @@ class Admission {
   String get formattedPaidAmount => '৳${safePaidAmount.toStringAsFixed(2)}';
   String get formattedPayableAmount =>
       '৳${safePayableAmount.toStringAsFixed(2)}';
-
-  // Payment status helpers
-  bool get isPaymentComplete =>
-      safePaymentStatus.toLowerCase().contains('paid') || isFullyPaid;
-  bool get isPaymentPending =>
-      safePaymentStatus.toLowerCase().contains('pending') || hasPaymentDue;
-  bool get isNoPayment => safePaymentStatus.toLowerCase().contains('no payment');
 }
 
+// ---------- PaymentGateway ----------
 class PaymentGateway {
   final String? name;
   final String? vendor;
+  // NEW FIELD from API
+  final String? account;
 
   PaymentGateway({
     this.name,
     this.vendor,
+    this.account,
   });
 
   factory PaymentGateway.fromJson(Map<String, dynamic> json) {
     return PaymentGateway(
-      name: json['name'] is String ? json['name'] as String : null,
-      vendor: json['vendor'] is String ? json['vendor'] as String : null,
+      name: _toStringOrNull(json['name']),
+      vendor: _toStringOrNull(json['vendor']),
+      account: _toStringOrNull(json['account']),
     );
   }
 
@@ -342,22 +379,28 @@ class PaymentGateway {
     return {
       'name': name,
       'vendor': vendor,
+      'account': account,
     };
   }
 
-  bool get isEmpty => (name?.isEmpty ?? true) && (vendor?.isEmpty ?? true);
+  bool get isEmpty =>
+      (name?.isEmpty ?? true) && (vendor?.isEmpty ?? true) && (account?.isEmpty ?? true);
 
-  bool get isNotEmpty => (name?.isNotEmpty ?? false) || (vendor?.isNotEmpty ?? false);
+  bool get isNotEmpty =>
+      (name?.isNotEmpty ?? false) || (vendor?.isNotEmpty ?? false) || (account?.isNotEmpty ?? false);
 
   // Helper methods
   bool get hasValidName => name != null && name!.isNotEmpty;
   bool get hasValidVendor => vendor != null && vendor!.isNotEmpty;
+  bool get hasValidAccount => account != null && account!.isNotEmpty;
 
   String get safeName => name ?? 'Unknown Gateway';
   String get safeVendor => vendor ?? 'unknown';
+  String get safeAccount => account ?? '';
 
   // Vendor type helpers
   bool get isBkash => safeVendor.toLowerCase() == 'bkash';
   bool get isSslCommerz => safeVendor.toLowerCase() == 'sslcommerz';
   bool get isNagad => safeVendor.toLowerCase() == 'nagad';
+  bool get isManual => safeVendor.toLowerCase() == 'manual';
 }

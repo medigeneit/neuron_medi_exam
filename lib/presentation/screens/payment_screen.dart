@@ -1,8 +1,10 @@
 // lib/presentation/screens/payment/payment_screen.dart
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // <-- NEW (for Clipboard)
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/helpers/payment_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
@@ -11,6 +13,7 @@ import 'package:medi_exam/presentation/widgets/hero_header_with_image.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
 import 'package:medi_exam/data/services/payment_details_service.dart';
 import 'package:medi_exam/data/models/payment_details_model.dart';
+
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({Key? key}) : super(key: key);
@@ -28,7 +31,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _loading = true;
   String? _error;
 
-  String? _selectedVendor; // 'bkash' | 'sslcommerz' | 'nagad'
+  String? _selectedVendor; // 'bkash' | 'sslcommerz' | 'nagad' | 'manual'
   final GlobalKey<SlideActionState> _slideKey = GlobalKey<SlideActionState>();
 
   @override
@@ -53,22 +56,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _error = null;
     });
 
-    final response =
-    await _paymentDetailsService.fetchPaymentDetails(admissionId);
+    final response = await _paymentDetailsService.fetchPaymentDetails(admissionId);
 
     if (!mounted) return;
 
     if (response.isSuccess) {
-      final PaymentDetailsModel model =
-      response.responseData is PaymentDetailsModel
+      final PaymentDetailsModel model = response.responseData is PaymentDetailsModel
           ? response.responseData as PaymentDetailsModel
           : PaymentDetailsModel.fromJson(
         (response.responseData as Map<String, dynamic>? ?? {}),
       );
 
       // pick first available gateway as default
-      final String? firstVendor =
-      (model.paymentGateways?.isNotEmpty ?? false)
+      final String? firstVendor = (model.paymentGateways?.isNotEmpty ?? false)
           ? model.paymentGateways!.first.safeVendor.toLowerCase()
           : null;
 
@@ -83,6 +83,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _loading = false;
       });
     }
+  }
+
+  // Helper to find the selected gateway object
+  PaymentGateway? _findGatewayByVendor(String? vendor) {
+    if (vendor == null) return null;
+    for (final g in (_paymentDetails?.paymentGateways ?? [])) {
+      if (g.safeVendor.toLowerCase() == vendor.toLowerCase()) return g;
+    }
+    return null;
   }
 
   @override
@@ -108,9 +117,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
               // Collapsible hero header
               if (_loading)
                 SliverToBoxAdapter(
-                  child: Container(
+                  child: SizedBox(
                     height: isMobile ? 260 : 340,
-                    child: Center(child: LoadingWidget()),
+                    child: const Center(child: LoadingWidget()),
                   ),
                 )
               else if (_error == null && _paymentDetails != null)
@@ -128,7 +137,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     background: HeroHeader(
                       banner: admission?.safeBannerUrl ?? '',
                       headerTitle: admission?.safeBatchName ?? 'Batch',
-                      headerSubtitle: admission?.safeCoursePackageName ?? 'Discipline/Faculty',
+                      headerSubtitle:
+                      admission?.safeCoursePackageName ?? 'Discipline/Faculty',
                       time: admission?.safeExamTime ?? '-',
                       days: admission?.safeExamDays ?? '-',
                       startDate: admission?.safeStartDate ?? '-',
@@ -150,7 +160,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
               // Content when loaded
               if (!_loading && _error == null) ...[
-
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                   sliver: SliverToBoxAdapter(
@@ -174,9 +183,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ),
                 ),
 
-                // spacer at bottom so last card isn't obscured by slider
-                const SliverToBoxAdapter(
-                    child: SizedBox(height: contentBottomPadding)),
+                // spacer
+                const SliverToBoxAdapter(child: SizedBox(height: contentBottomPadding)),
               ],
             ],
           ),
@@ -204,7 +212,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   // ---------- Modern details section ----------
-
   Widget _buildModernPaymentDetails(Admission? a) {
     final double coursePrice = a?.safeCoursePrice ?? 0.0;
     final double doctorDiscountAmount = a?.safeDoctorDiscountAmount ?? 0.0;
@@ -388,7 +395,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                   if (totalAmount != payableAmount) ...[
                     const SizedBox(height: 16),
-                    // Breakdown rows
                     breakdownRow(
                         'Total Amount', '৳${totalAmount.toStringAsFixed(2)}'),
                   ],
@@ -426,7 +432,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   // ---------- Enrollment section ----------
-
   Widget _buildEnrollmentDetails(Admission? a) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -465,7 +470,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   // ---------- Payment methods ----------
-
   Widget _buildPaymentMethods(List<PaymentGateway> gateways) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -506,11 +510,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   child: PaymentMethodOptionTile(
                     value: value,
                     imagePath: logoForVendor(g.safeVendor),
-                    title:
-                    g.hasValidName ? g.safeName : titleForVendor(g.safeVendor),
+                    title: g.hasValidName
+                        ? g.safeName
+                        : titleForVendor(g.safeVendor),
                     description: subtitleForVendor(g.safeVendor),
-                    selected: _selectedVendor?.toLowerCase() ==
-                        g.safeVendor.toLowerCase(),
+                    selected:
+                    _selectedVendor?.toLowerCase() == g.safeVendor.toLowerCase(),
                     onTap: () => setState(() => _selectedVendor = value),
                   ),
                 );
@@ -522,7 +527,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   // ---------- Pay button ----------
-
   Widget _buildPayButton(List<Color> gradientColors, double payableAmount) {
     final bool canPay =
         payableAmount > 0 && (_selectedVendor?.isNotEmpty ?? false);
@@ -562,8 +566,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               letterSpacing: 0.2,
             ),
             sliderRotate: true,
-            sliderButtonIcon:
-            const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 18),
+            sliderButtonIcon: const Icon(Icons.arrow_forward_ios,
+                color: Colors.black, size: 18),
             submittedIcon: const Icon(Icons.check, color: Colors.white),
             onSubmit: () async {
               if (!canPay) {
@@ -595,6 +599,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         backgroundColor: Colors.green[100],
         colorText: Colors.black,
       );
+      _slideKey.currentState?.reset();
     } else if (vendor == 'sslcommerz') {
       Get.snackbar(
         'SSLCommerz Payment',
@@ -602,6 +607,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         backgroundColor: Colors.blue[100],
         colorText: Colors.black,
       );
+      _slideKey.currentState?.reset();
     } else if (vendor == 'nagad') {
       Get.snackbar(
         'Nagad Payment',
@@ -609,6 +615,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
         backgroundColor: Colors.orange[100],
         colorText: Colors.black,
       );
+      _slideKey.currentState?.reset();
+    } else if (vendor == 'manual') {
+      // Manual payment: fetch account number from API data and show dialog
+      final accountNumber = _findGatewayByVendor('manual')?.safeAccount ?? '';
+      _showManualPaymentDialog(accountNumber);
+      // no immediate reset; dialog handles nav + reset
     } else {
       Get.snackbar(
         'Payment',
@@ -616,9 +628,148 @@ class _PaymentScreenState extends State<PaymentScreen> {
         backgroundColor: Colors.red[100],
         colorText: Colors.black,
       );
+      _slideKey.currentState?.reset();
     }
+  }
 
-    // TODO: Hook your real redirection/initiation here.
-    _slideKey.currentState?.reset();
+  // ---------- Manual Payment Dialog ----------
+  void _showManualPaymentDialog(String accountNumber) {
+    final TextEditingController _txnController = TextEditingController();
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: Colors.white,
+          title: const Text(
+            'Manual Payment',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Make a payment using bKash / Rocket to this number:',
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          accountNumber.isNotEmpty
+                              ? accountNumber
+                              : '— not available —',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Copy number',
+                        onPressed: accountNumber.isEmpty
+                            ? null
+                            : () async {
+                          await Clipboard.setData(
+                            ClipboardData(text: accountNumber),
+                          );
+                          Get.snackbar(
+                            'Copied',
+                            'Number copied to clipboard.',
+                            snackPosition: SnackPosition.BOTTOM,
+                            backgroundColor: Colors.green[50],
+                            colorText: Colors.black,
+                          );
+                        },
+                        icon: const Icon(Icons.copy_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Enter your Transaction ID',
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _txnController,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'After submitting the Transaction ID, please allow up to 24 hours for verification and payment initiation.',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey[700]),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop(); // close dialog
+                _slideKey.currentState?.reset();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+              label: const Text('Submit', style: TextStyle(color: Colors.white)),
+              onPressed: () {
+                final txid = _txnController.text.trim();
+                if (txid.isEmpty) {
+                  Get.snackbar(
+                    'Transaction ID required',
+                    'Please enter your bKash/Rocket Transaction ID.',
+                    backgroundColor: Colors.yellow[100],
+                    colorText: Colors.black,
+                  );
+                  return;
+                }
+
+                // TODO: send `txid` to backend if you need to store it.
+                // Close dialog
+                Navigator.of(ctx).pop();
+
+                // Notify the user
+                Get.snackbar(
+                  'Manual Payment Submitted',
+                  'Thanks! Please wait up to 24 hours to initiate the payment.',
+                  backgroundColor: Colors.green[100],
+                  colorText: Colors.black,
+                );
+
+                // Navigate to main nav bar (index 0)
+                Get.offAllNamed(RouteNames.navBar, arguments: 0);
+
+                _slideKey.currentState?.reset();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }

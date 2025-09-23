@@ -461,11 +461,14 @@ Widget badgeIcon({required IconData icon, required List<Color> colors}) {
 /// -------------
 /// Vendor utils
 /// -------------
+
 String logoForVendor(String vendor) {
   final v = vendor.toLowerCase();
   if (v == 'bkash') return AssetsPath.bkashLogo;
   if (v == 'sslcommerz') return AssetsPath.sslcommerzLogo;
   if (v == 'nagad') return AssetsPath.nagadLogo;
+  if (v == 'manual') { return AssetsPath.manualPayment;
+  }
   return AssetsPath.sslcommerzLogo;
 }
 
@@ -474,6 +477,7 @@ String titleForVendor(String vendor) {
   if (v == 'bkash') return 'bKash';
   if (v == 'sslcommerz') return 'SSLCommerz';
   if (v == 'nagad') return 'Nagad';
+  if (v == 'manual') return 'Manual Payment';
   return vendor;
 }
 
@@ -482,6 +486,7 @@ String subtitleForVendor(String vendor) {
   if (v == 'bkash') return 'Fast and secure payment with bKash';
   if (v == 'sslcommerz') return 'Pay with card, bank account or others';
   if (v == 'nagad') return 'Fast and secure payment with Nagad';
+  if (v == 'manual') return 'Pay via bKash/Rocket, then submit Txn ID';
   return 'Secure online payment';
 }
 

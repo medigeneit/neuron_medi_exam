@@ -10,6 +10,7 @@ class AssetsPath {
   static const String sslcommerzLogo = '$_images/sslcommerz_logo.png';
   static const String bkashLogo = '$_images/bkash_logo.png';
   static const String nagadLogo = '$_images/nagad_logo.png';
+  static const String manualPayment = '$_images/maunal_payment.png';
 
 
 

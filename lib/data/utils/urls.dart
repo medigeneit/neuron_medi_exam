@@ -15,6 +15,7 @@ class Urls {
   static const String slider = "${_baseUrl}hero-slider";
   static const String noticeList = "${_baseUrl}notices";
   static const String allEnrolledBatches = "${_baseUrl}doctor/admission-batches";
+  static const String singleAnswerSubmit = "${_baseUrl}doctor/submit-answer";
 
 
   static String noticeDetails(String noticeId) {
@@ -51,6 +52,20 @@ class Urls {
 
   static String examProperty(String admissionId, String examId) {
     return "${_baseUrl}doctor/exam-questions-property/$admissionId/$examId";
+  }
+
+  static String examQuestion(String admissionId, String examId) {
+    return "${_baseUrl}doctor/exam-questions/$admissionId/$examId";
+  }
+
+
+  static String finishExam(String admissionId, String examId) {
+    return "${_baseUrl}doctor/exam-finish/$admissionId/$examId";
+  }
+
+
+  static String examFeedback(String admissionId, String examId) {
+    return "${_baseUrl}doctor/submit-exam-feedback/$admissionId/$examId";
   }
 
 

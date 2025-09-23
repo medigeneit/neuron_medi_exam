@@ -1,6 +1,7 @@
 // exam_overview_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:medi_exam/data/models/exam_property_model.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/exam_questions_screen.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 
@@ -144,6 +145,15 @@ class ExamOverviewDialog extends StatelessWidget {
                           ),
                           onPressed: () {
                             Navigator.of(context).pop(true);
+
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => ExamQuestionsScreen(
+                                  admissionId: admissionId, // Convert to string if needed
+                                  examId: exam!.id.toString(), // Convert to string if needed
+                                ),
+                              ),
+                            );
                           },
                         ),
                       ),
