@@ -8,6 +8,9 @@ class Urls {
   static const String registerStart = "${_baseUrl}register/start";
   static const String registerVerify = "${_baseUrl}register/verify";
   static const String registerComplete = "${_baseUrl}register/complete";
+  static const String forgotPasswordRequestOtp = "${_baseUrl}forgot-password/request-otp";
+  static const String forgotPasswordVerifyOtp = "${_baseUrl}forgot-password/verify-otp";
+  static const String forgotPasswordReset = "${_baseUrl}forgot-password/reset";
 
 
   static const String allBatchCourses = "${_baseUrl}batch-courses";
@@ -16,6 +19,7 @@ class Urls {
   static const String noticeList = "${_baseUrl}notices";
   static const String allEnrolledBatches = "${_baseUrl}doctor/admission-batches";
   static const String singleAnswerSubmit = "${_baseUrl}doctor/submit-answer";
+  static const String helpLine = "${_baseUrl}public-settings";
 
 
   static String noticeDetails(String noticeId) {
@@ -66,6 +70,15 @@ class Urls {
 
   static String examFeedback(String admissionId, String examId) {
     return "${_baseUrl}doctor/submit-exam-feedback/$admissionId/$examId";
+  }
+
+  static String examResult(String admissionId, String examId) {
+    return "${_baseUrl}doctor/result/$admissionId/$examId";
+  }
+
+
+  static String examAnswers(String admissionId, String examId) {
+    return "${_baseUrl}doctor/exam-question-result/$admissionId/$examId";
   }
 
 

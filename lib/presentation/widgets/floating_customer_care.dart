@@ -1,25 +1,34 @@
+// lib/presentation/widgets/floating_customer_care.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:medi_exam/presentation/utils/app_colors.dart';
-import 'package:medi_exam/presentation/utils/assets_path.dart';
-import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/assets_path.dart';
+
 class FloatingCustomerCare extends StatefulWidget {
-  /// Example: https://m.me/yourPageOrUser
-  final String messengerUrl;
+  /// All are optional now. If null/empty → that pill is hidden.
 
-  /// WhatsApp phone in international format (no +, no spaces). e.g. "8801XXXXXXXXX"
-  final String whatsappPhone;
+  /// Example: https://m.me/yourPageOrUser OR https://www.messenger.com/t/<id>
+  final String? messengerUrl;
 
-  /// Phone number for calling. e.g. "+8801XXXXXXXXX"
-  final String phoneNumber;
+  /// WhatsApp phone in international format (no +, no spaces) e.g. "8801XXXXXXXXX"
+  final String? whatsappPhone;
+
+  /// Phone number for calling e.g. "+8801XXXXXXXXX"
+  final String? phoneNumber;
+
+  /// Optional promo video URL (YouTube etc.)
+  final String? promoVideoUrl;
+
+  /// Optional: override promo tap handling (use the HomeScreen logic you pasted)
+  final VoidCallback? onPromoTap;
 
   /// Optional preset message for WhatsApp
   final String? whatsappMessage;
 
-  /// Colors for the main button gradient
+  /// Colors for the main button gradient (kept for styling)
   final List<Color> gradientColors;
 
   /// Where to place it (distance from edges)
@@ -29,18 +38,22 @@ class FloatingCustomerCare extends StatefulWidget {
   final String messengerLabel;
   final String whatsappLabel;
   final String callLabel;
+  final String promoLabel;
 
   const FloatingCustomerCare({
     super.key,
-    required this.messengerUrl,
-    required this.whatsappPhone,
-    required this.phoneNumber,
+    this.messengerUrl,
+    this.whatsappPhone,
+    this.phoneNumber,
+    this.promoVideoUrl,
+    this.onPromoTap,
     this.whatsappMessage,
-    this.gradientColors = const [Color(0xFF4F46E5), Color(0xFF9333EA)], // indigo → purple
+    this.gradientColors = const [Color(0xFF4F46E5), Color(0xFF9333EA)],
     this.floatingPadding = const EdgeInsets.only(right: 16, bottom: 24),
     this.messengerLabel = 'Messenger',
     this.whatsappLabel = 'WhatsApp',
     this.callLabel = 'Call',
+    this.promoLabel = 'Tutorial Video',
   });
 
   @override
@@ -51,9 +64,6 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
-  late final Animation<Offset> _slide1;
-  late final Animation<Offset> _slide2;
-  late final Animation<Offset> _slide3;
 
   bool _expanded = false;
   bool _busy = false;
@@ -66,15 +76,6 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
       duration: const Duration(milliseconds: 250),
     );
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide1 = Tween(begin: const Offset(0, 0.15), end: Offset.zero)
-        .chain(CurveTween(curve: Curves.easeOutCubic))
-        .animate(_ctrl);
-    _slide2 = Tween(begin: const Offset(0, 0.22), end: Offset.zero)
-        .chain(CurveTween(curve: Curves.easeOutCubic))
-        .animate(_ctrl);
-    _slide3 = Tween(begin: const Offset(0, 0.30), end: Offset.zero)
-        .chain(CurveTween(curve: Curves.easeOutCubic))
-        .animate(_ctrl);
   }
 
   @override
@@ -92,7 +93,8 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
     }
   }
 
-  Future<void> _launchUrl(String urlString, {LaunchMode mode = LaunchMode.externalApplication}) async {
+  Future<void> _launchUrl(String urlString,
+      {LaunchMode mode = LaunchMode.externalApplication}) async {
     setState(() => _busy = true);
     try {
       final Uri uri = Uri.parse(urlString);
@@ -122,14 +124,12 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
   }
 
   Future<void> _openMessenger() async {
-    print('pressed messenger');
+    final raw = (widget.messengerUrl ?? '').trim();
+    if (raw.isEmpty) return;
 
-
-    final id = _extractMessengerId(widget.messengerUrl);
-    final appUri = id != null
-        ? Uri.parse('fb-messenger://user-thread/$id')
-        : null;
-    final webUri = Uri.parse(widget.messengerUrl); // e.g. https://m.me/<user> or your FB URL
+    final id = _extractMessengerId(raw);
+    final appUri = id != null ? Uri.parse('fb-messenger://user-thread/$id') : null;
+    final webUri = Uri.parse(raw); // https://m.me/<user> or https://www.messenger.com/t/<id>
 
     setState(() => _busy = true);
     try {
@@ -149,13 +149,14 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
   }
 
   Future<void> _openWhatsApp() async {
-    print('pressed WhatsApp');
-    // WhatsApp MUST be full international w/o "+" or spaces: e.g., 8801795331001
+    final phone = (widget.whatsappPhone ?? '').trim();
+    if (phone.isEmpty) return;
+
     final msg = widget.whatsappMessage ?? '';
     final appUri = Uri.parse(
-        'whatsapp://send?phone=${widget.whatsappPhone}&text=${Uri.encodeComponent(msg)}');
-    final webUri = Uri.parse(
-        'https://wa.me/${widget.whatsappPhone}?text=${Uri.encodeComponent(msg)}');
+        'whatsapp://send?phone=$phone&text=${Uri.encodeComponent(msg)}');
+    final webUri =
+    Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(msg)}');
 
     setState(() => _busy = true);
     try {
@@ -175,18 +176,19 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
   }
 
   Future<void> _callPhone() async {
-    print('pressed Phone');
+    final number = (widget.phoneNumber ?? '').trim();
+    if (number.isEmpty) return;
 
-    final tel = Uri(scheme: 'tel', path: widget.phoneNumber); // e.g. +8801795331001
+    final tel = Uri(scheme: 'tel', path: number);
 
     setState(() => _busy = true);
     try {
       if (await canLaunchUrl(tel)) {
-        await launchUrl(tel, mode: LaunchMode.externalApplication); // opens dialer
+        await launchUrl(tel, mode: LaunchMode.externalApplication);
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cannot call ${widget.phoneNumber}')),
+          SnackBar(content: Text('Cannot call $number')),
         );
       }
     } finally {
@@ -194,68 +196,109 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
     }
   }
 
+  Future<void> _openPromo() async {
+    if (widget.onPromoTap != null) {
+      widget.onPromoTap!.call();
+      return;
+    }
+    final link = (widget.promoVideoUrl ?? '').trim();
+    if (link.isNotEmpty) {
+      await _launchUrl(link);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video link is unavailable')),
+      );
+    }
+  }
+
+  // Light slide generator for variable number of actions.
+  Animation<Offset> _slideForIndex(int index) {
+    final startDy = 0.15 + (index * 0.07);
+    return Tween(begin: Offset(0, startDy), end: Offset.zero)
+        .chain(CurveTween(curve: Curves.easeOutCubic))
+        .animate(_ctrl);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = widget.gradientColors;
+
+    // Build the visible actions in order (top to bottom)
+    final actions = <Widget>[];
+    if ((widget.promoVideoUrl ?? '').trim().isNotEmpty) {
+      actions.add(_GlassActionPill.icon(
+        icon: Icons.play_circle_fill_rounded,
+        label: widget.promoLabel,
+        onTap: _busy ? null : _openPromo,
+        isDark: isDark,
+        color: Colors.redAccent,
+      ));
+    }
+    if ((widget.messengerUrl ?? '').trim().isNotEmpty) {
+      actions.add(_GlassActionPill.svg(
+        svgAsset: AssetsPath.fbIcon,
+        label: widget.messengerLabel,
+        onTap: _busy ? null : _openMessenger,
+        isDark: isDark,
+        color: Colors.blueAccent,
+      ));
+    }
+    if ((widget.whatsappPhone ?? '').trim().isNotEmpty) {
+      actions.add(_GlassActionPill.svg(
+        svgAsset: AssetsPath.whatsAppIcon,
+        label: widget.whatsappLabel,
+        onTap: _busy ? null : _openWhatsApp,
+        isDark: isDark,
+        color: Colors.green,
+      ));
+    }
+    if ((widget.phoneNumber ?? '').trim().isNotEmpty) {
+      actions.add(_GlassActionPill.svg(
+        svgAsset: AssetsPath.callIcon,
+        label: widget.callLabel,
+        onTap: _busy ? null : _callPhone,
+        isDark: isDark,
+        color: Colors.indigo,
+      ));
+    }
+
+    // If nothing to show, hide the whole thing
+    final nothing = actions.isEmpty;
 
     return SafeArea(
       child: Padding(
         padding: widget.floatingPadding,
-        // ⬇️ Make the Stack fill the area so taps on the expanded pills are hit-tested
         child: SizedBox.expand(
-          child: Stack(
+          child: nothing
+              ? const SizedBox.shrink()
+              : Stack(
             clipBehavior: Clip.none,
             children: [
-              // Actions column (hit-testable now)
+              // Actions column
               Positioned(
                 right: 0,
                 bottom: 66,
                 child: AnimatedBuilder(
                   animation: _ctrl,
                   builder: (context, child) {
-                    // ignore taps while collapsed OR animating
-                    final ignoring = _ctrl.status != AnimationStatus.completed;
+                    final ignoring =
+                        _ctrl.status != AnimationStatus.completed;
                     return IgnorePointer(ignoring: ignoring, child: child);
                   },
                   child: FadeTransition(
                     opacity: _fade,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        SlideTransition(
-                          position: _slide3,
-                          child: _GlassActionPill.svg(
-                            svgAsset: AssetsPath.fbIcon,
-                            label: widget.messengerLabel,
-                            onTap: _busy ? null : _openMessenger,
-                            isDark: isDark,
-                            color: Colors.blueAccent,
+                      children: List.generate(actions.length, (i) {
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: i == actions.length - 1 ? 0 : 10),
+                          child: SlideTransition(
+                            position: _slideForIndex(i),
+                            child: actions[i],
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        SlideTransition(
-                          position: _slide2,
-                          child: _GlassActionPill.svg(
-                            svgAsset: AssetsPath.whatsAppIcon,
-                            label: widget.whatsappLabel,
-                            onTap: _busy ? null : _openWhatsApp,
-                            isDark: isDark,
-                            color: Colors.green,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        SlideTransition(
-                          position: _slide1,
-                          child: _GlassActionPill.svg(
-                            svgAsset: AssetsPath.callIcon,
-                            label: widget.callLabel,
-                            onTap: _busy ? null : _callPhone,
-                            isDark: isDark,
-                            color: Colors.indigo,
-                          ),
-                        ),
-                      ],
+                        );
+                      }),
                     ),
                   ),
                 ),
@@ -271,8 +314,10 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
                   onTap: _busy ? null : _toggle,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
-                    transitionBuilder: (c, anim) =>
-                        RotationTransition(turns: anim, child: ScaleTransition(scale: anim, child: c)),
+                    transitionBuilder: (c, anim) => RotationTransition(
+                      turns: anim,
+                      child: ScaleTransition(scale: anim, child: c),
+                    ),
                     child: _busy
                         ? const SizedBox(
                       key: ValueKey('busy'),
@@ -280,11 +325,13 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.4,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.white,
+                        ),
                       ),
                     )
                         : Icon(
-                      _expanded ? Icons.close_rounded : Icons.support_agent_rounded,
+                      _expanded ? Icons.close_rounded : Icons.chat,
                       key: ValueKey(_expanded),
                       color: AppColor.primaryColor,
                       size: 22,
@@ -297,13 +344,12 @@ class _FloatingCustomerCareState extends State<FloatingCustomerCare>
         ),
       ),
     );
-
   }
 }
 
 class _GlassActionPill extends StatelessWidget {
-  final IconData? icon;       // use this for Material icons
-  final String? svgAsset;     // use this for SVG assets
+  final IconData? icon; // use this for Material icons
+  final String? svgAsset; // use this for SVG assets
   final String label;
   final VoidCallback? onTap;
   final bool isDark;
@@ -333,11 +379,7 @@ class _GlassActionPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Widget leading = svgAsset != null
-        ? SvgPicture.asset(
-      svgAsset!,
-      width: iconSize,
-      height: iconSize,
-    )
+        ? SvgPicture.asset(svgAsset!, width: iconSize, height: iconSize)
         : Icon(icon, size: iconSize, color: color);
 
     return ClipRRect(
@@ -373,7 +415,6 @@ class _GlassActionPill extends StatelessWidget {
   }
 }
 
-/// Main circular glass button with gradient glow
 class _GlassCircleButton extends StatelessWidget {
   final List<Color> gradientColors;
   final bool isDark;
@@ -393,8 +434,8 @@ class _GlassCircleButton extends StatelessWidget {
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.withOpacity(0.25), width: 1.5)
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.withOpacity(0.25), width: 1.5),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(23),

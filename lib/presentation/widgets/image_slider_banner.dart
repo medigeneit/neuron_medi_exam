@@ -11,13 +11,13 @@ import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 
-class ImageSliderBanner extends StatefulWidget {
+class PromoSliderBanner extends StatefulWidget {
   final List<SlideItem> slideItems;
   final double height;
   final double borderRadius;
   final BoxFit fit;
 
-  const ImageSliderBanner({
+  const PromoSliderBanner({
     Key? key,
     required this.slideItems,
     this.height = 200,
@@ -26,10 +26,10 @@ class ImageSliderBanner extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ImageSliderBanner> createState() => _ImageSliderBannerState();
+  State<PromoSliderBanner> createState() => _PromoSliderBannerState();
 }
 
-class _ImageSliderBannerState extends State<ImageSliderBanner> {
+class _PromoSliderBannerState extends State<PromoSliderBanner> {
   int _currentIndex = 0;
 
 
@@ -44,7 +44,7 @@ class _ImageSliderBannerState extends State<ImageSliderBanner> {
   }
 
   @override
-  void didUpdateWidget(covariant ImageSliderBanner oldWidget) {
+  void didUpdateWidget(covariant PromoSliderBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.slideItems, widget.slideItems)) {
       _prepareDisplayItems();

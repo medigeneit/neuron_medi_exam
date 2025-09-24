@@ -1,36 +1,29 @@
 // lib/presentation/screens/exam_questions_screen.dart
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:get/get.dart';
 
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:medi_exam/data/models/exam_question_model.dart';
 import 'package:medi_exam/data/services/exam_feedback_service.dart';
 import 'package:medi_exam/data/services/exam_questions_service.dart';
-import 'package:medi_exam/data/services/single_answer_submit_service.dart';
 import 'package:medi_exam/data/services/finish_exam_service.dart';
+import 'package:medi_exam/data/services/single_answer_submit_service.dart';
+import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
-
 import 'package:medi_exam/presentation/widgets/exam_timer.dart';
+import 'package:medi_exam/presentation/widgets/helpers/exam_questions_screen_helpers.dart';
+import 'package:medi_exam/presentation/widgets/helpers/payment_screen_helpers.dart';
+import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/mcq_question_tile.dart';
 import 'package:medi_exam/presentation/widgets/sba_question_tile.dart';
 
-import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
-import 'package:medi_exam/presentation/widgets/loading_widget.dart';
-import 'package:medi_exam/presentation/widgets/helpers/payment_screen_helpers.dart';
-import 'package:medi_exam/presentation/utils/app_colors.dart';
-
 class ExamQuestionsScreen extends StatefulWidget {
-  final String admissionId;
-  final String examId;
-
   const ExamQuestionsScreen({
     super.key,
-    required this.admissionId,
-    required this.examId,
   });
 
   @override
@@ -39,6 +32,9 @@ class ExamQuestionsScreen extends StatefulWidget {
 
 class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     with SingleTickerProviderStateMixin {
+  late Map<String, dynamic> args;
+  late String admissionId;
+  late String examId;
   final _examService = ExamQuestionsService();
   final _submitService = SingleAnswerSubmitService();
   final _finishService = FinishExamService();
@@ -51,7 +47,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
   // Timer
   Timer? _ticker;
-  int _secondsLeft = 0;              // used for logic (unchanged)
+  int _secondsLeft = 0; // used for logic (unchanged)
   final ValueNotifier<int> _secondsVN = ValueNotifier<int>(0); // used for UI
   bool get _timeUp => _secondsLeft <= 0;
 
@@ -80,14 +76,33 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     return list.toSet();
   }
 
+  /// Locally compute partial MCQ questions:
+  /// partial = at least one answered AND at least one unanswered (among 5 statements).
   Set<int> get _partialIdsComputed {
     final out = <int>{};
     _mcqStates.forEach((qId, states) {
-      if (states.any((e) => e != null) && states.any((e) => e == null)) {
-        out.add(qId);
-      }
+      final anyAnswered = states.any((e) => e != null);
+      final anyUnanswered = states.any((e) => e == null);
+      if (anyAnswered && anyUnanswered) out.add(qId);
     });
     return out;
+  }
+
+  /// Helper to check current local partial state for a questionId.
+  bool _isStillPartialNow(int qId) {
+    final states = _mcqStates[qId] ?? const [null, null, null, null, null];
+    final answered = states.where((e) => e != null).length;
+    return answered > 0 && answered < 5;
+  }
+
+  /// FINAL list for the Partial tab:
+  /// Keep only server-marked partials that are STILL partial locally, union with locally computed.
+  List<int> get _partialIds {
+    final filteredServer =
+        _partialIdsFromServer.where(_isStillPartialNow).toSet();
+    final computed = _partialIdsComputed;
+    final list = (filteredServer..addAll(computed)).toList()..sort();
+    return list;
   }
 
   List<int> get _unansweredIds {
@@ -95,15 +110,12 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     return _allQuestionIds.where((id) => !answered.contains(id)).toList();
   }
 
-  List<int> get _partialIds {
-    final s = _partialIdsFromServer.union(_partialIdsComputed);
-    final list = s.toList()..sort();
-    return list;
-  }
-
   @override
   void initState() {
     super.initState();
+    args = Get.arguments ?? {};
+    admissionId = (args['admissionId'] ?? '').toString();
+    examId = (args['examId'] ?? '').toString();
     _tabController = TabController(length: 3, vsync: this);
     _load();
   }
@@ -124,8 +136,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
     try {
       final resp = await _examService.fetchExamQuestions(
-        widget.admissionId,
-        widget.examId,
+        admissionId,
+        examId,
       );
 
       if (!resp.isSuccess) {
@@ -149,7 +161,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           if (decoded is Map<String, dynamic>) {
             model = ExamQuestionModel.fromJson(decoded);
           }
-        } catch (_) {/* ignore */}
+        } catch (_) {
+          /* ignore */
+        }
       }
 
       if (model == null) {
@@ -196,7 +210,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         _mcqLocks[qId] = List<bool>.generate(5, (i) => states[i] != null);
       } else if (q.isSBA) {
         final ans = submitted[qId]?.answer;
-        final letter = (ans ?? '').trim().isEmpty ? null : ans!.trim().toUpperCase();
+        final letter =
+            (ans ?? '').trim().isEmpty ? null : ans!.trim().toUpperCase();
         _sbaSelected[qId] = letter;
         if (letter != null) {
           _sbaLocked.add(qId);
@@ -233,9 +248,12 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     if (input == null || input.isEmpty) return out;
     for (var i = 0; i < len && i < input.length; i++) {
       final c = input[i].toUpperCase();
-      if (c == 'T') out[i] = true;
-      else if (c == 'F') out[i] = false;
-      else out[i] = null;
+      if (c == 'T')
+        out[i] = true;
+      else if (c == 'F')
+        out[i] = false;
+      else
+        out[i] = null;
     }
     return out;
   }
@@ -268,8 +286,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     });
 
     final resp = await _submitService.submitSingleAnswer(
-      admissionId: widget.admissionId,
-      examId: widget.examId,
+      admissionId: admissionId,
+      examId: examId,
       questionId: '$questionId',
       examQuestionId: examQuestionId,
       questionTypeId: '2',
@@ -284,7 +302,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         _sbaLocked.add(questionId);
         _model?.submittedAnswers?.putIfAbsent(
           questionId,
-              () => SubmittedAnswer(
+          () => SubmittedAnswer(
             examQuestionId: int.tryParse(examQuestionId),
             answer: optionLetter,
             questionTypeId: 2,
@@ -309,7 +327,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     final locks = _mcqLocks[questionId] ?? List<bool>.filled(5, false);
     if (locks[index]) return;
 
-    final states = List<bool?>.from(_mcqStates[questionId] ?? List<bool?>.filled(5, null));
+    final states =
+        List<bool?>.from(_mcqStates[questionId] ?? List<bool?>.filled(5, null));
     final prev = states[index];
     states[index] = value;
     final answerStr = _buildMcq(states);
@@ -319,8 +338,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     });
 
     final resp = await _submitService.submitSingleAnswer(
-      admissionId: widget.admissionId,
-      examId: widget.examId,
+      admissionId: admissionId,
+      examId: examId,
       questionId: '$questionId',
       examQuestionId: examQuestionId,
       questionTypeId: '1',
@@ -338,7 +357,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         _mcqLocks[questionId] = newLocks;
         _model?.submittedAnswers?.putIfAbsent(
           questionId,
-              () => SubmittedAnswer(
+          () => SubmittedAnswer(
             examQuestionId: int.tryParse(examQuestionId),
             answer: answerStr,
             questionTypeId: 1,
@@ -369,19 +388,21 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     }
 
     final resp = await _finishService.fetchFinishExam(
-      widget.admissionId.toString(),
-      widget.examId.toString(),
+      admissionId.toString(),
+      examId.toString(),
     );
 
     if (!mounted) return;
 
     if (resp.isSuccess) {
-      final msg = (resp.responseData is Map && (resp.responseData as Map)['message'] != null)
+      final msg = (resp.responseData is Map &&
+              (resp.responseData as Map)['message'] != null)
           ? (resp.responseData as Map)['message'].toString()
           : 'Exam finished successfully';
 
       // ⬇️ Dialog returns true if it already navigated to results.
-      final bool navigated = await _showFinishFeedbackDialog(successMessage: msg) ?? false;
+      final bool navigated =
+          await _showFinishFeedbackDialog(successMessage: msg) ?? false;
 
       if (!navigated && mounted) {
         // If the user skipped/closed without navigation, fall back to previous behavior:
@@ -392,13 +413,12 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     }
   }
 
-
-
-  Future<bool?> _showFinishFeedbackDialog({required String successMessage}) async {
+  Future<bool?> _showFinishFeedbackDialog(
+      {required String successMessage}) async {
     final theme = Theme.of(context);
     final grad = AppColor.secondaryGradient;
     final Color accent =
-    grad is LinearGradient ? grad.colors.first : theme.colorScheme.primary;
+        grad is LinearGradient ? grad.colors.first : theme.colorScheme.primary;
 
     final TextEditingController _feedbackCtrl = TextEditingController();
     final service = ExamFeedbackService();
@@ -470,7 +490,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                             ),
 
                             const SizedBox(height: 16),
-                            _CalculatingRow(accent: accent),
+                            // ⬇️ from helpers
+                            CalculatingRow(accent: accent),
                             const SizedBox(height: 16),
 
                             Text(
@@ -501,61 +522,76 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-
                                 InkWell(
                                   borderRadius: BorderRadius.circular(12),
                                   onTap: submitting
                                       ? null
                                       : () async {
-                                    setState(() => submitting = true);
-                                    try {
-                                      final fb = _feedbackCtrl.text.trim();
-                                      final resp = await service.submitExamFeedback(
-                                        admissionId: widget.admissionId.toString(),
-                                        examId: widget.examId.toString(),
-                                        feedback: fb,
-                                      );
-                                      if (!mounted) return;
+                                          setState(() => submitting = true);
+                                          try {
+                                            final fb =
+                                                _feedbackCtrl.text.trim();
+                                            final resp = await service
+                                                .submitExamFeedback(
+                                              admissionId:
+                                                  admissionId.toString(),
+                                              examId: examId.toString(),
+                                              feedback: fb,
+                                            );
+                                            if (!mounted) return;
 
-                                      if (resp.isSuccess) {
-                                        Get.snackbar(
-                                          'Thanks!',
-                                          'Your feedback has been submitted.',
-                                          snackPosition: SnackPosition.BOTTOM,
-                                          backgroundColor: Colors.green,
-                                          colorText: Colors.white,
-                                        );
+                                            if (resp.isSuccess) {
+                                              Get.snackbar(
+                                                'Thanks!',
+                                                'Your feedback has been submitted.',
+                                                snackPosition:
+                                                    SnackPosition.BOTTOM,
+                                                backgroundColor: Colors.green,
+                                                colorText: Colors.white,
+                                              );
 
+                                              // Close the dialog, returning "navigated = true"
+                                              Navigator.pop(context, true);
 
-                                        // ✅ Navigate to result screen right after feedback
-                                        //_goToResultScreen();
-                                        // Close the dialog, returning "navigated = true"
-                                        Navigator.pop(context, true);
+                                              final data = {
+                                                'admissionId':
+                                                    (admissionId ?? '')
+                                                        .toString(),
+                                                'examId':
+                                                    (examId ?? '').toString(),
+                                              };
 
-                                        Get.offAllNamed(RouteNames.navBar, arguments: 0);
-
-                                      } else {
-                                        Get.snackbar(
-                                          'Error',
-                                          resp.errorMessage ?? 'Failed to submit feedback',
-                                          snackPosition: SnackPosition.BOTTOM,
-                                          backgroundColor: Colors.red,
-                                          colorText: Colors.white,
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (!mounted) return;
-                                      Get.snackbar(
-                                        'Error',
-                                        'Failed to submit feedback',
-                                        snackPosition: SnackPosition.BOTTOM,
-                                        backgroundColor: Colors.red,
-                                        colorText: Colors.white,
-                                      );
-                                    } finally {
-                                      if (mounted) setState(() => submitting = false);
-                                    }
-                                  },
+                                              Get.offNamed(
+                                                RouteNames.examResult,
+                                                arguments: data,
+                                              );
+                                            } else {
+                                              Get.snackbar(
+                                                'Error',
+                                                resp.errorMessage ??
+                                                    'Failed to submit feedback',
+                                                snackPosition:
+                                                    SnackPosition.BOTTOM,
+                                                backgroundColor: Colors.red,
+                                                colorText: Colors.white,
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (!mounted) return;
+                                            Get.snackbar(
+                                              'Error',
+                                              'Failed to submit feedback',
+                                              snackPosition:
+                                                  SnackPosition.BOTTOM,
+                                              backgroundColor: Colors.red,
+                                              colorText: Colors.white,
+                                            );
+                                          } finally {
+                                            if (mounted)
+                                              setState(
+                                                  () => submitting = false);
+                                          }
+                                        },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 12),
@@ -564,7 +600,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                       borderRadius: BorderRadius.circular(12),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: AppColor.purple.withOpacity(0.28),
+                                          color:
+                                              AppColor.purple.withOpacity(0.28),
                                           blurRadius: 16,
                                           offset: const Offset(0, 8),
                                         ),
@@ -579,7 +616,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                             height: 16,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
                                                 Colors.white,
                                               ),
                                             ),
@@ -616,8 +654,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     );
   }
 
-
-
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
@@ -628,8 +664,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         body: _loading
             ? const Center(child: LoadingWidget())
             : _loadError != null
-            ? _ErrorCard(message: _loadError!, onRetry: _load)
-            : _buildContent(context),
+                ? ErrorCard(
+                    message: _loadError!, onRetry: _load) // ⬅️ from helpers
+                : _buildContent(context),
       ),
     );
   }
@@ -660,7 +697,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           ),
         ),
 
-        // Timer + Finish button row (timer updates via ValueNotifier only)
+        // Timer + Finish button row
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -681,11 +718,12 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                   gradient: AppColor.warningGradient,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
-                    // soft glow, pulled from the first gradient stop
                     BoxShadow(
                       color: (AppColor.warningGradient is LinearGradient
-                          ? (AppColor.warningGradient as LinearGradient).colors.first
-                          : Colors.black)
+                              ? (AppColor.warningGradient as LinearGradient)
+                                  .colors
+                                  .first
+                              : Colors.black)
                           .withOpacity(0.28),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
@@ -697,14 +735,14 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: _onFinishExam,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             'Finish Exam',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.2,
@@ -716,12 +754,11 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                   ),
                 ),
               ),
-
             ],
           ),
         ),
 
-        // Tabs (in a soft container, like your pattern)
+        // Tabs
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.all(4),
@@ -739,7 +776,10 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           ),
           child: TabBar(
             controller: _tabController,
-            labelStyle:  TextStyle(fontWeight: FontWeight.w600, fontSize: Sizes.smallText(context),),
+            labelStyle: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: Sizes.smallText(context),
+            ),
             tabs: [
               Tab(text: 'All (${_allQuestionIds.length})'),
               Tab(text: 'Unanswered (${_unansweredIds.length})'),
@@ -770,7 +810,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
+        final maxWidth =
+            constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
         return ListView.separated(
           key: key,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -858,7 +899,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   }) {
     final theme = Theme.of(context);
     final grad = AppColor.warningGradient;
-    final Color accent = grad is LinearGradient ? grad.colors.first : AppColor.purple;
+    final Color accent =
+        grad is LinearGradient ? grad.colors.first : AppColor.purple;
 
     return showGeneralDialog<bool>(
       context: context,
@@ -867,7 +909,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
       barrierLabel: title,
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
-        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+        final curved =
+            CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
 
         return ScaleTransition(
           scale: curved,
@@ -899,7 +942,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                     color: accent.withOpacity(0.1),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(Icons.warning_amber_rounded, color: accent, size: 24),
+                                  child: Icon(Icons.warning_amber_rounded,
+                                      color: accent, size: 24),
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
@@ -946,7 +990,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                               onPressed: () => Navigator.pop(context, false),
                               child: Text(
                                 negative,
-                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -955,7 +1000,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                               borderRadius: BorderRadius.circular(12),
                               onTap: () => Navigator.pop(context, true),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
                                 decoration: BoxDecoration(
                                   gradient: grad,
                                   borderRadius: BorderRadius.circular(12),
@@ -967,18 +1013,17 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                     ),
                                   ],
                                 ),
-                                child: Row(
+                                child: const Row(
                                   mainAxisSize: MainAxisSize.min,
-                                  children: const [
+                                  children: [
                                     Text(
                                       'Finish Exam',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: 0.2,
                                       ),
                                     ),
-                                    // label text
                                   ],
                                 ),
                               ),
@@ -995,130 +1040,32 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         );
       },
     ).then((value) {
-      // Ensure the label is applied to the gradient button (since we used a const Row)
-      // (Alternative: remove const above and use the variable directly.)
       return value;
     });
   }
 
-
-  Future<void> _showInfo(String title, String message, {String positive = 'OK'}) {
+  Future<void> _showInfo(String title, String message,
+      {String positive = 'OK'}) {
     return showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(title),
         content: Text(message),
-        actions: [FilledButton(onPressed: () => Navigator.pop(context), child: Text(positive))],
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(context), child: Text(positive))
+        ],
       ),
     );
   }
-
-
-
-
-
-
-
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
-}
-
-class _ErrorCard extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  const _ErrorCard({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, size: 42, color: Theme.of(context).colorScheme.error),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-/// Small animated row: rotating icon + helper text.
-class _CalculatingRow extends StatefulWidget {
-  final Color accent;
-  const _CalculatingRow({required this.accent});
-
-  @override
-  State<_CalculatingRow> createState() => _CalculatingRowState();
-}
-
-class _CalculatingRowState extends State<_CalculatingRow>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _turns;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(); // continuous rotation
-
-    _turns = CurvedAnimation(parent: _ctrl, curve: Curves.linear);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        RotationTransition(
-          turns: _turns,
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: widget.accent.withOpacity(0.10),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.autorenew_rounded,
-              color: widget.accent,
-              size: 20,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            'Calculating your result… In the meantime, please share your feedback about the exam.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
-            ),
-          ),
-        ),
-      ],
+    Get.snackbar(
+      'Error',
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
     );
   }
 }

@@ -46,12 +46,12 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
       color: AppColor.indigo,
       route: '/transaction-history',
     ),
-    ProfileAction(
+/*    ProfileAction(
       icon: Icons.phone_android_rounded,
       title: 'Device Verification',
       color: AppColor.orangeColor,
       route: '/device-verification',
-    ),
+    ),*/
   ];
 
   bool _isLoggingOut = false;

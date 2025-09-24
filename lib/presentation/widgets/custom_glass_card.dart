@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 
 class GlassCard extends StatelessWidget {
-  const GlassCard({required this.child});
+  const GlassCard({required this.child, this.opacity = 0.15});
   final Widget child;
+  final double opacity;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: Colors.white.withOpacity(opacity),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.withOpacity(.4)),
         boxShadow: [

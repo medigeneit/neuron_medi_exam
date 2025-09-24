@@ -104,6 +104,7 @@ class SBAQuestionTile extends StatelessWidget {
       final text = opt.title ?? '';
       final bool selected =
           selectedLetter != null && selectedLetter!.toUpperCase() == letter;
+      const double radioSize = 28;
 
       list.add(
         GlassCard(
@@ -133,7 +134,7 @@ class SBAQuestionTile extends StatelessWidget {
                     selected: selected,
                     disabled: !enabled,
                     onTap: () => onChanged(letter),
-                    size: 34,
+                    size: radioSize,
                     selectedColor: AppColor.primaryColor,
                   ),
                 ),
@@ -149,32 +150,4 @@ class SBAQuestionTile extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  final String indexLabel;
-  final String type;
-  const _Header({required this.indexLabel, required this.type});
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        badgeIcon(icon: Icons.quiz_rounded, colors: [AppColor.indigo, AppColor.purple]),
-        const SizedBox(width: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColor.indigo.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: AppColor.indigo.withOpacity(0.25)),
-          ),
-          child: Text(
-            indexLabel,
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text('($type)', style: Theme.of(context).textTheme.labelLarge),
-      ],
-    );
-  }
-}

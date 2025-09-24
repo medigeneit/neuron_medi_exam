@@ -1,40 +1,38 @@
-// lib/presentation/widgets/mcq_question_tile.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
-import 'package:medi_exam/data/models/exam_question_model.dart';
+import 'package:medi_exam/data/models/exam_answers_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
-import 'package:medi_exam/presentation/widgets/helpers/payment_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/labeled_radio.dart';
 
-class MCQQuestionTile extends StatelessWidget {
+/// Read-only MCQ review tile that shows both:
+/// - Doctor's T/F (colored green if matches, red if wrong)
+/// - Correct T/F (blue)
+/// Now: statement text and radios are in the SAME ROW,
+/// and there is a vertical divider between doctor vs correct radios.
+class MCQAnswerReviewTile extends StatelessWidget {
   final String indexLabel;
-  final int questionId;
-  final String examQuestionId;
   final String titleHtml;
-  final List<QuestionOption> options; // 5 statements
-  final List<bool?> states; // length 5: true/false/null
-  final List<bool> locks; // length 5: true = that statement locked
-  final bool enabled;
-  final void Function(int index, bool value) onSelect;
+  final List<AnswerOption> options; // 5 statements (A..E with text)
+  final List<bool?>? doctorStates;   // length 5: true/false/null
+  final List<bool?>? correctStates;  // length 5: true/false/null
 
-  const MCQQuestionTile({
+  const MCQAnswerReviewTile({
     super.key,
     required this.indexLabel,
-    required this.questionId,
-    required this.examQuestionId,
     required this.titleHtml,
     required this.options,
-    required this.states,
-    required this.locks,
-    required this.enabled,
-    required this.onSelect,
+    required this.doctorStates,
+    required this.correctStates,
   });
 
   @override
   Widget build(BuildContext context) {
+    final ds = doctorStates ?? const [null, null, null, null, null];
+    final cs = correctStates ?? const [null, null, null, null, null];
+
     return CustomBlobBackground(
       backgroundColor: Colors.white,
       blobColor: AppColor.purple,
@@ -43,11 +41,13 @@ class MCQQuestionTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header row with index and question title
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColor.secondaryGradient,
@@ -68,32 +68,29 @@ class MCQQuestionTile extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
-                // ⬇️ Constrain and allow wrapping
                 Expanded(
                   child: Html(
                     data: titleHtml,
                     style: {
-                      // compact body
                       "body": Style(
                         margin: Margins.zero,
                         padding: HtmlPaddings.zero,
                         lineHeight: const LineHeight(1.35),
                       ),
-                      // make images/tables fit the width
                       "img": Style(width: Width(100, Unit.percent)),
-                      "table": Style(width: Width(100, Unit.percent),),
+                      "table": Style(width: Width(100, Unit.percent)),
                     },
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
+
+            // Statements rows (each in single row with radios)
             ...List.generate(
               options.length,
-                  (i) => _statementRow(context, i, options[i]),
+                  (i) => _statementRow(context, i, options[i], ds, cs),
             ),
           ],
         ),
@@ -101,20 +98,37 @@ class MCQQuestionTile extends StatelessWidget {
     );
   }
 
-  Widget _statementRow(BuildContext context, int i, QuestionOption opt) {
-    final bool? state = states[i]; // true / false / null
-    final bool locked = locks[i] == true;
-    final bool rowEnabled = enabled && !locked;
-    const double radioSize = 28;
+  Widget _statementRow(
+      BuildContext context,
+      int i,
+      AnswerOption opt,
+      List<bool?> ds,
+      List<bool?> cs,
+      ) {
+    final bool? doc = i < ds.length ? ds[i] : null;
+    final bool? cor = i < cs.length ? cs[i] : null;
+
+    // Doctor correctness (null -> no attempt)
+    final bool? docIsCorrect =
+    (doc == null || cor == null) ? null : (doc == cor);
+
+    // Selected colors per spec
+    final Color correctColor = AppColor.indigo; // blue-ish (brand)
+    final Color docColor = (docIsCorrect == null)
+        ? Colors.grey // unanswered -> neutral
+        : (docIsCorrect ? Colors.green : Colors.red);
+
+    const double radioSize = 24;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: GlassCard(
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Statement text (expand to take free space)
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(left: 12, right: 8),
@@ -129,27 +143,57 @@ class MCQQuestionTile extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // Doctor radios: T / F
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   LabeledRadio(
                     label: 'T',
-                    selected: state == true,
-                    disabled: !rowEnabled,
-                    onTap: () => onSelect(i, true),
+                    selected: doc == true,
+                    disabled: true,
+                    selectedColor: docColor,
                     size: radioSize,
-                    selectedColor: AppColor.primaryColor,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   LabeledRadio(
                     label: 'F',
-                    selected: state == false,
-                    disabled: !rowEnabled,
-                    onTap: () => onSelect(i, false),
+                    selected: doc == false,
+                    disabled: true,
+                    selectedColor: docColor,
                     size: radioSize,
-                    selectedColor: AppColor.primaryColor,
                   ),
+                ],
+              ),
 
+              // Vertical divider
+              const SizedBox(width: 10),
+              Container(
+                width: 1,
+                height: radioSize + 6,
+                color: Colors.black12,
+              ),
+              const SizedBox(width: 10),
+
+              // Correct radios: T / F
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LabeledRadio(
+                    label: 'T',
+                    selected: cor == true,
+                    disabled: true,
+                    selectedColor: correctColor,
+                    size: radioSize,
+                  ),
+                  const SizedBox(width: 8),
+                  LabeledRadio(
+                    label: 'F',
+                    selected: cor == false,
+                    disabled: true,
+                    selectedColor: correctColor,
+                    size: radioSize,
+                  ),
                 ],
               ),
             ],
@@ -159,4 +203,3 @@ class MCQQuestionTile extends StatelessWidget {
     );
   }
 }
-

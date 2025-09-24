@@ -10,12 +10,14 @@ class AppBackground extends StatelessWidget {
     this.showParticles = true,
     this.showSoftGrid = true,
     this.intensity = 0.3,
+    this.opacity = 0.06,
   });
 
   final Widget child;
   final bool showParticles;
   final bool showSoftGrid;
   final double intensity;
+  final double opacity;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +70,7 @@ class AppBackground extends StatelessWidget {
   List<Widget> _buildGridPattern() {
     return [
       Opacity(
-        opacity: 0.06,
+        opacity: opacity,
         child: CustomPaint(
           painter: _GridPainter(),
           size: Size.infinite,
@@ -80,9 +82,9 @@ class AppBackground extends StatelessWidget {
   List<Widget> _buildParticles(BuildContext context, double intensity) {
     final particles = <Widget>[];
     final colors = [
-      const Color(0xFF662483).withOpacity(0.15 * intensity),
+      const Color(0xFF662483).withOpacity(0.12 * intensity),
       const Color(0xFF6366F1).withOpacity(0.12 * intensity),
-      const Color(0xFF8B5CF6).withOpacity(0.10 * intensity),
+      const Color(0xFF8B5CF6).withOpacity(0.12 * intensity),
     ];
 
     // Add multiple particles at different positions

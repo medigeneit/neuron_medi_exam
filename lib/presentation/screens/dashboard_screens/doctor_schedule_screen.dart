@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/doctor_schedule_model.dart';
 import 'package:medi_exam/data/services/doctor_schedule_service.dart';
+import 'package:medi_exam/main.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/date_section.dart';
 import 'package:medi_exam/presentation/widgets/helpers/doctor_schedule_screen_helpers.dart';
@@ -20,12 +22,13 @@ class DoctorScheduleScreen extends StatefulWidget {
   State<DoctorScheduleScreen> createState() => _DoctorScheduleScreenState();
 }
 
-class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
+class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> with WidgetsBindingObserver, RouteAware{
   final _service = DoctorScheduleService();
   late Map<String, dynamic> args;
 
   DoctorScheduleModel? _scheduleData;
   bool _loading = true;
+  bool _refreshing = false; // NEW: Separate state for background refreshes
   String? _error;
 
   bool _isPickingDate = false;
@@ -35,21 +38,67 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   DateTime? _pickedDate;
 
-
   @override
   void initState() {
     super.initState();
     args = Get.arguments ?? {};
-    _fetchSchedule();
+    _initialLoad(); // CHANGED: Call initial load instead of fetchSchedule
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    routeObserver.unsubscribe(this);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  Future<void> _fetchSchedule() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  @override
+  void didPopNext() {
+    // Only refresh if we're coming back to this screen
+    _refreshData(silent: true); // CHANGED: Use silent refresh
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshData(silent: true); // CHANGED: Use silent refresh
+    }
+  }
+
+  // NEW: Separate method for initial load (shows loading)
+  Future<void> _initialLoad() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    await _callApi();
+  }
+
+  // NEW: Separate method for background refreshes (no loading)
+  Future<void> _refreshData({bool silent = false}) async {
+    if (silent) {
+      setState(() {
+        _refreshing = true;
+      });
+      await _callApi();
+      setState(() {
+        _refreshing = false;
+      });
+    } else {
+      // This is for manual pull-to-refresh
+      await _callApi();
+    }
+  }
+
+  // NEW: Pure API call without state management
+  Future<void> _callApi() async {
     final String admissionId = (args['admissionId'] ?? '').toString();
     if (admissionId.isEmpty) {
       setState(() {
@@ -58,11 +107,6 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
       });
       return;
     }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
 
     final response = await _service.fetchDoctorSchedule(admissionId);
     if (!mounted) return;
@@ -77,6 +121,7 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
       setState(() {
         _scheduleData = model;
         _loading = false;
+        _error = null;
       });
     } else {
       setState(() {
@@ -86,8 +131,9 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> {
     }
   }
 
+  // CHANGED: Use refreshData instead of fetchSchedule
   Future<void> _refresh() async {
-    await _fetchSchedule();
+    await _refreshData(silent: false);
   }
 
   List<ScheduleDate> get _filteredDates {

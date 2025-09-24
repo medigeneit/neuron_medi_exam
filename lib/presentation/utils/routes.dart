@@ -7,6 +7,9 @@ import 'package:medi_exam/presentation/screens/dashboard_screens/dashboard_scree
 import 'package:medi_exam/presentation/screens/batch_details_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/doctor_schedule_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/enrolled_courses_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/exam_answers_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/exam_questions_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/exam_result_screen.dart';
 import 'package:medi_exam/presentation/screens/edit_profile_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
 import 'package:medi_exam/presentation/screens/navbar_screen.dart';
@@ -15,7 +18,7 @@ import 'package:medi_exam/presentation/screens/payment_screen.dart';
 import 'package:medi_exam/presentation/screens/profile_section_screen.dart';
 import 'package:medi_exam/presentation/screens/registration_screen.dart';
 import 'package:medi_exam/presentation/screens/session_wise_batches_screen.dart';
-import 'package:medi_exam/presentation/screens/solve_video_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/solve_video_screen.dart';
 import 'package:medi_exam/presentation/screens/splash_screen.dart';
 
 class RouteNames {
@@ -56,6 +59,8 @@ class RouteNames {
   static const String vdoChipher = '/vdoChipher';
   static const String examInformation = '/examInformation';
   static const String examQuestion = '/examQuestion';
+  static const String examResult = '/examResult';
+  static const String examAnswer = '/examAnswer';
   static const String solveVideo = '/solveVideo';
 }
 
@@ -146,6 +151,20 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.solveVideo,
     page: () => const SolveVideoScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.examQuestion,
+    page: () => const ExamQuestionsScreen(),
+  ),
+  GetPage(
+    name: RouteNames.examResult,
+    page: () => const ExamResultScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.examAnswer,
+    page: () => const ExamAnswersScreen(),
   ),
 
 ];

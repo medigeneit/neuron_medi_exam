@@ -60,7 +60,13 @@ class CommonScaffold extends StatelessWidget {
           actions: actions,
         ),
         endDrawer: showDrawer ? const CustomDrawer() : null,
-        body: isMobile ? responsiveBody : AppBackground(child: responsiveBody),
+        body: isMobile ? AppBackground(
+          intensity: 0.15,
+            opacity: 0.04,
+            child: responsiveBody) : AppBackground(
+            intensity: 0.25,
+            opacity: 0.06,
+            child: responsiveBody),
         bottomNavigationBar: bottomNavigationBar,
         floatingActionButton: floatingActionButton,
       ),

@@ -85,6 +85,7 @@ class LabeledRadio extends StatelessWidget {
             color: fgColor,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.2,
+            fontSize: size - 12,
           ),
         ),
       ),

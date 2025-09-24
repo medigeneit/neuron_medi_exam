@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/doctor_schedule_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
 import 'exam_solve_links_section.dart';
@@ -99,12 +100,32 @@ class _ExamCard extends StatelessWidget {
             }
 
             final status = content.safeExamStatus.toLowerCase().trim();
+
+            // Handle completed exam immediately without loading dialog
+            if (status == 'completed') {
+              final examId = content.examId;
+              if (examId != null && examId.isNotEmpty) {
+                final data = {
+                  'admissionId': admissionId.toString(),
+                  'examId': examId.toString(),
+                };
+                Get.toNamed(
+                  RouteNames.examResult,
+                  arguments: data,
+                  preventDuplicates: true,
+                );
+                return;
+              }
+            }
+
             final shouldOpenDialog =
                 status == 'not completed' || status == 'running';
 
             if (shouldOpenDialog) {
               await _openExamOverview(context);
-            } else {
+            }
+
+            else {
               // fallback: keep your previous behavior
               Get.snackbar(
                 content.safeTopicName,
