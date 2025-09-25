@@ -14,6 +14,7 @@ import 'package:medi_exam/presentation/screens/edit_profile_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
 import 'package:medi_exam/presentation/screens/navbar_screen.dart';
 import 'package:medi_exam/presentation/screens/notice_screen.dart';
+import 'package:medi_exam/presentation/screens/payment_history_screen.dart';
 import 'package:medi_exam/presentation/screens/payment_screen.dart';
 import 'package:medi_exam/presentation/screens/profile_section_screen.dart';
 import 'package:medi_exam/presentation/screens/registration_screen.dart';
@@ -62,6 +63,7 @@ class RouteNames {
   static const String examResult = '/examResult';
   static const String examAnswer = '/examAnswer';
   static const String solveVideo = '/solveVideo';
+  static const String paymentHistory = '/paymentHistory';
 }
 
 // Define routes
@@ -165,6 +167,11 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.examAnswer,
     page: () => const ExamAnswersScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.paymentHistory,
+    page: () => const PaymentHistoryScreen(),
   ),
 
 ];

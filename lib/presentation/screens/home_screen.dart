@@ -132,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _refreshData() {
+  Future<void> _refreshData() async {
     setState(() {
       _isLoading = true;
       _isSlidingLoading = true;
@@ -253,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         // Content
         RefreshIndicator(
-          onRefresh: _fetchData,
+          onRefresh: _refreshData,
           color: AppColor.primaryColor,
           backgroundColor: isDark ? Colors.grey[800] : Colors.white,
           child: CustomScrollView(
@@ -355,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (_slidingErrorMessage != null) {
       return SliderErrorWidget(
         errorMessage: _slidingErrorMessage!,
-        onRetry: _fetchSlidingItems,
+        onRetry: _refreshData,
       );
     } else if (_slideItemsModel?.slideItems?.isEmpty ?? true) {
       return SliderEmptyWidget();
@@ -374,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return BatchErrorWidget(
         title: "Batch Wise Preparation",
         errorMessage: _errorMessage!,
-        onRetry: _fetchBatchCourses,
+        onRetry: _refreshData,
         isBatch: true,
       );
     } else if (_batchCourses?.courses?.isEmpty ?? true) {

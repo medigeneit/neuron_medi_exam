@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:medi_exam/data/models/doctor_profile_model.dart';
 import 'package:medi_exam/data/services/auth_service.dart';
+import 'package:medi_exam/data/services/doctor_profile_service.dart';
 import 'package:medi_exam/data/utils/local_storage_service.dart';
 import 'package:medi_exam/data/utils/notice_read_store.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
@@ -9,6 +11,7 @@ import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/fancy_card_background.dart';
+import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
 class ProfileSectionScreen extends StatefulWidget {
   const ProfileSectionScreen({super.key});
@@ -18,14 +21,20 @@ class ProfileSectionScreen extends StatefulWidget {
 }
 
 class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
-  // ---- Local values loaded from storage ----
+  // UI state
+  bool _isLoading = true;
+  String _errorMessage = '';
+  bool _isLoggingOut = false;
+
+  // Doctor fields bound to UI
   String? _name;
   String? _phone;
   String? _photoUrl;
 
-  // Use your existing placeholder image URL when user photo is empty
   static const String _kPlaceholderAvatarUrl =
-      'https://img.freepik.com/free-vector/doctor-character-background_1270-84.jpg?w=200&t=st=1720102342~exp=1720102942~hmac=2d2b5a7a9b3d8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8';
+      'https://img.freepik.com/free-vector/user-circles-set_78370-4704.jpg?t=st=1758792707~exp=1758796307~hmac=dc56eb8579080fb847e83dca98b3a52d04c995340c0ce9475d04b1a5d6a99ba0';
+
+  final DoctorProfileService _profileService = DoctorProfileService();
 
   final List<ProfileAction> _actions = [
     ProfileAction(
@@ -44,55 +53,127 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
       icon: Icons.history_rounded,
       title: 'Transaction History',
       color: AppColor.indigo,
-      route: '/transaction-history',
+      route: RouteNames.paymentHistory,
     ),
-/*    ProfileAction(
-      icon: Icons.phone_android_rounded,
-      title: 'Device Verification',
-      color: AppColor.orangeColor,
-      route: '/device-verification',
-    ),*/
   ];
-
-  bool _isLoggingOut = false;
 
   @override
   void initState() {
     super.initState();
-    _loadProfileFromStorage();
+    _init(); // same flow style as NoticeScreen
   }
 
-  Future<void> _loadProfileFromStorage() async {
-    try {
-      final data =
-      await LocalStorageService.getObject(LocalStorageService.userData);
-      if (data is Map) {
-        setState(() {
-          _name = (data!['name'] as String?)?.trim();
-          _phone = (data!['phone_number'] as String?)?.trim();
-          _photoUrl = (data!['photo'] as String?)?.trim();
-        });
-      }
-    } catch (_) {
-      // ignore; keep defaults
+  Future<void> _init() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    // (Optional quick paint) Load any locally-cached values first
+    _loadProfileFromStorage();
+
+    // Then fetch fresh profile from API
+    await _fetchProfileRemote();
+  }
+
+  void _applyDoctor(Doctor? d) {
+    setState(() {
+      _name = d?.name?.trim();
+      _phone = d?.phoneNumber?.trim();
+      _photoUrl = d?.photo?.trim();
+    });
+  }
+
+  void _loadProfileFromStorage() {
+    final cached = Doctor(
+      id: LocalStorageService.getDoctorId(),
+      name: LocalStorageService.getDoctorName(),
+      phoneNumber: LocalStorageService.getDoctorPhone(),
+      email: LocalStorageService.getDoctorEmail(),
+      status: LocalStorageService.getDoctorStatus(),
+      photo: LocalStorageService.getDoctorPhoto(),
+    );
+    _applyDoctor(cached);
+  }
+
+  Future<void> _fetchProfileRemote() async {
+    final res = await _profileService.fetchDoctorProfile();
+
+    if (!mounted) return;
+
+    if (res.isSuccess && res.responseData is DoctorProfileModel) {
+      final model = res.responseData as DoctorProfileModel;
+
+      _applyDoctor(model.doctor);
+
+      // Persist in separate keys
+      await LocalStorageService.setDoctorFields(
+        id: model.doctor?.id,
+        name: model.doctor?.name,
+        phone: model.doctor?.phoneNumber,
+        email: model.doctor?.email,
+        status: model.doctor?.status,
+        photo: model.doctor?.photo,
+        topLevelProfileStatus: model.status,
+      );
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = '';
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = res.errorMessage ?? 'Failed to load profile';
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Column(
-            children: [
-              _buildProfileCard(),
-              const SizedBox(height: 28),
-              _buildActionsCard(),
-              const SizedBox(height: 28),
-              _buildLogoutButton(),
-            ],
+    // Match NoticeScreen’s loading/error handling
+    if (_isLoading) {
+      return const Center(child: LoadingWidget());
+    }
+
+    if (_errorMessage.isNotEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _errorMessage,
+              style: const TextStyle(color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _init,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Normal content with pull-to-refresh (like NoticeScreen)
+    return RefreshIndicator(
+      onRefresh: _fetchProfileRemote,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              children: [
+                _buildProfileCard(),
+                const SizedBox(height: 28),
+                _buildActionsCard(),
+                const SizedBox(height: 28),
+                _buildLogoutButton(),
+              ],
+            ),
           ),
         ),
       ),
@@ -102,10 +183,10 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   Widget _buildProfileCard() {
     final displayName =
     (_name != null && _name!.isNotEmpty) ? _name! : 'User Name';
-    final displayPhone = (_phone != null && _phone!.isNotEmpty) ? _phone! : '—';
-    final avatarUrl = (_photoUrl != null && _photoUrl!.isNotEmpty)
-        ? _photoUrl!
-        : _kPlaceholderAvatarUrl;
+    final displayPhone =
+    (_phone != null && _phone!.isNotEmpty) ? _phone! : '—';
+    final avatarUrl =
+    (_photoUrl != null && _photoUrl!.isNotEmpty) ? _photoUrl! : _kPlaceholderAvatarUrl;
 
     return FancyBackground(
       gradient: AppColor.primaryGradient,
@@ -168,7 +249,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                         ),
                       ),
                     ),
-                    // Online status
                     Positioned(
                       bottom: 6,
                       right: 6,
@@ -218,8 +298,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
               // ---- Phone ----
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 42),
-                padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
                   color: AppColor.whiteColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
@@ -295,8 +374,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
             onTap: () => _handleActionTap(action),
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 gradient: LinearGradient(
@@ -366,8 +444,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
           onTap: _isLoggingOut ? null : _showLogoutConfirmation,
           borderRadius: BorderRadius.circular(18),
           child: Container(
-            padding:
-            const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
             decoration: BoxDecoration(
               gradient: AppColor.warningGradient,
               borderRadius: BorderRadius.circular(18),
@@ -388,8 +465,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColor.whiteColor),
+                  valueColor:
+                  AlwaysStoppedAnimation<Color>(AppColor.whiteColor),
                 ),
               ),
             )
@@ -426,14 +503,12 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.all(20),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: 600,
-          ),
+          constraints: const BoxConstraints(maxWidth: 600),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: CustomBlobBackground(
               backgroundColor: Colors.white,
-              blobColor: AppColor.purple,
+              blobColor: Colors.deepOrange,
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -447,7 +522,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.logout_rounded,
-                          size: 30, color: AppColor.purple),
+                          size: 30, color: Colors.deepOrange),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -497,7 +572,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                               _performLogout();
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColor.purple,
+                              backgroundColor: Colors.deepOrange,
                               foregroundColor: AppColor.whiteColor,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
@@ -523,21 +598,11 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   Future<void> _performLogout() async {
     setState(() => _isLoggingOut = true);
 
-    // 1) Capture the user id *before* clearing anything
     final userId = await AuthService.getCurrentUserIdOrNull();
-
-    // 2) Build the exception set (keep this user's read ids)
-    final except = <String>{ NoticeReadStore.keyForUser(userId) };
-
-    // 3) Clear everything else, but preserve read flags for this user
+    final except = <String>{NoticeReadStore.keyForUser(userId)};
     await LocalStorageService.clearAll(exceptKeys: except);
 
-    // (Optional) small UX delay
-    // await Future.delayed(const Duration(milliseconds: 400));
-
     setState(() => _isLoggingOut = false);
-
-    // 4) Navigate out
     Get.offAllNamed(RouteNames.navBar, arguments: 2);
   }
 }

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
-import 'package:medi_exam/presentation/widgets/custom_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
+// Service
+import 'package:medi_exam/data/services/change_password_service.dart';
+
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -20,25 +23,75 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  final _service = ChangePasswordService();
+
   bool _isLoading = false;
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
 
+  @override
+  void initState() {
+    super.initState();
+    // Re-validate dependent fields live while typing
+    _currentPasswordController.addListener(_revalidate);
+    _newPasswordController.addListener(_revalidate);
+    _confirmPasswordController.addListener(_revalidate);
+  }
+
+  void _revalidate() {
+    // Forces all TextFormField validators to run again, giving "runtime" errors
+    if (_formKey.currentState != null) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _currentPasswordController.removeListener(_revalidate);
+    _newPasswordController.removeListener(_revalidate);
+    _confirmPasswordController.removeListener(_revalidate);
+
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _changePassword() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
+    final resp = await _service.changePassword(
+      currentPassword: _currentPasswordController.text.trim(),
+      newPassword: _newPasswordController.text.trim(),
+      confirmPassword: _confirmPasswordController.text.trim(),
+    );
     setState(() => _isLoading = false);
 
-    Get.back();
+    final success = resp.isSuccess;
+    // Prefer API message if we have it
+    String message = 'Operation completed';
+    if (resp.responseData is Map && (resp.responseData as Map).containsKey('message')) {
+      message = (resp.responseData as Map)['message'].toString();
+    } else if (resp.errorMessage != null && resp.errorMessage!.isNotEmpty) {
+      message = resp.errorMessage!;
+    }
+
     Get.snackbar(
-      'Success',
-      'Password changed successfully!',
-      backgroundColor: Colors.green[100],
+      success ? 'Success' : 'Error',
+      message,
+      backgroundColor: success ? Colors.green[200] : Colors.red[200],
       colorText: Colors.black,
+      snackPosition: SnackPosition.BOTTOM,
+      margin: const EdgeInsets.all(12),
+      duration: const Duration(seconds: 3),
     );
+
+    if (success) {
+      // Navigate as you requested
+      Get.offNamed(RouteNames.navBar, arguments: 4);
+    }
   }
 
   @override
@@ -54,11 +107,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               key: _formKey,
               child: Column(
                 children: [
-                  // Header Icon
                   _buildHeaderIcon(),
                   const SizedBox(height: 24),
 
-                  // Form Card
                   GlassCard(
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -87,6 +138,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           TextFormField(
                             controller: _currentPasswordController,
                             obscureText: _obscureCurrentPassword,
+                            autovalidateMode: AutovalidateMode.onUserInteraction,
+                            textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
                               labelText: 'Current Password',
                               prefixIcon: const Icon(Icons.lock_outline_rounded),
@@ -106,9 +159,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                               ),
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your current password';
-                              }
+                              final v = value?.trim() ?? '';
+                              if (v.isEmpty) return 'Please enter your current password';
+                              if (v.length < 6) return 'Password must be at least 6 characters';
                               return null;
                             },
                           ),
@@ -118,6 +171,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           TextFormField(
                             controller: _newPasswordController,
                             obscureText: _obscureNewPassword,
+                            autovalidateMode: AutovalidateMode.onUserInteraction,
+                            textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
                               labelText: 'New Password',
                               prefixIcon: const Icon(Icons.lock_reset_rounded),
@@ -137,11 +192,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                               ),
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a new password';
-                              }
-                              if (value.length < 6) {
-                                return 'Password must be at least 6 characters';
+                              final v = value?.trim() ?? '';
+                              if (v.isEmpty) return 'Please enter a new password';
+                              if (v.length < 6) return 'Password must be at least 6 characters';
+                              if (v == _currentPasswordController.text.trim()) {
+                                return 'Current password and new password cannot be the same';
                               }
                               return null;
                             },
@@ -152,6 +207,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           TextFormField(
                             controller: _confirmPasswordController,
                             obscureText: _obscureConfirmPassword,
+                            autovalidateMode: AutovalidateMode.onUserInteraction,
+                            textInputAction: TextInputAction.done,
                             decoration: InputDecoration(
                               labelText: 'Confirm New Password',
                               prefixIcon: const Icon(Icons.lock_reset_rounded),
@@ -171,11 +228,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                               ),
                             ),
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please confirm your new password';
-                              }
-                              if (value != _newPasswordController.text) {
-                                return 'Passwords do not match';
+                              final v = value?.trim() ?? '';
+                              if (v.isEmpty) return 'Please confirm your new password';
+                              if (v.length < 6) return 'Password must be at least 6 characters';
+                              if (v != _newPasswordController.text.trim()) {
+                                return 'New password and Confirm password do not match';
                               }
                               return null;
                             },
@@ -248,13 +305,5 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         color: Colors.white,
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _currentPasswordController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
   }
 }

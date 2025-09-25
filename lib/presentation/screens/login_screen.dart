@@ -15,7 +15,16 @@ import 'package:medi_exam/presentation/widgets/custom_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/helpers/login_screen_helpers.dart';
 
-enum _AuthStep { enterPhone, login, verifyOtp, completeRegistration }
+enum _AuthStep {
+  enterPhone,
+  login,
+  verifyOtp,
+  completeRegistration,
+
+  // Added for Forgot Password flow
+  forgotVerifyOtp,
+  forgotReset,
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -48,9 +57,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   String? _otpToken; // from /register/verify
 
+  // Forgot Password state
+  String? _resetToken; // from forgot-password/verify-otp
+
   // Timer state
   Timer? _otpTimer;
   int _otpRemainingSeconds = 0;
+
+  // Cooldown for 429 on forgot-password/request-otp
+  Timer? _fpCooldownTimer;
+  int _fpRetryRemainingSeconds = 0;
 
   // --- Cache nav intent so multi-step registration still returns properly ---
   late final bool _popOnSuccess;
@@ -71,6 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _otpTimer?.cancel();
+    _fpCooldownTimer?.cancel();
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -208,7 +225,9 @@ class _LoginScreenState extends State<LoginScreen> {
         name: _nameController.text.trim(),
         password: _passwordController.text.trim(),
         passwordConfirmation: _confirmPasswordController.text.trim(),
-        email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+        email: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
       );
 
       // ✅ treat any 2xx as success (covers 200, 201, 204...)
@@ -219,6 +238,139 @@ class _LoginScreenState extends State<LoginScreen> {
         await _persistAuthAndNavigate(data);
       } else {
         _error(_extractAnyMessage(res) ?? 'Registration failed');
+      }
+    } catch (e) {
+      _error(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ------------------ FORGOT PASSWORD FLOW ------------------
+
+  Future<void> _startForgotPasswordFlow() async {
+    if (!_validatePhone()) return;
+    if (_fpRetryRemainingSeconds > 0) {
+      _error('অনুগ্রহ করে অপেক্ষা করুন: ${_formatMmSs(_fpRetryRemainingSeconds)}');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res =
+      await _auth.forgotPasswordRequestOtp(phoneNumber: _cleanPhone());
+
+      if (res.isSuccess && res.statusCode == 200) {
+        final data = res.responseData as Map<String, dynamic>;
+        _toast(data['message']?.toString() ??
+            'পাসওয়ার্ড রিসেটের OTP পাঠানো হয়েছে।');
+
+        final minutes = (data['otp_expires_in_minutes'] is num)
+            ? (data['otp_expires_in_minutes'] as num).toInt()
+            : 5;
+        _startOtpTimer(minutes);
+
+        // reset UI + move to forgot OTP screen
+        _otpController.clear();
+        _otpFieldKey.currentState?.clear();
+        setState(() {
+          _resetToken = null;
+          _step = _AuthStep.forgotVerifyOtp;
+        });
+      } else if (res.statusCode == 404) {
+        _error(_extractAnyMessage(res) ??
+            'এই নম্বরটি আমাদের ডাটাবেসে পাওয়া যায়নি।');
+      } else if (res.statusCode == 429) {
+        // cooldown
+        final map = _mapFromRes(res);
+        final secs = (map['retry_after_seconds'] is num)
+            ? (map['retry_after_seconds'] as num).toInt()
+            : 60;
+        _startForgotCooldown(secs);
+        _error(map['message']?.toString() ??
+            'বারবার OTP চাওয়া হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।');
+      } else {
+        _error(_extractAnyMessage(res) ?? 'OTP অনুরোধ ব্যর্থ হয়েছে।');
+      }
+    } catch (e) {
+      _error(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _verifyForgotOtp() async {
+    final otp = _otpController.text.trim();
+    if (otp.length != 6 || int.tryParse(otp) == null) {
+      _error('Enter the 6-digit OTP');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await _auth.forgotPasswordVerifyOtp(
+        phoneNumber: _cleanPhone(),
+        otp: otp,
+      );
+
+      if (res.isSuccess && res.statusCode == 200) {
+        final data = res.responseData as Map<String, dynamic>;
+        _resetToken = data['reset_token']?.toString();
+        _toast(data['message']?.toString() ?? 'OTP verified');
+        _stopOtpTimer();
+        setState(() => _step = _AuthStep.forgotReset);
+      } else if (res.statusCode == 422) {
+        _error(_extractAnyMessage(res) ?? 'ভুল OTP।');
+      } else {
+        _error(_extractAnyMessage(res) ?? 'OTP verification failed');
+      }
+    } catch (e) {
+      _error(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _resetForgotPassword() async {
+    if (_resetToken == null || _resetToken!.isEmpty) {
+      _error('Reset token missing. Verify OTP again.');
+      return;
+    }
+    if (_passwordController.text.trim().length < 6) {
+      _error('Password must be at least 6 characters');
+      return;
+    }
+    if (_passwordController.text.trim() !=
+        _confirmPasswordController.text.trim()) {
+      _error('Passwords do not match');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await _auth.forgotPasswordReset(
+        resetToken: _resetToken!,
+        password: _passwordController.text.trim(),
+        passwordConfirmation: _confirmPasswordController.text.trim(),
+      );
+
+      if (res.isSuccess && res.statusCode == 200) {
+        final data = res.responseData as Map<String, dynamic>;
+        _toast(data['message']?.toString() ??
+            'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে।');
+        // Show login so user can log in with new password
+        setState(() {
+          _message = data['message']?.toString() ??
+              'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে। এখন লগইন করুন।';
+          _passwordController.clear();
+          _confirmPasswordController.clear();
+          _resetToken = null;
+          _step = _AuthStep.login; // go to login with same phone number
+        });
+      } else if (res.statusCode == 403) {
+        _error(_extractAnyMessage(res) ?? 'Reset token invalid or expired.');
+      } else {
+        _error(_extractAnyMessage(res) ?? 'Password reset failed');
       }
     } catch (e) {
       _error(e.toString());
@@ -253,6 +405,26 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _otpRemainingSeconds = 0);
   }
 
+  void _startForgotCooldown(int seconds) {
+    _fpCooldownTimer?.cancel();
+    setState(() => _fpRetryRemainingSeconds = seconds);
+    _fpCooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      if (_fpRetryRemainingSeconds <= 1) {
+        t.cancel();
+        setState(() => _fpRetryRemainingSeconds = 0);
+      } else {
+        setState(() => _fpRetryRemainingSeconds -= 1);
+      }
+    });
+  }
+
+  void _stopForgotCooldown() {
+    _fpCooldownTimer?.cancel();
+    _fpCooldownTimer = null;
+    setState(() => _fpRetryRemainingSeconds = 0);
+  }
+
   String _formatMmSs(int totalSeconds) {
     final m = (totalSeconds ~/ 60).toString().padLeft(2, '0');
     final s = (totalSeconds % 60).toString().padLeft(2, '0');
@@ -274,9 +446,23 @@ class _LoginScreenState extends State<LoginScreen> {
     return true;
   }
 
+  Map<String, dynamic> _mapFromRes(NetworkResponse res) {
+    if (res.responseData is Map<String, dynamic>) {
+      return res.responseData as Map<String, dynamic>;
+    }
+    try {
+      final m = jsonDecode(res.errorMessage ?? '{}');
+      if (m is Map<String, dynamic>) return m;
+    } catch (_) {}
+    return {};
+  }
+
+
+
   Future<void> _persistAuthAndNavigate(Map<String, dynamic> data) async {
     String? token = data['token']?.toString();
-    Map<String, dynamic>? doctor = data['doctor'] as Map<String, dynamic>?;
+    Map<String, dynamic>? doctor =
+    (data['doctor'] is Map) ? Map<String, dynamic>.from(data['doctor']) : null;
 
     // 🔁 Some APIs don't return token on registration. Try auto-login once.
     if ((token == null || token.isEmpty) && _step == _AuthStep.completeRegistration) {
@@ -289,7 +475,7 @@ class _LoginScreenState extends State<LoginScreen> {
           loginRes.responseData is Map<String, dynamic>) {
         final ld = loginRes.responseData as Map<String, dynamic>;
         token = ld['token']?.toString();
-        doctor = ld['doctor'] as Map<String, dynamic>?;
+        doctor = (ld['doctor'] is Map) ? Map<String, dynamic>.from(ld['doctor']) : null;
         // merge snapshot for record-keeping
         data = {...data, ...ld};
       }
@@ -300,23 +486,34 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Persist auth
+    // 1) Save auth token
     await LocalStorageService.setString(LocalStorageService.token, token);
+
+    // 2) Save doctor profile into separate keys
     if (doctor != null) {
-      await LocalStorageService.setObject(LocalStorageService.userData, doctor);
+      await LocalStorageService.setDoctorFields(
+        id: (doctor['id'] as num?)?.toInt(),
+        name: (doctor['name'] as String?)?.trim(),
+        phone: (doctor['phone_number'] as String?)?.trim(),
+        email: (doctor['email'] as String?)?.trim(),
+        status: doctor['status'] is bool
+            ? doctor['status'] as bool
+            : (doctor['status'] is num ? (doctor['status'] as num) != 0 : null),
+        photo: (doctor['photo'] as String?),
+        topLevelProfileStatus: data['status'] is bool
+            ? data['status'] as bool
+            : (data['status'] is num ? (data['status'] as num) != 0 : null),
+      );
     }
 
-    // Mark logged in and store snapshot
+    // (Optional) keep last successful full auth snapshot (status/message/token/doctor)
+    await LocalStorageService.setObject(LocalStorageService.lastAuthSnapshot, data);
+
+    // Mark logged in + timestamp
     await LocalStorageService.setString(LocalStorageService.isLoggedIn, 'true');
     await LocalStorageService.setString(
       LocalStorageService.loggedInAt,
       DateTime.now().toIso8601String(),
-    );
-
-    // Keep last whole auth response (message/token/doctor)
-    await LocalStorageService.setObject(
-      LocalStorageService.lastAuthSnapshot,
-      data,
     );
 
     // Clear OTP artifacts now that we're authenticated
@@ -325,20 +522,15 @@ class _LoginScreenState extends State<LoginScreen> {
     await LocalStorageService.setString(LocalStorageService.lastOtpExpiresAt, '');
     await LocalStorageService.setString(LocalStorageService.lastOtpVerifiedAt, '');
 
-// In login_screen.dart, in _persistAuthAndNavigate method
-    print('Navigation intent - popOnSuccess: $_popOnSuccess, returnRoute: $_returnRoute');
-
+    // ✅ Navigate
     if (_popOnSuccess) {
-      // ensure any snackbars/dialogs are gone, then pop the route that was awaited
       if (Get.isSnackbarOpen) Get.closeAllSnackbars();
-      if (Get.isDialogOpen ?? false) Get.back(); // close dialog/sheet if any
+      if (Get.isDialogOpen ?? false) Get.back();
       Get.back(result: true, closeOverlays: true);
       return;
     } else if (_returnRoute != null) {
-      print('Going to return route: $_returnRoute');
       Get.offAllNamed(_returnRoute!, arguments: _returnArguments);
     } else {
-      print('Going to navBar');
       Get.offAllNamed(RouteNames.navBar, arguments: 0);
     }
   }
@@ -396,29 +588,33 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-
                   if (_message != null && _message!.isNotEmpty) ...[
                     Padding(
-                      padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 2),
+                      padding: const EdgeInsets.only(
+                          left: 24, right: 24, top: 24, bottom: 2),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 420),
                         child: GlassCard(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
                             child: LayoutBuilder(
                               builder: (context, constraints) {
                                 final textStyle = TextStyle(
                                   fontSize: Sizes.smallText(context),
                                   fontWeight: FontWeight.w500,
-                                  color: AppColor.primaryColor.withOpacity(0.6),
+                                  color:
+                                  AppColor.primaryColor.withOpacity(0.6),
                                 );
 
                                 final textPainter = TextPainter(
-                                  text: TextSpan(text: 'Text', style: textStyle),
+                                  text: TextSpan(
+                                      text: 'Text', style: textStyle),
                                   textDirection: TextDirection.ltr,
                                 );
                                 textPainter.layout();
-                                final textHeight = textPainter.preferredLineHeight;
+                                final textHeight =
+                                    textPainter.preferredLineHeight;
 
                                 return Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,8 +625,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                         alignment: Alignment.topCenter,
                                         child: Icon(
                                           Icons.info_outline,
-                                          color: AppColor.primaryColor.withOpacity(0.6),
-                                          size: Sizes.extraSmallIcon(context),
+                                          color: AppColor.primaryColor
+                                              .withOpacity(0.6),
+                                          size:
+                                          Sizes.extraSmallIcon(context),
                                         ),
                                       ),
                                     ),
@@ -458,10 +656,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 420),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 32),
                       child: GlassCard(
                         child: Padding(
-                          padding:  EdgeInsets.all(22.0),
+                          padding: const EdgeInsets.all(22.0),
                           child: Form(
                             key: _formKey,
                             child: Column(
@@ -470,7 +669,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               children: [
                                 const SizedBox(height: 8),
                                 IconButton(
-                                  icon: const Icon(Icons.arrow_circle_left_outlined, color: Colors.grey),
+                                  icon: const Icon(
+                                      Icons.arrow_circle_left_outlined,
+                                      color: Colors.grey),
                                   onPressed: _handleBack,
                                   tooltip: 'Back',
                                 ),
@@ -481,15 +682,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Image.asset(AssetsPath.appLogo),
                                     const SizedBox(height: 12),
                                     ShaderMask(
-                                      shaderCallback: (r) => LinearGradient(
-                                        colors: [AppColor.indigo, AppColor.purple],
-                                      ).createShader(r),
+                                      shaderCallback: (r) =>
+                                          LinearGradient(
+                                            colors: [
+                                              AppColor.indigo,
+                                              AppColor.purple
+                                            ],
+                                          ).createShader(r),
                                       child: Text(
                                         _titleForStep(),
-                                        style:  TextStyle(
+                                        style: TextStyle(
                                           fontSize: Sizes.bigText(context),
                                           fontWeight: FontWeight.w900,
-                                          color: Colors.white, // masked by shader
+                                          color: Colors.white, // masked
                                           letterSpacing: -0.2,
                                         ),
                                       ),
@@ -501,7 +706,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodyMedium
-                                          ?.copyWith(color: cs.onSurface.withOpacity(.7)),
+                                          ?.copyWith(
+                                          color: cs.onSurface
+                                              .withOpacity(.7)),
                                     ),
                                     const SizedBox(height: 20),
 
@@ -517,59 +724,76 @@ class _LoginScreenState extends State<LoginScreen> {
                                       PasswordField(
                                         controller: _passwordController,
                                         obscure: _obscure,
-                                        onToggleObscure: () => setState(() => _obscure = !_obscure),
+                                        onToggleObscure: () =>
+                                            setState(() => _obscure =
+                                            !_obscure),
                                       ),
                                       const SizedBox(height: 18),
                                       PrimaryButton(
-                                        label: _isLoading ? 'Logging in...' : 'Login',
+                                        label: _isLoading
+                                            ? 'Logging in...'
+                                            : 'Login',
                                         icon: Icons.login,
                                         loading: _isLoading,
-                                        onPressed: _isLoading ? null : _login,
+                                        onPressed:
+                                        _isLoading ? null : _login,
                                       ),
-                                    ] else if (_step == _AuthStep.verifyOtp) ...[
+                                    ] else if (_step ==
+                                        _AuthStep.verifyOtp) ...[
                                       if (_otpRemainingSeconds > 0) ...[
                                         // --- OTP code input (6 boxes) ---
                                         OtpCodeInput(
                                           key: _otpFieldKey,
                                           length: 6,
-                                          onChanged: (code) => _otpController.text = code,
+                                          onChanged: (code) =>
+                                          _otpController.text = code,
                                           onCompleted: (code) {
                                             _otpController.text = code;
-                                            // optionally auto-submit: _verifyOtp();
+                                            // optionally auto-submit
                                           },
                                         ),
                                         const SizedBox(height: 10),
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                           children: [
-                                            const Icon(Icons.timer_outlined, size: 18),
+                                            const Icon(
+                                                Icons.timer_outlined,
+                                                size: 18),
                                             const SizedBox(width: 6),
                                             Text(
                                               'Resend in ${_formatMmSs(_otpRemainingSeconds)}',
-                                              style: Theme.of(context).textTheme.bodyMedium,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium,
                                             ),
                                           ],
                                         ),
                                         const SizedBox(height: 18),
                                         PrimaryButton(
-                                          label: _isLoading ? 'Verifying...' : 'Verify',
+                                          label: _isLoading
+                                              ? 'Verifying...'
+                                              : 'Verify',
                                           icon: Icons.verified_outlined,
                                           loading: _isLoading,
-                                          onPressed: _isLoading ? null : _verifyOtp,
+                                          onPressed: _isLoading
+                                              ? null
+                                              : _verifyOtp,
                                         ),
                                       ] else ...[
-                                        // Timer over → hide OTP input and verify button; show ONLY Resend
+                                        // Timer over → show ONLY Resend
                                         TextButton.icon(
                                           onPressed: _isLoading
                                               ? null
                                               : () async {
-                                            await _startOrMoveToLogin(); // resend & restart timer
+                                            await _startOrMoveToLogin();
                                           },
                                           icon: const Icon(Icons.refresh),
                                           label: const Text('Resend OTP'),
                                         ),
                                       ],
-                                    ] else if (_step == _AuthStep.completeRegistration) ...[
+                                    ] else if (_step ==
+                                        _AuthStep.completeRegistration) ...[
                                       NameField(controller: _nameController),
                                       const SizedBox(height: 12),
                                       EmailField(controller: _emailController),
@@ -577,31 +801,157 @@ class _LoginScreenState extends State<LoginScreen> {
                                       PasswordField(
                                         controller: _passwordController,
                                         obscure: _obscure,
-                                        onToggleObscure: () => setState(() => _obscure = !_obscure),
+                                        onToggleObscure: () =>
+                                            setState(() => _obscure =
+                                            !_obscure),
                                       ),
                                       const SizedBox(height: 12),
-                                      ConfirmPasswordField(controller: _confirmPasswordController),
+                                      ConfirmPasswordField(
+                                        controller:
+                                        _confirmPasswordController,
+                                      ),
                                       const SizedBox(height: 18),
                                       PrimaryButton(
-                                        label: _isLoading ? 'Joining...' : 'Join us',
+                                        label: _isLoading
+                                            ? 'Joining...'
+                                            : 'Join us',
                                         icon: Icons.check_circle_outline,
                                         loading: _isLoading,
-                                        onPressed: _isLoading ? null : _completeRegistration,
+                                        onPressed: _isLoading
+                                            ? null
+                                            : _completeRegistration,
+                                      ),
+                                    ] else if (_step ==
+                                        _AuthStep.forgotVerifyOtp) ...[
+                                      if (_otpRemainingSeconds > 0) ...[
+                                        OtpCodeInput(
+                                          key: _otpFieldKey,
+                                          length: 6,
+                                          onChanged: (code) =>
+                                          _otpController.text = code,
+                                          onCompleted: (code) =>
+                                          _otpController.text = code,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(
+                                                Icons.timer_outlined,
+                                                size: 18),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Resend in ${_formatMmSs(_otpRemainingSeconds)}',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium,
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 18),
+                                        PrimaryButton(
+                                          label: _isLoading
+                                              ? 'Verifying...'
+                                              : 'Verify OTP',
+                                          icon: Icons.verified_user_outlined,
+                                          loading: _isLoading,
+                                          onPressed: _isLoading
+                                              ? null
+                                              : _verifyForgotOtp,
+                                        ),
+                                      ] else ...[
+                                        TextButton.icon(
+                                          onPressed: (_isLoading ||
+                                              _fpRetryRemainingSeconds >
+                                                  0)
+                                              ? null
+                                              : _startForgotPasswordFlow,
+                                          icon: const Icon(Icons.refresh),
+                                          label: Text(
+                                            _fpRetryRemainingSeconds > 0
+                                                ? 'Try again in ${_formatMmSs(_fpRetryRemainingSeconds)}'
+                                                : 'Resend OTP',
+                                          ),
+                                        ),
+                                      ],
+                                    ] else if (_step ==
+                                        _AuthStep.forgotReset) ...[
+                                      PasswordField(
+                                        controller: _passwordController,
+                                        obscure: _obscure,
+                                        onToggleObscure: () =>
+                                            setState(() => _obscure =
+                                            !_obscure),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      ConfirmPasswordField(
+                                        controller:
+                                        _confirmPasswordController,
+                                      ),
+                                      const SizedBox(height: 18),
+                                      PrimaryButton(
+                                        label: _isLoading
+                                            ? 'Resetting...'
+                                            : 'Reset password',
+                                        icon: Icons.lock_reset_outlined,
+                                        loading: _isLoading,
+                                        onPressed: _isLoading
+                                            ? null
+                                            : _resetForgotPassword,
                                       ),
                                     ] else ...[
                                       // _AuthStep.enterPhone
                                       PrimaryButton(
-                                        label: _isLoading ? 'Please wait...' : 'Join us',
-                                        icon: Icons.person_add_alt_1_outlined,
+                                        label: _isLoading
+                                            ? 'Please wait...'
+                                            : 'Join us',
+                                        icon:
+                                        Icons.person_add_alt_1_outlined,
                                         loading: _isLoading,
-                                        onPressed: _isLoading ? null : _startOrMoveToLogin,
+                                        onPressed: _isLoading
+                                            ? null
+                                            : _startOrMoveToLogin,
+                                      ),
+                                      const SizedBox(height: 8),
+
+                                      // Forgot password on enterPhone
+                                      Row(
+                                        mainAxisAlignment:
+                                        MainAxisAlignment.center,
+                                        children: [
+                                          TextButton(
+                                            onPressed: (_isLoading ||
+                                                _fpRetryRemainingSeconds >
+                                                    0)
+                                                ? null
+                                                : _startForgotPasswordFlow,
+                                            child: Text(
+                                              _fpRetryRemainingSeconds > 0
+                                                  ? 'Forgot password? (${_formatMmSs(_fpRetryRemainingSeconds)})'
+                                                  : 'Forgot password?',
+                                              style: TextStyle(
+                                                color: AppColor
+                                                    .primaryColor
+                                                    .withOpacity(
+                                                  (_isLoading ||
+                                                      _fpRetryRemainingSeconds >
+                                                          0)
+                                                      ? 0.5
+                                                      : 0.9,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
 
                                     const SizedBox(height: 16),
 
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                      MainAxisAlignment.center,
                                       children: [
                                         if (_step != _AuthStep.enterPhone)
                                           TextButton.icon(
@@ -609,16 +959,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 ? null
                                                 : () {
                                               _stopOtpTimer();
+                                              _stopForgotCooldown();
                                               setState(() {
-                                                _step = _AuthStep.enterPhone;
+                                                _step = _AuthStep
+                                                    .enterPhone;
                                                 _otpController.clear();
-                                                _passwordController.clear();
-                                                _confirmPasswordController.clear();
+                                                _passwordController
+                                                    .clear();
+                                                _confirmPasswordController
+                                                    .clear();
                                                 _otpToken = null;
+                                                _resetToken = null;
                                               });
                                             },
-                                            icon: const Icon(Icons.arrow_back),
-                                            label: const Text('Change number'),
+                                            icon: const Icon(
+                                                Icons.arrow_back),
+                                            label:
+                                            const Text('Change number'),
                                           ),
                                       ],
                                     ),
@@ -650,6 +1007,10 @@ class _LoginScreenState extends State<LoginScreen> {
         return 'Verify your phone';
       case _AuthStep.completeRegistration:
         return 'Complete Registration';
+      case _AuthStep.forgotVerifyOtp:
+        return 'Reset Password';
+      case _AuthStep.forgotReset:
+        return 'Set New Password';
     }
   }
 
@@ -663,6 +1024,10 @@ class _LoginScreenState extends State<LoginScreen> {
         return 'Enter the OTP sent to your phone';
       case _AuthStep.completeRegistration:
         return 'Complete your registration details';
+      case _AuthStep.forgotVerifyOtp:
+        return 'Enter the OTP we sent to reset your password';
+      case _AuthStep.forgotReset:
+        return 'Create a new password for your account';
     }
   }
 

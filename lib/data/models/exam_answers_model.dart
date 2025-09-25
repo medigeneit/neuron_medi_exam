@@ -1,28 +1,18 @@
 // lib/data/models/exam_answers_model.dart
 import 'dart:convert';
 
-/// ------------------------------
-/// Top-level helpers
-/// ------------------------------
-
-/// If your endpoint returns a raw JSON array, use this.
-/// Example: final items = examAnswersFromJson(jsonString);
 List<ExamAnswerItem> examAnswersFromJson(String source) {
   final decoded = jsonDecode(source);
   return ExamAnswersModel.fromAny(decoded).items ?? const <ExamAnswerItem>[];
 }
 
-/// If you want a wrapper model (flexible for future),
-/// use this: final model = ExamAnswersModel.fromAny(jsonDecode(...));
+
 class ExamAnswersModel {
   final List<ExamAnswerItem>? items;
 
   const ExamAnswersModel({this.items});
 
-  /// Accepts:
-  /// - List<dynamic>  (your sample)
-  /// - { "answers": [...] } or { "data": [...] }
-  /// - null / anything else -> empty
+
   factory ExamAnswersModel.fromAny(dynamic json) {
     if (json is List) {
       return ExamAnswersModel(
@@ -64,13 +54,10 @@ class ExamAnswerItem {
   final String? questionTitle;
   final List<AnswerOption>? questionOption;
 
-  /// Official answer from server.
-  /// MCQ: "TFTFT" ; SBA: "A".."E"
+
   final String? answerScript;
 
-  /// Doctor/user answer.
-  /// MCQ: e.g. "TT..F" ('.' = blank)
-  /// SBA: single letter or "." if blank
+
   final String? doctorAnswer;
 
   const ExamAnswerItem({
@@ -92,19 +79,14 @@ class ExamAnswerItem {
   bool get isSBA =>
       (questionTypeId == 2) || (questionType?.trim().toUpperCase() == 'SBA');
 
-  /// -------- Parsed states (MCQ) --------
-  /// List<bool?> of length 5:
-  /// - true  => 'T'
-  /// - false => 'F'
-  /// - null  => '.' or missing
+
   List<bool?>? get correctStates =>
       isMCQ ? AnswersMCQHelper.parse(answerScript) : null;
 
   List<bool?>? get doctorStates =>
       isMCQ ? AnswersMCQHelper.parse(doctorAnswer) : null;
 
-  /// Per-statement match for MCQ (true/false/null=unknown)
-  /// If either side is null for a position, result is null.
+
   List<bool?>? get mcqMatches {
     if (!isMCQ) return null;
     final a = correctStates ?? const [null, null, null, null, null];
@@ -225,9 +207,7 @@ class AnswerOption {
   };
 }
 
-/// ------------------------------
-/// MCQ/SBA parsing helpers (namespaced to avoid collisions)
-/// ------------------------------
+
 class AnswersMCQHelper {
   /// Parse a 5-char string like "TFTTF" or "TT..F" to List<bool?> length 5.
   static List<bool?> parse(String? input) {
@@ -275,10 +255,7 @@ class AnswersSBAHelper {
   }
 }
 
-/// ------------------------------
-/// Null-safe, forgiving converters
-/// (Renamed to avoid conflicts with other models)
-/// ------------------------------
+
 class AnswerJsonUtils {
   static String? toStringOrNull(dynamic v) {
     if (v == null) return null;

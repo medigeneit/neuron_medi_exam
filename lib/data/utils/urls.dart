@@ -20,6 +20,9 @@ class Urls {
   static const String allEnrolledBatches = "${_baseUrl}doctor/admission-batches";
   static const String singleAnswerSubmit = "${_baseUrl}doctor/submit-answer";
   static const String helpLine = "${_baseUrl}public-settings";
+  static const String changePassword = "${_baseUrl}doctor/profile/change-password";
+  static const String doctorProfile = "${_baseUrl}doctor/profile";
+  static const String paymentHistory = "${_baseUrl}doctor/admission-payments";
 
 
   static String noticeDetails(String noticeId) {

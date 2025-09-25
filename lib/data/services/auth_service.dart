@@ -7,14 +7,15 @@ import 'package:medi_exam/data/utils/urls.dart';
 /// Centralized auth-related API calls.
 /// Keeps UI/widgets clean and makes it easy to mock in tests.
 class AuthService {
-  AuthService._internal()
-      : _net = NetworkCaller(logger: Logger());
+  AuthService._internal() : _net = NetworkCaller(logger: Logger());
 
   static final AuthService _instance = AuthService._internal();
 
   factory AuthService() => _instance;
 
   final NetworkCaller _net;
+
+  // ---------------- Registration ----------------
 
   Future<NetworkResponse> startRegistration({
     required String phoneNumber,
@@ -55,6 +56,8 @@ class AuthService {
     return _net.postRequest(Urls.registerComplete, body: body);
   }
 
+  // ---------------- Login ----------------
+
   Future<NetworkResponse> login({
     required String phoneNumber,
     required String password,
@@ -65,6 +68,55 @@ class AuthService {
     );
     // On 200 -> { status, message, token, doctor { ... } }
     // On 422 -> { message: "Invalid credentials.", errors: { phone_number: ["Invalid credentials."] } }
+  }
+
+  // ---------------- Forgot Password ----------------
+
+  /// POST: forgot-password/request-otp
+  /// Body: { phone_number }
+  /// 200 -> { status, message, otp_expires_in_minutes, next }
+  /// 404 -> { status:false, message }
+  /// 429 -> { status:false, message, retry_after_seconds }
+  Future<NetworkResponse> forgotPasswordRequestOtp({
+    required String phoneNumber,
+  }) {
+    return _net.postRequest(
+      Urls.forgotPasswordRequestOtp,
+      body: {'phone_number': phoneNumber},
+    );
+  }
+
+  /// POST: forgot-password/verify-otp
+  /// Body: { phone_number, otp }
+  /// 200 -> { status, message, reset_token, next }
+  /// 422 -> { status:false, message:"ভুল OTP।" }
+  Future<NetworkResponse> forgotPasswordVerifyOtp({
+    required String phoneNumber,
+    required String otp,
+  }) {
+    return _net.postRequest(
+      Urls.forgotPasswordVerifyOtp,
+      body: {'phone_number': phoneNumber, 'otp': otp},
+    );
+  }
+
+  /// POST: forgot-password/reset
+  /// Body: { reset_token, password, password_confirmation }
+  /// 200 -> { status:true, message }
+  /// 403 -> { status:false, message:"Reset token invalid or expired." }
+  Future<NetworkResponse> forgotPasswordReset({
+    required String resetToken,
+    required String password,
+    required String passwordConfirmation,
+  }) {
+    return _net.postRequest(
+      Urls.forgotPasswordReset,
+      body: {
+        'reset_token': resetToken,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      },
+    );
   }
 
   /// Return the currently logged-in user's unique ID (string), or null if none.
