@@ -616,10 +616,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
         colorText: Colors.black,
       );
       _slideKey.currentState?.reset();
-    } else if (vendor == 'manual') {
+    } else if (vendor == 'manual-payment') {
       // Manual payment: fetch account number from API data and show dialog
-      final accountNumber = _findGatewayByVendor('manual')?.safeAccount ?? '';
-      _showManualPaymentDialog(accountNumber);
+      final accountNumber = _findGatewayByVendor('manual-payment')?.safeAccount ?? '';
+      final admissionId = (batchData['admissionId'] ?? '').toString();
+      final amount = _paymentDetails?.admission?.safePayableAmount ?? 0.0;
+
+      Get.toNamed(
+        RouteNames.manualPayment,
+        arguments: {
+          'admissionId': admissionId,
+          'amount': amount,
+          'accountNumber': accountNumber,
+        },
+      );
+
+      _slideKey.currentState?.reset();
       // no immediate reset; dialog handles nav + reset
     } else {
       Get.snackbar(
@@ -632,7 +644,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  // ---------- Manual Payment Dialog ----------
+/*  // ---------- Manual Payment Dialog ----------
   void _showManualPaymentDialog(String accountNumber) {
     final TextEditingController _txnController = TextEditingController();
 
@@ -771,5 +783,5 @@ class _PaymentScreenState extends State<PaymentScreen> {
         );
       },
     );
-  }
+  }*/
 }

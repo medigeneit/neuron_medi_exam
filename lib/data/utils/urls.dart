@@ -1,7 +1,7 @@
 class Urls {
-  // You already have this base; keep/change as needed
-  // static const String _baseUrl = "https://api.genesisedu.info/api/";
-  static const String _baseUrl = "http://192.168.33.224:8000/api/";
+
+  static const String _baseUrl = "https://api.neuronpg.com/api/";
+  //static const String _baseUrl = "http://192.168.33.224:8000/api/";
 
   // ===== AUTH =====
   static const String login = "${_baseUrl}login";
@@ -23,6 +23,7 @@ class Urls {
   static const String changePassword = "${_baseUrl}doctor/profile/change-password";
   static const String doctorProfile = "${_baseUrl}doctor/profile";
   static const String paymentHistory = "${_baseUrl}doctor/admission-payments";
+  static const String manualPayments = "${_baseUrl}doctor/admission-manual-payments";
 
 
   static String noticeDetails(String noticeId) {

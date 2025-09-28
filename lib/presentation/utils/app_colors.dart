@@ -51,4 +51,83 @@ class AppColor {
     end: Alignment.bottomRight,
   );
 
+  static Gradient greenGradient = LinearGradient(
+    colors: [Colors.green.shade500, Colors.green.shade800],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient redGradient = LinearGradient(
+    colors: [Colors.red.shade400, Colors.red.shade800],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient orangeGradient = LinearGradient(
+    colors: [Colors.orange.shade400, Colors.orange.shade800],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient yellowGradient = LinearGradient(
+    colors: [Colors.yellow.shade400, Colors.yellow.shade800],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient purpleGradient = LinearGradient(
+    colors: [Colors.purple.shade400, Colors.purple.shade800],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient pinkGradient = LinearGradient(
+    colors: [Colors.pink.shade400, Colors.pink.shade800],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient tealGradient = LinearGradient(
+    colors: [Colors.teal.shade400, Colors.teal.shade800],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient cyanGradient = LinearGradient(
+    colors: [Colors.cyan.shade400, Colors.cyan.shade800],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient deepPurpleCyanGradient = LinearGradient(
+    colors: [Colors.deepPurpleAccent, Colors.cyan,],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient deepPurpleBlueGradient = LinearGradient(
+    colors: [Colors.deepPurple, Colors.blue,],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient deepPurplePinkGradient = LinearGradient(
+    colors: [Colors.deepPurple, Colors.pink,],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient blueCyanGradient = LinearGradient(
+    colors: [Colors.blue, Colors.cyan,],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient greenTealGradient = LinearGradient(
+    colors: [Colors.green, Colors.teal,],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+
 }

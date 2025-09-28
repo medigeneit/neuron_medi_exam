@@ -24,17 +24,8 @@ class PaymentHistoryListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Compact card with FancyBackground + inner GlassCard sections.
     return FancyBackground(
-      // Custom gradient (slightly different from primary)
-      gradient: LinearGradient(
-        colors: [
-          Colors.deepPurpleAccent,
-          Colors.cyan,
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
+      gradient: AppColor.deepPurpleCyanGradient,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -79,11 +70,6 @@ class PaymentHistoryListWidget extends StatelessWidget {
                   children: [
                     _chip(
                       context,
-                      icon: Icons.badge_outlined,
-                      label: 'Reg: $admissionRegNo',
-                    ),
-                    _chip(
-                      context,
                       icon: Icons.tag_outlined,
                       label: 'Inv: $invoiceNumber',
                     ),
@@ -115,14 +101,7 @@ class PaymentHistoryListWidget extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.deepPurpleAccent,
-                      Colors.cyan,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: AppColor.deepPurpleCyanGradient,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(

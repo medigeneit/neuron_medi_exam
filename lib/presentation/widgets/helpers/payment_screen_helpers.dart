@@ -467,7 +467,7 @@ String logoForVendor(String vendor) {
   if (v == 'bkash') return AssetsPath.bkashLogo;
   if (v == 'sslcommerz') return AssetsPath.sslcommerzLogo;
   if (v == 'nagad') return AssetsPath.nagadLogo;
-  if (v == 'manual') { return AssetsPath.manualPayment;
+  if (v == 'manual-payment') { return AssetsPath.manualPayment;
   }
   return AssetsPath.sslcommerzLogo;
 }
@@ -477,7 +477,7 @@ String titleForVendor(String vendor) {
   if (v == 'bkash') return 'bKash';
   if (v == 'sslcommerz') return 'SSLCommerz';
   if (v == 'nagad') return 'Nagad';
-  if (v == 'manual') return 'Manual Payment';
+  if (v == 'manual-payment') return 'Manual Payment';
   return vendor;
 }
 
@@ -486,7 +486,7 @@ String subtitleForVendor(String vendor) {
   if (v == 'bkash') return 'Fast and secure payment with bKash';
   if (v == 'sslcommerz') return 'Pay with card, bank account or others';
   if (v == 'nagad') return 'Fast and secure payment with Nagad';
-  if (v == 'manual') return 'Pay via bKash/Rocket, then submit Txn ID';
+  if (v == 'manual-payment') return 'Pay via bKash/Nagad, then submit Txn ID';
   return 'Secure online payment';
 }
 

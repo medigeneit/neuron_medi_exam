@@ -16,6 +16,7 @@ class PaymentHistoryScreen extends StatefulWidget {
 }
 
 class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
+
   final _service = PaymentHistoryService();
 
   bool _isLoading = true;
