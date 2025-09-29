@@ -4,15 +4,16 @@ import 'package:medi_exam/presentation/utils/sizes.dart';
 
 /// A modern, touch-friendly course card with animated press,
 /// gradient border, and material ripple.
+/// Updated: no top icon, centered title text, arrow at bottom.
 class AvailableCourseCardWidget extends StatefulWidget {
-  final IconData icon;
+  final IconData icon; // kept for backwards-compat but no longer used visually
   final String title;
   final VoidCallback onTap;
   final bool isBatch;
 
   const AvailableCourseCardWidget({
     Key? key,
-    required this.icon,
+    required this.icon, // not displayed anymore
     required this.title,
     required this.onTap,
     required this.isBatch,
@@ -31,9 +32,10 @@ class _AvailableCourseCardWidgetState extends State<AvailableCourseCardWidget> {
     final theme = Theme.of(context);
     final radius = BorderRadius.circular(16);
 
-
-    final gradientBorder = widget.isBatch ? AppColor.secondaryGradient : AppColor.primaryGradient;
-    final iconGradient = widget.isBatch ? AppColor.primaryGradient : AppColor.secondaryGradient;
+    // Keep gradient border style consistent with container
+    final gradientBorder = widget.isBatch
+        ? AppColor.secondaryGradient
+        : AppColor.primaryGradient;
 
     // Subtle scale & elevation when pressed/hovered
     final scale = _pressed ? 0.98 : (_hovered ? 1.01 : 1.0);
@@ -77,76 +79,47 @@ class _AvailableCourseCardWidgetState extends State<AvailableCourseCardWidget> {
               splashColor: theme.colorScheme.primary.withOpacity(0.10),
               highlightColor: theme.colorScheme.primary.withOpacity(0.06),
               child: Padding(
+                // a bit more vertical padding to center things nicely
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Icon chip
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: iconGradient,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withOpacity(0.28),
-                            blurRadius: 20,
-                            spreadRadius: 1,
-                            offset: const Offset(0, 8),
+                    // Centered title (takes available space)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          widget.title,
+                          textAlign: TextAlign.center,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontSize: Sizes.verySmallText(context),
+                            fontWeight: FontWeight.w700,
+                            color: AppColor.primaryTextColor,
+                            height: 1.2,
+                            letterSpacing: 0.2,
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        widget.icon,
-                        size: Sizes.veryExtraSmallIcon(context),
-                        color: Colors.white,
+                        ),
                       ),
                     ),
 
-                    // Title
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              widget.title,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontSize: Sizes.verySmallText(context),
-                                fontWeight: FontWeight.w700,
-                                color: AppColor.primaryTextColor,
-                                height: 1.2,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-/*                    // Trailing arrow that nudges on hover/press
+                    // Right arrow pinned at bottom-center
                     AnimatedSlide(
                       duration: const Duration(milliseconds: 140),
-                      offset: _pressed
-                          ? const Offset(0.05, 0)
-                          : (_hovered ? const Offset(0.02, 0) : Offset.zero),
                       curve: Curves.easeOut,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 10),
+                      offset: _pressed
+                          ? const Offset(0.05, 0) // tiny nudge when pressed
+                          : (_hovered ? const Offset(0.02, 0) : Offset.zero),
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
                         child: Icon(
-                          Icons.arrow_forward_rounded,
-                          size: Sizes.veryExtraSmallIcon(context),
-                          color: theme.colorScheme.primary.withOpacity(0.65),
+                          Icons.arrow_circle_right_outlined,
+                          size: Sizes.verySmallIcon(context),
+                          color: theme.colorScheme.primary.withOpacity(0.75),
                           semanticLabel: 'Open',
                         ),
                       ),
-                    ),*/
+                    ),
                   ],
                 ),
               ),

@@ -11,6 +11,7 @@ import 'package:medi_exam/presentation/utils/routes.dart';
 
 import 'package:medi_exam/data/services/manual_payment_service.dart';
 import 'package:medi_exam/data/network_response.dart';
+import 'package:medi_exam/presentation/widgets/payment_success_dialog.dart';
 
 enum ManualChannel { bkash, nagad, rocket }
 
@@ -90,51 +91,6 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
   }
 
 
-  Widget _miniTile({
-    required String title,
-    required String value,
-    required IconData icon,
-    bool accent = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.white,
-        border: Border.all(color: Colors.black12),
-      ),
-      child: Row(
-        children: [
-          softIcon(icon),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w700,
-                    )),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w900,
-                    color: accent ? AppColor.indigo : Colors.black,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ------- account number card -------
   Widget _accountCard() {
@@ -495,12 +451,18 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
     setState(() => _submitting = false);
 
     if (resp.isSuccess) {
-      // Try to pass server payload so we can show ID / created_at nicely
       final data = (resp.responseData is Map<String, dynamic>)
           ? resp.responseData as Map<String, dynamic>
           : null;
 
-      _showSuccessDialog(data);
+      // build the two strings separately
+      final amountText = '৳${(data?['amount'] ?? amount).toString()}';
+      final message = 'Payment Submitted\nWe’ll verify it within 24 hours.'; // or any custom message you want
+
+      await PaymentSuccessDialog.show(
+        message: message,
+        amountText: amountText,
+      );
     } else {
       Get.snackbar(
         'Submission Failed',
@@ -533,7 +495,7 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
     }
   }
 
-
+/*
   void _showSuccessDialog(Map<String, dynamic>? data) {
     final txid       = data?['trans_id']?.toString() ?? _txnController.text.trim();
     final amt        = data?['amount']?.toString() ?? amount.toStringAsFixed(2);
@@ -688,146 +650,8 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
       ),
       barrierDismissible: false,
     );
-  }
+  }*/
 
-
-  Widget _successRow(String label, String value,
-      {bool highlight = false, bool copyable = false}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-              color: Colors.grey[800],
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: highlight ? AppColor.indigo.withOpacity(0.08) : Colors.grey.shade50,
-              border: Border.all(
-                color: highlight ? AppColor.indigo.withOpacity(0.30) : Colors.black12,
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    value,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: highlight ? 15.5 : 14.0,
-                      fontWeight: highlight ? FontWeight.w900 : FontWeight.w800,
-                      color: highlight ? AppColor.indigo : Colors.black87,
-                    ),
-                  ),
-                ),
-                if (copyable)
-                  IconButton(
-                    tooltip: 'Copy',
-                    icon: const Icon(Icons.copy_rounded, size: 18),
-                    onPressed: () async {
-                      await Clipboard.setData(ClipboardData(text: value));
-                      Get.snackbar(
-                        'Copied',
-                        '$label copied to clipboard.',
-                        snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: Colors.green[50],
-                        colorText: Colors.black,
-                      );
-                    },
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _primaryGradientButton({required String label, required VoidCallback onTap}) {
-    final gradientColors = [AppColor.indigo, AppColor.purple];
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.centerRight,
-          end: Alignment.centerLeft,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: gradientColors.first.withOpacity(0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              alignment: Alignment.center,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _outlinedButton({required String label, required VoidCallback onTap}) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.white,
-        border: Border.all(color: Colors.black12),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              alignment: Alignment.center,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
 
 }

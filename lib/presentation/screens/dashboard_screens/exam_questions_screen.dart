@@ -54,8 +54,16 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   // Local state caches
   final Map<int, List<bool?>> _mcqStates = {};
   final Map<int, List<bool>> _mcqLocks = {};
+
+  // NEW: in-flight tap/request guards per MCQ statement
+  // true = this statement's pair (T/F) is busy (ignores subsequent taps immediately)
+  final Map<int, List<bool>> _mcqBusy = {};
+
   final Map<int, String?> _sbaSelected = {};
   final Set<int> _sbaLocked = {};
+
+  // NEW: SBA in-flight guard to prevent ultra-fast double taps
+  final Set<int> _sbaBusy = {};
 
   List<int> get _allQuestionIds {
     final q = _model?.questions;
@@ -99,7 +107,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   /// Keep only server-marked partials that are STILL partial locally, union with locally computed.
   List<int> get _partialIds {
     final filteredServer =
-        _partialIdsFromServer.where(_isStillPartialNow).toSet();
+    _partialIdsFromServer.where(_isStillPartialNow).toSet();
     final computed = _partialIdsComputed;
     final list = (filteredServer..addAll(computed)).toList()..sort();
     return list;
@@ -194,8 +202,10 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   void _primeLocalState(ExamQuestionModel model) {
     _mcqStates.clear();
     _mcqLocks.clear();
+    _mcqBusy.clear();
     _sbaSelected.clear();
     _sbaLocked.clear();
+    _sbaBusy.clear();
 
     final questions = model.questions ?? {};
     final submitted = model.submittedAnswers ?? {};
@@ -208,10 +218,11 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         final states = _parseMcq(ans);
         _mcqStates[qId] = states;
         _mcqLocks[qId] = List<bool>.generate(5, (i) => states[i] != null);
+        _mcqBusy[qId] = List<bool>.filled(5, false);
       } else if (q.isSBA) {
         final ans = submitted[qId]?.answer;
         final letter =
-            (ans ?? '').trim().isEmpty ? null : ans!.trim().toUpperCase();
+        (ans ?? '').trim().isEmpty ? null : ans!.trim().toUpperCase();
         _sbaSelected[qId] = letter;
         if (letter != null) {
           _sbaLocked.add(qId);
@@ -248,12 +259,13 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     if (input == null || input.isEmpty) return out;
     for (var i = 0; i < len && i < input.length; i++) {
       final c = input[i].toUpperCase();
-      if (c == 'T')
+      if (c == 'T') {
         out[i] = true;
-      else if (c == 'F')
+      } else if (c == 'F') {
         out[i] = false;
-      else
+      } else {
         out[i] = null;
+      }
     }
     return out;
   }
@@ -279,10 +291,15 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   }) async {
     if (_timeUp) return;
     if (_sbaLocked.contains(questionId)) return;
+    if (_sbaBusy.contains(questionId)) return;
+
+    _sbaBusy.add(questionId); // guard immediately
 
     final prev = _sbaSelected[questionId];
     setState(() {
       _sbaSelected[questionId] = optionLetter;
+      // Optimistic lock: disable instantly
+      _sbaLocked.add(questionId);
     });
 
     final resp = await _submitService.submitSingleAnswer(
@@ -299,22 +316,29 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
     if (resp.isSuccess) {
       setState(() {
-        _sbaLocked.add(questionId);
         _model?.submittedAnswers?.putIfAbsent(
           questionId,
-          () => SubmittedAnswer(
+              () => SubmittedAnswer(
             examQuestionId: int.tryParse(examQuestionId),
             answer: optionLetter,
             questionTypeId: 2,
           ),
         );
+        _model?.submittedAnswers?[questionId] =
+            (_model?.submittedAnswers?[questionId] ??
+                const SubmittedAnswer())
+                .copyWith(answer: optionLetter, questionTypeId: 2);
       });
     } else {
       setState(() {
+        // revert lock & selection on failure
         _sbaSelected[questionId] = prev;
+        _sbaLocked.remove(questionId);
       });
       _showSnack(resp.errorMessage ?? 'Failed to submit answer');
     }
+
+    _sbaBusy.remove(questionId);
   }
 
   Future<void> _onSelectMCQ({
@@ -324,17 +348,37 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     required bool value, // true for 'T', false for 'F'
   }) async {
     if (_timeUp) return;
-    final locks = _mcqLocks[questionId] ?? List<bool>.filled(5, false);
-    if (locks[index]) return;
 
-    final states =
-        List<bool?>.from(_mcqStates[questionId] ?? List<bool?>.filled(5, null));
+    // Create/access busy list for this question
+    final busyList = _mcqBusy.putIfAbsent(
+      questionId,
+          () => List<bool>.filled(5, false),
+    );
+
+    // If this statement is already busy or locked, ignore
+    if (busyList[index] == true) return;
+
+    final locks =
+    _mcqLocks.putIfAbsent(questionId, () => List<bool>.filled(5, false));
+    if (locks[index] == true) return;
+
+    // Mark busy immediately to guard against ultra-fast double taps
+    busyList[index] = true;
+
+    // Prepare local state
+    final states = List<bool?>.from(
+      _mcqStates.putIfAbsent(questionId, () => List<bool?>.filled(5, null)),
+    );
     final prev = states[index];
     states[index] = value;
     final answerStr = _buildMcq(states);
 
+    // Optimistic lock: disable the pair instantly
+    final newLocks = List<bool>.from(locks)..[index] = true;
+
     setState(() {
       _mcqStates[questionId] = states;
+      _mcqLocks[questionId] = newLocks;
     });
 
     final resp = await _submitService.submitSingleAnswer(
@@ -350,31 +394,36 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     if (!mounted) return;
 
     if (resp.isSuccess) {
-      final newLocks = List<bool>.from(locks);
-      newLocks[index] = true;
-
       setState(() {
-        _mcqLocks[questionId] = newLocks;
         _model?.submittedAnswers?.putIfAbsent(
           questionId,
-          () => SubmittedAnswer(
+              () => SubmittedAnswer(
             examQuestionId: int.tryParse(examQuestionId),
             answer: answerStr,
             questionTypeId: 1,
           ),
         );
         _model?.submittedAnswers?[questionId] =
-            (_model?.submittedAnswers?[questionId] ?? const SubmittedAnswer())
+            (_model?.submittedAnswers?[questionId] ??
+                const SubmittedAnswer())
                 .copyWith(answer: answerStr, questionTypeId: 1);
       });
+      // Keep lock true on success
     } else {
-      final revertStates = List<bool?>.from(states);
-      revertStates[index] = prev;
+      // Revert state & unlock on failure
+      final revertedStates = List<bool?>.from(states)..[index] = prev;
+      final revertedLocks = List<bool>.from(newLocks)..[index] = false;
+
       setState(() {
-        _mcqStates[questionId] = revertStates;
+        _mcqStates[questionId] = revertedStates;
+        _mcqLocks[questionId] = revertedLocks;
       });
+
       _showSnack(resp.errorMessage ?? 'Failed to submit answer');
     }
+
+    // Clear busy (lock controls future interaction anyway, but this is clean)
+    busyList[index] = false;
   }
 
   Future<void> _onFinishExam() async {
@@ -396,7 +445,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
     if (resp.isSuccess) {
       final msg = (resp.responseData is Map &&
-              (resp.responseData as Map)['message'] != null)
+          (resp.responseData as Map)['message'] != null)
           ? (resp.responseData as Map)['message'].toString()
           : 'Exam finished successfully';
 
@@ -418,7 +467,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     final theme = Theme.of(context);
     final grad = AppColor.secondaryGradient;
     final Color accent =
-        grad is LinearGradient ? grad.colors.first : theme.colorScheme.primary;
+    grad is LinearGradient ? grad.colors.first : theme.colorScheme.primary;
 
     final TextEditingController _feedbackCtrl = TextEditingController();
     final service = ExamFeedbackService();
@@ -464,8 +513,10 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                         color: Colors.green.withOpacity(0.1),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: Icon(Icons.check_circle_rounded,
-                                          color: Colors.green, size: 24),
+                                      child: const Icon(
+                                          Icons.check_circle_rounded,
+                                          color: Colors.green,
+                                          size: 24),
                                     ),
                                     const SizedBox(width: 12),
                                     Text(
@@ -527,71 +578,70 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                   onTap: submitting
                                       ? null
                                       : () async {
-                                          setState(() => submitting = true);
-                                          try {
-                                            final fb =
-                                                _feedbackCtrl.text.trim();
-                                            final resp = await service
-                                                .submitExamFeedback(
-                                              admissionId:
-                                                  admissionId.toString(),
-                                              examId: examId.toString(),
-                                              feedback: fb,
-                                            );
-                                            if (!mounted) return;
+                                    setState(() => submitting = true);
+                                    try {
+                                      final fb =
+                                      _feedbackCtrl.text.trim();
+                                      final resp = await service
+                                          .submitExamFeedback(
+                                        admissionId:
+                                        admissionId.toString(),
+                                        examId: examId.toString(),
+                                        feedback: fb,
+                                      );
+                                      if (!mounted) return;
 
-                                            if (resp.isSuccess) {
-                                              Get.snackbar(
-                                                'Thanks!',
-                                                'Your feedback has been submitted.',
-                                                snackPosition:
-                                                    SnackPosition.BOTTOM,
-                                                backgroundColor: Colors.green,
-                                                colorText: Colors.white,
-                                              );
+                                      if (resp.isSuccess) {
+                                        Get.snackbar(
+                                          'Thanks!',
+                                          'Your feedback has been submitted.',
+                                          snackPosition:
+                                          SnackPosition.BOTTOM,
+                                          backgroundColor: Colors.green,
+                                          colorText: Colors.white,
+                                        );
 
-                                              // Close the dialog, returning "navigated = true"
-                                              Navigator.pop(context, true);
+                                        // Close the dialog, returning "navigated = true"
+                                        Navigator.pop(context, true);
 
-                                              final data = {
-                                                'admissionId':
-                                                    (admissionId ?? '')
-                                                        .toString(),
-                                                'examId':
-                                                    (examId ?? '').toString(),
-                                              };
+                                        final data = {
+                                          'admissionId':
+                                          (admissionId).toString(),
+                                          'examId': (examId).toString(),
+                                        };
 
-                                              Get.offNamed(
-                                                RouteNames.examResult,
-                                                arguments: data,
-                                              );
-                                            } else {
-                                              Get.snackbar(
-                                                'Error',
-                                                resp.errorMessage ??
-                                                    'Failed to submit feedback',
-                                                snackPosition:
-                                                    SnackPosition.BOTTOM,
-                                                backgroundColor: Colors.red,
-                                                colorText: Colors.white,
-                                              );
-                                            }
-                                          } catch (e) {
-                                            if (!mounted) return;
-                                            Get.snackbar(
-                                              'Error',
+                                        Get.offNamed(
+                                          RouteNames.examResult,
+                                          arguments: data,
+                                        );
+                                      } else {
+                                        Get.snackbar(
+                                          'Error',
+                                          resp.errorMessage ??
                                               'Failed to submit feedback',
-                                              snackPosition:
-                                                  SnackPosition.BOTTOM,
-                                              backgroundColor: Colors.red,
-                                              colorText: Colors.white,
-                                            );
-                                          } finally {
-                                            if (mounted)
-                                              setState(
-                                                  () => submitting = false);
-                                          }
-                                        },
+                                          snackPosition:
+                                          SnackPosition.BOTTOM,
+                                          backgroundColor: Colors.red,
+                                          colorText: Colors.white,
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      Get.snackbar(
+                                        'Error',
+                                        'Failed to submit feedback',
+                                        snackPosition:
+                                        SnackPosition.BOTTOM,
+                                        backgroundColor: Colors.red,
+                                        colorText: Colors.white,
+                                      );
+                                    } finally {
+                                      if (mounted) {
+                                        setState(
+                                                () => submitting = false);
+                                      }
+                                    }
+                                  },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 12),
@@ -601,7 +651,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                       boxShadow: [
                                         BoxShadow(
                                           color:
-                                              AppColor.purple.withOpacity(0.28),
+                                          AppColor.purple.withOpacity(0.28),
                                           blurRadius: 16,
                                           offset: const Offset(0, 8),
                                         ),
@@ -617,7 +667,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
                                               valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
+                                              AlwaysStoppedAnimation<Color>(
                                                 Colors.white,
                                               ),
                                             ),
@@ -664,9 +714,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         body: _loading
             ? const Center(child: LoadingWidget())
             : _loadError != null
-                ? ErrorCard(
-                    message: _loadError!, onRetry: _load) // ⬅️ from helpers
-                : _buildContent(context),
+            ? ErrorCard(
+            message: _loadError!, onRetry: _load) // ⬅️ from helpers
+            : _buildContent(context),
       ),
     );
   }
@@ -720,10 +770,10 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                   boxShadow: [
                     BoxShadow(
                       color: (AppColor.warningGradient is LinearGradient
-                              ? (AppColor.warningGradient as LinearGradient)
-                                  .colors
-                                  .first
-                              : Colors.black)
+                          ? (AppColor.warningGradient as LinearGradient)
+                          .colors
+                          .first
+                          : Colors.black)
                           .withOpacity(0.28),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
@@ -811,7 +861,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth =
-            constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
+        constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
         return ListView.separated(
           key: key,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -850,8 +900,10 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                 ),
               );
             } else {
-              final states = _mcqStates[qId] ?? List<bool?>.filled(5, null);
-              final locks = _mcqLocks[qId] ?? List<bool>.filled(5, false);
+              final states =
+                  _mcqStates[qId] ?? List<bool?>.filled(5, null);
+              final locks =
+                  _mcqLocks[qId] ?? List<bool>.filled(5, false);
               return Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
@@ -900,7 +952,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     final theme = Theme.of(context);
     final grad = AppColor.warningGradient;
     final Color accent =
-        grad is LinearGradient ? grad.colors.first : AppColor.purple;
+    grad is LinearGradient ? grad.colors.first : AppColor.purple;
 
     return showGeneralDialog<bool>(
       context: context,
@@ -910,7 +962,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         final curved =
-            CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+        CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
 
         return ScaleTransition(
           scale: curved,
@@ -988,10 +1040,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                           children: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
-                              child: Text(
-                                negative,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(fontWeight: FontWeight.w700),
                               ),
                             ),
                             const SizedBox(width: 10),

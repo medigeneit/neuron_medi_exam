@@ -1,3 +1,6 @@
+// lib/presentation/screens/profile_section_screen.dart
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/doctor_profile_model.dart';
@@ -31,6 +34,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
   String? _phone;
   String? _photoUrl;
 
+  // (kept if you still want a remote placeholder somewhere else)
   static const String _kPlaceholderAvatarUrl =
       'https://img.freepik.com/free-vector/user-circles-set_78370-4704.jpg?t=st=1758792707~exp=1758796307~hmac=dc56eb8579080fb847e83dca98b3a52d04c995340c0ce9475d04b1a5d6a99ba0';
 
@@ -185,8 +189,6 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
     (_name != null && _name!.isNotEmpty) ? _name! : 'User Name';
     final displayPhone =
     (_phone != null && _phone!.isNotEmpty) ? _phone! : '—';
-    final avatarUrl =
-    (_photoUrl != null && _photoUrl!.isNotEmpty) ? _photoUrl! : _kPlaceholderAvatarUrl;
 
     return FancyBackground(
       gradient: AppColor.primaryGradient,
@@ -194,84 +196,9 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
         children: [
           Column(
             children: [
-              // ---- Avatar ----
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColor.whiteColor, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColor.secondaryColor.withOpacity(0.6),
-                      blurRadius: 20,
-                      spreadRadius: 3,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColor.whiteColor.withOpacity(0.3),
-                      AppColor.secondaryColor.withOpacity(0.1),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    ClipOval(
-                      child: Image.network(
-                        avatarUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [
-                                AppColor.primaryColor,
-                                AppColor.secondaryColor,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.person,
-                            size: 50,
-                            color: AppColor.whiteColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 6,
-                      right: 6,
-                      child: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColor.whiteColor, width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // ---- Avatar section (identical structure to EditProfileScreen) ----
+              _buildProfileImageSection(),
+
               const SizedBox(height: 20),
 
               // ---- Name ----
@@ -298,7 +225,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
               // ---- Phone ----
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 42),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
                   color: AppColor.whiteColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
@@ -342,6 +270,79 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
     );
   }
 
+  // ------------------------------------------------------------------
+  // Avatar section (same layout as EditProfileScreen, but green dot)
+  // ------------------------------------------------------------------
+  Widget _buildProfileImageSection() {
+    return Stack(
+      alignment: Alignment.bottomRight,
+      children: [
+        Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColor.whiteColor,
+              width: 3,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColor.whiteColor.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 3,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: _buildProfileImageContent(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Reuses EditProfileScreen logic: network URL OR local file path, else fallback
+  Widget _buildProfileImageContent() {
+    if (_photoUrl != null && _photoUrl!.isNotEmpty) {
+      final p = _photoUrl!;
+      if (p.startsWith('http://') || p.startsWith('https://')) {
+        return Image.network(
+          p,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
+        );
+      } else {
+        // treat as local file path
+        return Image.file(
+          File(p),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
+        );
+      }
+    }
+    return _buildDefaultAvatar();
+  }
+
+  Widget _buildDefaultAvatar() {
+    return Container(
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [AppColor.primaryColor, AppColor.secondaryColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Icon(
+        Icons.person,
+        size: 50,
+        color: AppColor.whiteColor,
+      ),
+    );
+  }
+
   Widget _buildActionsCard() {
     return GlassCard(
       child: Padding(
@@ -374,7 +375,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
             onTap: () => _handleActionTap(action),
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 gradient: LinearGradient(
@@ -444,7 +446,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
           onTap: _isLoggingOut ? null : _showLogoutConfirmation,
           borderRadius: BorderRadius.circular(18),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+            padding:
+            const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
             decoration: BoxDecoration(
               gradient: AppColor.warningGradient,
               borderRadius: BorderRadius.circular(18),
@@ -465,8 +468,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor:
-                  AlwaysStoppedAnimation<Color>(AppColor.whiteColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColor.whiteColor),
                 ),
               ),
             )
@@ -521,7 +524,7 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                         color: AppColor.purple.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.logout_rounded,
+                      child: const Icon(Icons.logout_rounded,
                           size: 30, color: Colors.deepOrange),
                     ),
                     const SizedBox(height: 16),
@@ -549,11 +552,13 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                           child: OutlinedButton(
                             onPressed: () => Get.back(),
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding:
+                              const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              side: BorderSide(color: AppColor.primaryColor),
+                              side: BorderSide(
+                                  color: AppColor.primaryColor),
                             ),
                             child: Text(
                               'Cancel',
@@ -574,7 +579,8 @@ class _ProfileSectionScreenState extends State<ProfileSectionScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.deepOrange,
                               foregroundColor: AppColor.whiteColor,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),

@@ -70,7 +70,6 @@ class HelplineModel {
     'messenger': messenger,
     'whatsapp': whatsapp,
     'phone': phone,
-    // Use the backend’s misspelled key to match API shape:
     'promosional_video_url': promotionalVideoUrl,
   };
 

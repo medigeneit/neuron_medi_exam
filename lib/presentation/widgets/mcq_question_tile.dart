@@ -149,7 +149,6 @@ class MCQQuestionTile extends StatelessWidget {
                     size: radioSize,
                     selectedColor: AppColor.primaryColor,
                   ),
-
                 ],
               ),
             ],
@@ -159,4 +158,3 @@ class MCQQuestionTile extends StatelessWidget {
     );
   }
 }
-

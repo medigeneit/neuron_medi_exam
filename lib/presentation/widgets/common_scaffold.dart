@@ -61,8 +61,8 @@ class CommonScaffold extends StatelessWidget {
         ),
         endDrawer: showDrawer ? const CustomDrawer() : null,
         body: isMobile ? AppBackground(
-          intensity: 0.15,
-            opacity: 0.04,
+          intensity: 0.20,
+            opacity: 0.05,
             child: responsiveBody) : AppBackground(
             intensity: 0.25,
             opacity: 0.06,

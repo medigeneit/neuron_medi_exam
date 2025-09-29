@@ -12,7 +12,6 @@ class Urls {
   static const String forgotPasswordVerifyOtp = "${_baseUrl}forgot-password/verify-otp";
   static const String forgotPasswordReset = "${_baseUrl}forgot-password/reset";
 
-
   static const String allBatchCourses = "${_baseUrl}batch-courses";
   static const String activeBatchCourses = "${_baseUrl}active-batch-courses";
   static const String slider = "${_baseUrl}hero-slider";
@@ -22,6 +21,7 @@ class Urls {
   static const String helpLine = "${_baseUrl}public-settings";
   static const String changePassword = "${_baseUrl}doctor/profile/change-password";
   static const String doctorProfile = "${_baseUrl}doctor/profile";
+  static const String doctorProfileUpdate = "${_baseUrl}doctor/profile/update";
   static const String paymentHistory = "${_baseUrl}doctor/admission-payments";
   static const String manualPayments = "${_baseUrl}doctor/admission-manual-payments";
 
@@ -52,6 +52,10 @@ class Urls {
 
   static String doctorSchedule(String admissionId) {
     return "${_baseUrl}doctor/admission/$admissionId/schedule";
+  }
+
+  static String invoice(String admissionId) {
+    return "${_baseUrl}payment-details-pdf/$admissionId";
   }
 
   static String solveVideo(String admissionId, String solveVideoID) {

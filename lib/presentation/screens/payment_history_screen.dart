@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:medi_exam/data/models/payment_history_model.dart';
 import 'package:medi_exam/data/services/payment_history_service.dart';
+import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
-import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/payment_history_list_widget.dart';
+import 'package:printing/printing.dart';
+import 'package:http/http.dart' as http;
 
 class PaymentHistoryScreen extends StatefulWidget {
   const PaymentHistoryScreen({super.key});
@@ -16,11 +18,12 @@ class PaymentHistoryScreen extends StatefulWidget {
 }
 
 class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
-
   final _service = PaymentHistoryService();
 
   bool _isLoading = true;
   String _errorMessage = '';
+  bool _isPrinting = false;
+  String? _printingAdmissionId; // <- track which item is printing
   List<PaymentHistoryItem> _items = const [];
 
   @override
@@ -62,123 +65,65 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
     return n.toString();
   }
 
-  // details dialog (compact, matches your modal style)
-  void _showDetails(PaymentHistoryItem item) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(20),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: CustomBlobBackground(
-            backgroundColor: Colors.white,
-            blobColor: AppColor.indigo,
-            child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Payment Details',
-                          style: TextStyle(
-                            fontSize: Sizes.subTitleText(context),
-                            fontWeight: FontWeight.w800,
-                            color: AppColor.primaryColor,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          icon: const Icon(Icons.close),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
+  Future<void> _printInvoice(PaymentHistoryItem item) async {
+    if (_isPrinting) return;
 
-                    _kv('Batch', _safe(item.batchName)),
-                    _kv('Admission Reg. No', _safe(item.admissionRegNo)),
-                    _kv('Course', _safe(item.courseName)),
-                    _kv('Session', _safe(item.sessionName)),
-                    _kv('Invoice No', _safe(item.invoiceNumber)),
-                    _kv('Invoice Date', _safe(item.invoiceDateHuman)),
-                    _kv('Payment Status', _safe(item.paymentStatus)),
-                    _kv('Currency', _safe(item.currency)),
-                    const Divider(height: 24),
+    // Resolve & validate admissionId first, so we don't get stuck in loading
+    final admissionIdRaw = item.admissionId;
+    final admissionId = (admissionIdRaw == null) ? '' : admissionIdRaw.toString();
+    if (admissionId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Missing admission ID for invoice')),
+        );
+      }
+      return;
+    }
 
-                    _kv('Course Price', _safeMoney(item.coursePrice)),
-                    _kv('Discount Title', _safe(item.discountTitle)),
-                    _kv('Discount Amount', _safeMoney(item.discountAmount)),
-                    _kv('Total Payable', _safeMoney(item.totalPayable)),
-                    _kv('Paid Amount', _safeMoney(item.paidAmount)),
-                    _kv('Due Amount', _safeMoney(item.dueAmount)),
-                    const Divider(height: 24),
+    setState(() {
+      _isPrinting = true;
+      _printingAdmissionId = admissionId;
+    });
 
-                    _kv('Gateway(s)', _safe(item.transactionGateways)),
-                    _kv('Transaction IDs', _safe(item.transactionIds)),
-                    _kv('Transactions', item.transactionCount?.toString() ?? '—'),
-                    const SizedBox(height: 8),
+    try {
+      final url = Urls.invoice(admissionId);
 
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColor.primaryColor,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('Close'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+      // Add headers if your endpoint requires auth
+      // final headers = {'Authorization': 'Bearer $token'};
+      final resp = await http.get(Uri.parse(url) /*, headers: headers*/);
+
+      if (resp.statusCode != 200) {
+        throw Exception('Server returned ${resp.statusCode}');
+      }
+
+      final html = resp.body;
+
+      await Printing.layoutPdf(
+        name: 'Invoice-$admissionId.pdf',
+        onLayout: (format) async => await Printing.convertHtml(
+          format: format,
+          html: html,
+          baseUrl: url,
         ),
-      ),
-    );
-  }
-
-  Widget _kv(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 140,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: Sizes.smallText(context),
-                color: Colors.grey[700],
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: Sizes.bodyText(context),
-                color: AppColor.primaryTextColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Print failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPrinting = false;
+          _printingAdmissionId = null;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Build inside CommonScaffold just like PaymentScreen
     return CommonScaffold(
       title: 'Payment History',
       body: Stack(
@@ -246,7 +191,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Error state (kept inside the list so pull-to-refresh still works)
+                // Error state
                 if (_errorMessage.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 48),
@@ -280,13 +225,24 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                         separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (ctx, i) {
                           final item = _items[i];
+
+                          // Determine if THIS row is printing
+                          final currentId = item.admissionId?.toString();
+                          final rowIsPrinting = _isPrinting &&
+                              currentId != null &&
+                              currentId == _printingAdmissionId;
+
                           return PaymentHistoryListWidget(
                             batchName: _safe(item.batchName),
                             admissionRegNo: _safe(item.admissionRegNo),
                             paidAmount: _safeMoney(item.paidAmount),
                             invoiceNumber: _safe(item.invoiceNumber),
                             invoiceDateHuman: _safe(item.invoiceDateHuman),
-                            onDetails: () => _showDetails(item),
+                            paymentGateway: _safe(item.transactionGateways),
+                            isPrinting: rowIsPrinting,
+                            onDetails: _isPrinting
+                                ? null // block others while printing
+                                : () => _printInvoice(item),
                           );
                         },
                       ),
@@ -296,7 +252,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             ),
           ),
 
-          // Loading overlay (keeps the app bar visible)
+          // Global loading overlay for first fetch
           if (_isLoading)
             const Positioned.fill(
               child: IgnorePointer(

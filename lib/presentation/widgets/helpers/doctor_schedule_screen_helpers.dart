@@ -273,7 +273,7 @@ class TodaySectionCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      "You don't have any class today.",
+                      "You don't have any exam today.",
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface,
                       ),

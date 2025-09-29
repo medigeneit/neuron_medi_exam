@@ -117,6 +117,12 @@ class AppColor {
     end: Alignment.bottomRight,
   );
 
+  static Gradient deepPrimaryDeepPurpleGradient = LinearGradient(
+    colors: [AppColor.primaryColor, Colors.deepPurple,],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
   static Gradient blueCyanGradient = LinearGradient(
     colors: [Colors.blue, Colors.cyan,],
     begin: Alignment.topLeft,
@@ -129,5 +135,22 @@ class AppColor {
     end: Alignment.bottomRight,
   );
 
+static Gradient deepPurpleTealGradient = LinearGradient(
+    colors: [Colors.deepPurple, Colors.teal,],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
+
+  static Gradient blueGreenGradient = LinearGradient(
+    colors: [Colors.blue, Colors.green,],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static Gradient blueGreenDarkGradient = LinearGradient(
+    colors: [Colors.blue.shade700, Colors.green.shade700,],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }

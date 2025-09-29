@@ -1,25 +1,20 @@
 // lib/presentation/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import 'package:medi_exam/data/models/courses_model.dart';
 import 'package:medi_exam/data/models/slide_items_model.dart';
 import 'package:medi_exam/data/models/helpline_model.dart';
 import 'package:medi_exam/data/services/active_batch_courses_service.dart';
 import 'package:medi_exam/data/services/slide_items_service.dart';
 import 'package:medi_exam/data/services/helpline_service.dart';
-
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
-
 import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
 import 'package:medi_exam/presentation/widgets/coming_soon_widget.dart';
 import 'package:medi_exam/presentation/widgets/floating_customer_care.dart';
 import 'package:medi_exam/presentation/widgets/helpers/home_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/image_slider_banner.dart';
-// If you already have a YouTube dialog widget, keep this import.
-// Otherwise the code will fall back to opening externally.
 import 'package:medi_exam/presentation/widgets/youtube_video_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
