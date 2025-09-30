@@ -11,20 +11,6 @@ class AppTheme {
         foregroundColor: AppColor.primaryTextColor),
     primaryColor: AppColor.primaryColor,
 
-    // ---------- CARD THEME ----------
-    cardTheme: CardTheme(
-      color: AppColor.whiteColor, // Soft background color
-      elevation: 2, // Light shadow effect
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12), // Rounded corners
-        side: BorderSide(
-          color: Colors.grey.shade300,
-          width: 1,
-        ), // Grey border
-      ),
-    ),
-
-
 
     textTheme: const TextTheme(
       bodyLarge: TextStyle(

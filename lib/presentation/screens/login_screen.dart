@@ -691,12 +691,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ).createShader(r),
                                       child: Text(
                                         _titleForStep(),
+                                        textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: Sizes.bigText(context),
                                           fontWeight: FontWeight.w900,
                                           color: Colors.white, // masked
                                           letterSpacing: -0.2,
                                         ),
+
                                       ),
                                     ),
                                     const SizedBox(height: 4),

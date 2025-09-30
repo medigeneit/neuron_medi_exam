@@ -90,4 +90,9 @@ class Urls {
   }
 
 
+  static String makeBkashPayment(String admissionId, String amount) {
+    return "${_baseUrl}doctor/batch-make-bkash-payment?admission-id=$admissionId&amount=$amount";
+  }
+
+
 }

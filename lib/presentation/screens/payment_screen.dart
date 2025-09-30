@@ -3,11 +3,16 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // <-- NEW (for Clipboard)
 import 'package:get/get.dart';
+import 'package:medi_exam/data/models/get_bkash_url_model.dart';
+import 'package:medi_exam/data/models/payment_result_model.dart';
+import 'package:medi_exam/data/services/get_bkash_url_service.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/bkash_webview_page.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/helpers/payment_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
+import 'package:medi_exam/presentation/widgets/payment_success_dialog.dart';
 import 'package:slide_to_act/slide_to_act.dart';
 import 'package:medi_exam/presentation/widgets/hero_header_with_image.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
@@ -590,16 +595,150 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  void _processPayment() {
-    final vendor = _selectedVendor?.toLowerCase();
-    if (vendor == 'bkash') {
+  Future<void> _showLoadingDialog(String text) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 32,
+                height: 32,
+                child: LoadingWidget(),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(text)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _closeLoadingDialog() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _showPaymentFailedDialog(String message) async {
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Payment Failed'),
+        content: Text(message.isEmpty ? 'Your payment was not completed.' : message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          )
+        ],
+      ),
+    );
+  }
+
+
+  Future<void> _processBkashPayment() async {
+    final admissionId = (batchData['admissionId'] ?? '').toString();
+    final amountDouble = _paymentDetails?.admission?.safePayableAmount ?? 0.0;
+    final amountStr = amountDouble.toStringAsFixed(0);  // API expects String
+
+    if (admissionId.isEmpty || amountDouble <= 9) {
       Get.snackbar(
         'bKash Payment',
-        'Redirecting to bKash payment gateway...',
-        backgroundColor: Colors.green[100],
+        'Invalid admission or amount.',
+        backgroundColor: Colors.red[100],
         colorText: Colors.black,
       );
       _slideKey.currentState?.reset();
+      return;
+    }
+
+    _showLoadingDialog('Preparing bKash payment...');
+
+    final service = GetBkashUrlService();
+    final response = await service.fetchBkashUrl(admissionId, amountStr);
+
+    _closeLoadingDialog();
+
+    if (!response.isSuccess || response.responseData == null) {
+      Get.snackbar(
+        'bKash Payment',
+        response.errorMessage ?? 'Failed to initialize payment.',
+        backgroundColor: Colors.red[100],
+        colorText: Colors.black,
+      );
+      _slideKey.currentState?.reset();
+      return;
+    }
+
+    final model = response.responseData as GetBkashUrlModel;
+    final startUrl = model.bkashUrl;
+
+    if (startUrl.isEmpty) {
+      Get.snackbar(
+        'bKash Payment',
+        'Payment URL is missing.',
+        backgroundColor: Colors.red[100],
+        colorText: Colors.black,
+      );
+      _slideKey.currentState?.reset();
+      return;
+    }
+
+    // Navigate to the WebView and await result
+    final result = await Get.to<PaymentResultModel>(
+          () => BkashWebViewPage(initialUrl: startUrl),
+    );
+
+    _slideKey.currentState?.reset();
+
+    if (!mounted) return;
+
+    // User might back out without result
+    if (result == null) {
+      Get.snackbar(
+        'bKash Payment',
+        'Payment was cancelled.',
+        backgroundColor: Colors.yellow[100],
+        colorText: Colors.black,
+      );
+      return;
+    }
+
+    // Handle success / failure
+    if (result.isSuccess) {
+      final message = result.statusMessage.isNotEmpty
+          ? result.statusMessage
+          : 'Successful';
+      final amountText = '৳${amountDouble.toStringAsFixed(2)}';
+
+      await PaymentSuccessDialog.show(
+        message: message,
+        amountText: amountText,
+      );
+
+      // Refresh payment details so screen reflects the new state
+      await _fetchPaymentDetails();
+    } else {
+      await _showPaymentFailedDialog(
+        result.statusMessage.isNotEmpty ? result.statusMessage : 'Invalid Payment State',
+      );
+
+      // Optionally refresh to reflect unchanged due amount
+      await _fetchPaymentDetails();
+    }
+  }
+
+  void _processPayment() {
+    final vendor = _selectedVendor?.toLowerCase();
+    if (vendor == 'bkash') {
+
+      _processBkashPayment();
+
     } else if (vendor == 'sslcommerz') {
       Get.snackbar(
         'SSLCommerz Payment',
@@ -644,144 +783,5 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-/*  // ---------- Manual Payment Dialog ----------
-  void _showManualPaymentDialog(String accountNumber) {
-    final TextEditingController _txnController = TextEditingController();
 
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return AlertDialog(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          backgroundColor: Colors.white,
-          title: const Text(
-            'Manual Payment',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Make a payment using bKash / Rocket to this number:',
-                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.black12),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          accountNumber.isNotEmpty
-                              ? accountNumber
-                              : '— not available —',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Copy number',
-                        onPressed: accountNumber.isEmpty
-                            ? null
-                            : () async {
-                          await Clipboard.setData(
-                            ClipboardData(text: accountNumber),
-                          );
-                          Get.snackbar(
-                            'Copied',
-                            'Number copied to clipboard.',
-                            snackPosition: SnackPosition.BOTTOM,
-                            backgroundColor: Colors.green[50],
-                            colorText: Colors.black,
-                          );
-                        },
-                        icon: const Icon(Icons.copy_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Enter your Transaction ID',
-                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _txnController,
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'After submitting the Transaction ID, please allow up to 24 hours for verification and payment initiation.',
-                  style: TextStyle(fontSize: 12.5, color: Colors.grey[700]),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop(); // close dialog
-                _slideKey.currentState?.reset();
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
-              label: const Text('Submit', style: TextStyle(color: Colors.white)),
-              onPressed: () {
-                final txid = _txnController.text.trim();
-                if (txid.isEmpty) {
-                  Get.snackbar(
-                    'Transaction ID required',
-                    'Please enter your bKash/Rocket Transaction ID.',
-                    backgroundColor: Colors.yellow[100],
-                    colorText: Colors.black,
-                  );
-                  return;
-                }
-
-                // TODO: send `txid` to backend if you need to store it.
-                // Close dialog
-                Navigator.of(ctx).pop();
-
-                // Notify the user
-                Get.snackbar(
-                  'Manual Payment Submitted',
-                  'Thanks! Please wait up to 24 hours to initiate the payment.',
-                  backgroundColor: Colors.green[100],
-                  colorText: Colors.black,
-                );
-
-                // Navigate to main nav bar (index 0)
-                Get.offAllNamed(RouteNames.navBar, arguments: 0);
-
-                _slideKey.currentState?.reset();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }*/
 }
