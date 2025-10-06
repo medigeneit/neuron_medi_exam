@@ -1,4 +1,6 @@
 // lib/presentation/widgets/payment_screen_helpers.dart
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/assets_path.dart';
@@ -191,14 +193,14 @@ BoxDecoration cardDecoration() {
   );
 }
 
-Widget twoColRow(String label, String value, BuildContext context) {
+Widget twoColRow(String label, String value, double size, BuildContext context) {
   return Row(
     children: [
       Expanded(
         child: Text(
           label,
           style:  TextStyle(
-            fontSize: Sizes.normalText(context),
+            fontSize: size,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
             letterSpacing: 0.2,
@@ -218,7 +220,7 @@ Widget twoColRow(String label, String value, BuildContext context) {
             child: Text(
               value,
               style:  TextStyle(
-                fontSize: Sizes.normalText(context),
+                fontSize: size,
                 fontWeight: FontWeight.w700,
                 color: Colors.black87,
               ),
@@ -251,6 +253,7 @@ Widget miniStatTile({
   required String title,
   required String value,
   required IconData leading,
+  required BuildContext context,
   bool isDiscount = false,
 }) {
   return Container(
@@ -272,7 +275,7 @@ Widget miniStatTile({
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: Sizes.verySmallText(context),
                     color: Colors.grey[700],
                     fontWeight: FontWeight.w700,
                   )),
@@ -280,7 +283,7 @@ Widget miniStatTile({
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 15.5,
+                  fontSize: Sizes.smallText(context),
                   fontWeight: FontWeight.w900,
                   color: isDiscount ? Colors.green[700] : Colors.black,
                 ),
@@ -377,6 +380,7 @@ Widget pill({
   required IconData icon,
   required Color fg,
   required Color bg,
+  required BuildContext context,
 }) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -401,7 +405,7 @@ Widget pill({
           style: TextStyle(
             color: fg,
             fontWeight: FontWeight.w900,
-            fontSize: 12,
+            fontSize: Sizes.verySmallText(context),
             letterSpacing: 0.2,
           ),
         ),
@@ -410,7 +414,7 @@ Widget pill({
   );
 }
 
-Widget softChip({required IconData icon, required String label}) {
+Widget softChip({required IconData icon, required String label, required BuildContext context}) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
@@ -425,9 +429,9 @@ Widget softChip({required IconData icon, required String label}) {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w800,
-            fontSize: 12,
+            fontSize: Sizes.verySmallText(context),
             letterSpacing: 0.2,
           ),
         ),

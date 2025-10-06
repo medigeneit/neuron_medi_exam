@@ -1,5 +1,6 @@
 // lib/presentation/widgets/exam/exam_timer.dart
 import 'package:flutter/material.dart';
+import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 
 class ExamTimer extends StatelessWidget {
@@ -19,8 +20,8 @@ class ExamTimer extends StatelessWidget {
     final label = isTimeUp ? 'Time Up' : '$mm:$ss';
 
     final color = isTimeUp
-        ? Theme.of(context).colorScheme.error
-        : Theme.of(context).colorScheme.primary;
+        ? Colors.red
+        : AppColor.primaryColor;
 
     return GlassCard(
       child: Padding(

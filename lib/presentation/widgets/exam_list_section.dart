@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'package:medi_exam/data/models/doctor_schedule_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
+import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
 import 'exam_solve_links_section.dart';
@@ -169,7 +171,7 @@ class _ExamCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
-                              fontSize: 16,
+                              fontSize: Sizes.bodyText(context),
                             ),
                           ),
                           if (subtitleText != null) ...[
@@ -180,7 +182,8 @@ class _ExamCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
-                                fontSize: 13,
+                                fontSize: Sizes.smallText(context),
+                                letterSpacing: 0.1
                               ),
                             ),
                           ],
@@ -218,7 +221,7 @@ class _ExamCard extends StatelessWidget {
       final status = c.safeExamStatus.toLowerCase();
       if (status == "completed") return "View Result";
       if (status == "running") return "Continue Exam";
-      if (status == "not completed") return "Not Completed";
+      if (status == "not completed") return "Available to Start";
     }
     return null;
   }
@@ -226,7 +229,13 @@ class _ExamCard extends StatelessWidget {
   Future<void> _openExamOverview(BuildContext context) async {
     // 1) tiny loader overlay
     Get.dialog(
-      const Center(child: LoadingWidget()),
+      const Center(child: CustomBlobBackground(
+          backgroundColor: AppColor.whiteColor,
+          blobColor: AppColor.purple,
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: LoadingWidget(),
+          ))),
       barrierDismissible: false,
     );
 
@@ -312,7 +321,7 @@ class _StatusIndicator extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration:
           BoxDecoration(color: AppColor.indigo.withOpacity(0.1), shape: BoxShape.circle),
-          child: Icon(Icons.lock_open_rounded, size: 14, color: AppColor.indigo),
+          child: Icon(Icons.circle_outlined, size: 14, color: Colors.blue),
         );
       }
     }
@@ -335,6 +344,8 @@ class _StatusIndicator extends StatelessWidget {
     );
   }
 }
+
+
 
 /// ----------------------------------------------------------------------
 /// Service-backed fetch using your ExamPropertyService

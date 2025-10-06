@@ -28,7 +28,7 @@ class AnimatedText extends StatefulWidget {
     this.fontSize,
     this.fontWeight = FontWeight.w800,
     this.letterSpacing = 0.1,
-    this.maxLines = 1,
+    this.maxLines = 2,
     this.overflow = TextOverflow.ellipsis,
     this.animationType = AnimationType.pulse,
     this.duration = const Duration(milliseconds: 1500),
@@ -132,8 +132,6 @@ class _AnimatedTextState extends State<AnimatedText>
 
   @override
   Widget build(BuildContext context) {
-
-
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -147,6 +145,7 @@ class _AnimatedTextState extends State<AnimatedText>
       widget.text,
       maxLines: widget.maxLines,
       overflow: widget.overflow,
+      textAlign: TextAlign.center,
       style: TextStyle(
         fontSize: widget.fontSize,
         fontWeight: widget.fontWeight,
@@ -193,5 +192,68 @@ class _AnimatedTextState extends State<AnimatedText>
       return _colorAnimation.value ?? widget.color;
     }
     return widget.color;
+  }
+}
+
+class AnimatedGradientText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final List<Color> colors;
+  final Duration duration;
+
+  const AnimatedGradientText(
+      this.text, {
+        super.key,
+        required this.style,
+        required this.colors,
+        this.duration = const Duration(seconds: 2),
+      });
+
+  @override
+  State<AnimatedGradientText> createState() => _AnimatedGradientTextState();
+}
+
+class _AnimatedGradientTextState extends State<AnimatedGradientText>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: widget.duration)
+      ..repeat(); // continuous shift
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (_, __) {
+        return ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (Rect bounds) {
+            // Slide the gradient horizontally across a wider rect
+            final w = bounds.width;
+            final t = _controller.value;              // 0..1
+            final dx = (t * w * 2) - w;               // -w .. +w
+            final rect = Rect.fromLTWH(-dx, 0, w * 3, bounds.height);
+
+            return LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: widget.colors,
+              tileMode: TileMode.mirror,
+            ).createShader(rect);
+          },
+          child: Text(widget.text, style: widget.style.copyWith(color: Colors.white)),
+        );
+      },
+    );
   }
 }

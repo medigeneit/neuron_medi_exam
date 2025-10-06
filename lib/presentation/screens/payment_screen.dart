@@ -1,7 +1,7 @@
 // lib/presentation/screens/payment/payment_screen.dart
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' show ImageFilter, lerpDouble;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // <-- NEW (for Clipboard)
+import 'package:flutter/services.dart'; // for Clipboard (kept from your version)
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/get_bkash_url_model.dart';
 import 'package:medi_exam/data/models/payment_result_model.dart';
@@ -9,6 +9,7 @@ import 'package:medi_exam/data/services/get_bkash_url_service.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/bkash_webview_page.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
+import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/helpers/payment_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
@@ -18,7 +19,6 @@ import 'package:medi_exam/presentation/widgets/hero_header_with_image.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
 import 'package:medi_exam/data/services/payment_details_service.dart';
 import 'package:medi_exam/data/models/payment_details_model.dart';
-
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({Key? key}) : super(key: key);
@@ -101,123 +101,151 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final gradientColors = [AppColor.indigo, AppColor.purple];
-    final bool isMobile = Responsive.isMobile(context);
+    final media = MediaQuery.of(context);
+    final size = media.size;
+    final safeBottom = media.padding.bottom;
+    final isMobile = Responsive.isMobile(context);
+
+    // Dynamically size the hero header (no hard 260/340)
+    final heroHeight = _clamp(
+      size.height * (isMobile ? 0.28 : 0.33),
+      200,
+      380,
+    );
+
+    // Dynamically reserve bottom space for the slider + safe area
+    final sliderHeight = 64.0;
+    final sliderVerticalMargin = 16.0;
+    final contentBottomPadding =
+        sliderHeight + sliderVerticalMargin * 2 + safeBottom;
 
     // Model shortcuts
     final admission = _paymentDetails?.admission;
     final gateways = _paymentDetails?.paymentGateways ?? [];
-
     final double payableAmount = admission?.safePayableAmount ?? 0.0;
-
-    // extra bottom padding so content isn't hidden under the pinned slider
-    const double contentBottomPadding = 120;
 
     return CommonScaffold(
       title: 'Payment',
-      body: Stack(
-        children: [
-          CustomScrollView(
-            slivers: [
-              // Collapsible hero header
-              if (_loading)
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: isMobile ? 260 : 340,
-                    child: const Center(child: LoadingWidget()),
-                  ),
-                )
-              else if (_error == null && _paymentDetails != null)
-                SliverAppBar(
-                  automaticallyImplyLeading: false,
-                  toolbarHeight: 0,
-                  collapsedHeight: 0,
-                  pinned: false,
-                  stretch: true,
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  expandedHeight: isMobile ? 260 : 340,
-                  flexibleSpace: FlexibleSpaceBar(
-                    collapseMode: CollapseMode.parallax,
-                    background: HeroHeader(
-                      banner: admission?.safeBannerUrl ?? '',
-                      headerTitle: admission?.safeBatchName ?? 'Batch',
-                      headerSubtitle:
-                      admission?.safeCoursePackageName ?? 'Discipline/Faculty',
-                      time: admission?.safeExamTime ?? '-',
-                      days: admission?.safeExamDays ?? '-',
-                      startDate: admission?.safeStartDate ?? '-',
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            CustomScrollView(
+              slivers: [
+                // Collapsible hero header
+                if (_loading)
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: heroHeight,
+                      child: const Center(),
+                    ),
+                  )
+                else if (_error == null && _paymentDetails != null)
+                  SliverAppBar(
+                    automaticallyImplyLeading: false,
+                    toolbarHeight: 0,
+                    collapsedHeight: 0,
+                    pinned: false,
+                    stretch: true,
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    expandedHeight: heroHeight,
+                    flexibleSpace: FlexibleSpaceBar(
+                      collapseMode: CollapseMode.parallax,
+                      background: HeroHeader(
+                        banner: admission?.safeBannerUrl ?? '',
+                        headerTitle: admission?.safeBatchName ?? 'Batch',
+                        headerSubtitle:
+                        admission?.safeCoursePackageName ?? 'Discipline/Faculty',
+                        time: admission?.safeExamTime ?? '-',
+                        days: admission?.safeExamDays ?? '-',
+                        startDate: admission?.safeStartDate ?? '-',
+                      ),
                     ),
                   ),
-                ),
 
-              // Error state
-              if (_error != null && !_loading)
-                SliverToBoxAdapter(
-                  child: Padding(
+                // Error state
+                if (_error != null && !_loading)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                      child: ErrorCard(
+                        message: _error!,
+                        onRetry: _fetchPaymentDetails,
+                      ),
+                    ),
+                  ),
+
+                // Content when loaded
+                if (!_loading && _error == null) ...[
+                  SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    child: ErrorCard(
-                      message: _error!,
-                      onRetry: _fetchPaymentDetails,
+                    sliver: SliverToBoxAdapter(
+                      child: _buildEnrollmentDetails(admission),
                     ),
                   ),
-                ),
 
-              // Content when loaded
-              if (!_loading && _error == null) ...[
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  sliver: SliverToBoxAdapter(
-                    child: _buildEnrollmentDetails(admission),
+                  // Modern “details” section
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildModernPaymentDetails(admission, size),
+                    ),
                   ),
-                ),
 
-                // Modern “details” section
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  sliver: SliverToBoxAdapter(
-                    child: _buildModernPaymentDetails(admission),
+                  // Dynamic payment methods
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildPaymentMethods(gateways),
+                    ),
                   ),
-                ),
 
-                // Dynamic payment methods
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  sliver: SliverToBoxAdapter(
-                    child: _buildPaymentMethods(gateways),
+                  // Spacer so content never hides behind the slider
+                  // Pay button at the bottom of the scrollable content
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildPayButton(
+                        [AppColor.indigo, AppColor.purple],
+                        payableAmount,
+                      ),
+                    ),
                   ),
-                ),
 
-                // spacer
-                const SliverToBoxAdapter(child: SizedBox(height: contentBottomPadding)),
+// Add some safe area space
+                  SliverToBoxAdapter(
+                    child: SizedBox(height: safeBottom),
+                  ),
+                ],
               ],
-            ],
-          ),
+            ),
 
-          // Loading overlay
-          if (_loading)
-            const Positioned.fill(
-              child: IgnorePointer(
-                ignoring: true,
-                child: Center(child: LoadingWidget()),
+            // Loading overlay
+            if (_loading)
+              const Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: true,
+                  child: Center(child: LoadingWidget()),
+                ),
               ),
-            ),
 
-          // Pinned slide-to-pay at bottom
-          if (!_loading && _error == null)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: _buildPayButton(gradientColors, payableAmount),
-            ),
-        ],
+  /*          // Pinned slide-to-pay at bottom (with SafeArea)
+            if (!_loading && _error == null)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: sliderVerticalMargin + safeBottom,
+                child: _buildPayButton([AppColor.indigo, AppColor.purple], payableAmount),
+              ),*/
+          ],
+        ),
       ),
     );
   }
 
-  // ---------- Modern details section ----------
-  Widget _buildModernPaymentDetails(Admission? a) {
+  // ---------- Modern details section (responsive) ----------
+  Widget _buildModernPaymentDetails(Admission? a, Size screenSize) {
     final double coursePrice = a?.safeCoursePrice ?? 0.0;
     final double doctorDiscountAmount = a?.safeDoctorDiscountAmount ?? 0.0;
     final String doctorDiscountTitle =
@@ -229,88 +257,92 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final double paidAmount = a?.safePaidAmount ?? 0.0;
     final double payableAmount = a?.safePayableAmount ?? 0.0;
 
-    final double progress =
-    (totalAmount > 0) ? (paidAmount.clamp(0, totalAmount) / totalAmount) : 0;
+    // When the card becomes narrow, stack items vertically.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 360;
 
-    return Stack(
-      children: [
-        // Gradient glow behind the card
-        Positioned.fill(
-          top: 10,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColor.indigo.withOpacity(0.12),
-                  AppColor.purple.withOpacity(0.12),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColor.indigo.withOpacity(0.12),
-                  blurRadius: 36,
-                  spreadRadius: 4,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // Glassy card
-        ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.white.withOpacity(0.85),
-                    Colors.white.withOpacity(0.70),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.6),
-                  width: 1.0,
-                ),
-              ),
-              child: Column(
-                children: [
-                  // Header row + badge
-                  Row(
-                    children: [
-                      badgeIcon(
-                        icon: Icons.receipt_long_rounded,
-                        colors: [AppColor.indigo, AppColor.purple],
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Payment Summary',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
+        return Stack(
+          children: [
+            // Gradient glow behind the card
+            Positioned.fill(
+              top: 10,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColor.indigo.withOpacity(0.12),
+                      AppColor.purple.withOpacity(0.12),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColor.indigo.withOpacity(0.12),
+                      blurRadius: 36,
+                      spreadRadius: 4,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-                  const SizedBox(height: 18),
+            // Glassy card
+            ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white.withOpacity(0.85),
+                        Colors.white.withOpacity(0.70),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.6),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // Header row + badge
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          badgeIcon(
+                            icon: Icons.receipt_long_rounded,
+                            colors: [AppColor.indigo, AppColor.purple],
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Payment Summary',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
 
-                  // Big due now + mini chips
-                  LayoutBuilder(
-                    builder: (context, c) {
-                      return Container(
+                      const SizedBox(height: 18),
+
+                      // Big due now + mini chips
+                      Container(
+                        width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
@@ -339,11 +371,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   icon: Icons.flash_on_rounded,
                                   fg: Colors.white,
                                   bg: AppColor.purple,
+                                  context: context
                                 ),
                                 if (doctorDiscountAmount > 0)
                                   softChip(
                                     icon: Icons.local_offer_rounded,
                                     label: doctorDiscountTitle,
+                                    context: context,
                                   ),
                               ],
                             ),
@@ -352,87 +386,121 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               shaderCallback: (r) => LinearGradient(
                                 colors: [AppColor.indigo, AppColor.purple],
                               ).createShader(r),
-                              child: Text(
-                                '৳${payableAmount.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontSize: 34,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white, // masked by shader
-                                  letterSpacing: -0.2,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  '৳${payableAmount.toStringAsFixed(2)}',
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    fontSize: Sizes.titleText(context), // will scale down if needed
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white, // masked by shader
+                                    letterSpacing: -0.2,
+                                  ),
                                 ),
                               ),
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Two quick tiles (Course price / Discount)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: miniStatTile(
-                          title: 'Course Price',
-                          value: '৳${coursePrice.toStringAsFixed(2)}',
-                          leading: Icons.school_rounded,
-                        ),
                       ),
-                      const SizedBox(width: 12),
-                      if (doctorDiscountAmount > 0)
-                        Expanded(
-                          child: miniStatTile(
-                            title: doctorDiscountTitle,
-                            value: doctorDiscountAmount > 0
-                                ? '-৳${doctorDiscountAmount.toStringAsFixed(2)}'
-                                : '৳0.00',
-                            leading: Icons.local_offer_rounded,
-                            isDiscount: doctorDiscountAmount > 0,
+
+                      const SizedBox(height: 16),
+
+                      // Two quick tiles (Course price / Discount) — responsive
+                      if (!narrow)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: miniStatTile(
+                                title: 'Course Price',
+                                value: '৳${coursePrice.toStringAsFixed(2)}',
+                                leading: Icons.school_rounded,
+                                  context: context
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            if (doctorDiscountAmount > 0)
+                              Expanded(
+                                child: miniStatTile(
+                                  title: doctorDiscountTitle,
+                                  value: doctorDiscountAmount > 0
+                                      ? '-৳${doctorDiscountAmount.toStringAsFixed(2)}'
+                                      : '৳0.00',
+                                  leading: Icons.local_offer_rounded,
+                                  isDiscount: doctorDiscountAmount > 0,
+                                    context: context
+                                ),
+                              ),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            miniStatTile(
+                              title: 'Course Price',
+                              value: '৳${coursePrice.toStringAsFixed(2)}',
+                              leading: Icons.school_rounded,
+                              context: context
+                            ),
+                            if (doctorDiscountAmount > 0) const SizedBox(height: 12),
+                            if (doctorDiscountAmount > 0)
+                              miniStatTile(
+                                title: doctorDiscountTitle,
+                                value: doctorDiscountAmount > 0
+                                    ? '-৳${doctorDiscountAmount.toStringAsFixed(2)}'
+                                    : '৳0.00',
+                                leading: Icons.local_offer_rounded,
+                                isDiscount: doctorDiscountAmount > 0,
+                                  context: context
+                              ),
+                          ],
+                        ),
+
+                      const SizedBox(height: 18),
+                      gradientDivider(),
+
+                      if (totalAmount != payableAmount) ...[
+                        const SizedBox(height: 16),
+                        breakdownRow(
+                          'Total Amount',
+                          '৳${totalAmount.toStringAsFixed(2)}',
+                        ),
+                      ],
+
+                      if (paidAmount > 0) ...[
+                        const SizedBox(height: 8),
+                        breakdownRow(
+                          'Paid Amount',
+                          '৳${paidAmount.toStringAsFixed(2)}',
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      breakdownRow(
+                        'Payable Amount',
+                        '৳${payableAmount.toStringAsFixed(2)}',
+                        highlight: true,
+                      ),
+
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          'All charges are shown in BDT.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[700],
                           ),
                         ),
+                      ),
                     ],
                   ),
-
-                  const SizedBox(height: 18),
-                  gradientDivider(),
-
-                  if (totalAmount != payableAmount) ...[
-                    const SizedBox(height: 16),
-                    breakdownRow(
-                        'Total Amount', '৳${totalAmount.toStringAsFixed(2)}'),
-                  ],
-
-                  if (paidAmount > 0) ...[
-                    const SizedBox(height: 8),
-                    breakdownRow(
-                        'Paid Amount', '৳${paidAmount.toStringAsFixed(2)}'),
-                  ],
-                  const SizedBox(height: 10),
-                  breakdownRow(
-                    'Payable Amount',
-                    '৳${payableAmount.toStringAsFixed(2)}',
-                    highlight: true,
-                  ),
-
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      'All charges are shown in BDT.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -454,6 +522,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const Expanded(
                 child: Text(
                   'Enrollment Details',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
               ),
@@ -462,21 +532,40 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 14),
           const Divider(height: 1),
           const SizedBox(height: 14),
-          twoColRow('Registration', a?.safeRegNo ?? '—', context),
+          _twoColRowAdaptive('Registration', a?.safeRegNo ?? '—'),
           const SizedBox(height: 14),
-          twoColRow('Batch', a?.safeBatchName ?? '—', context),
+          _twoColRowAdaptive('Batch', a?.safeBatchName ?? '—'),
           const SizedBox(height: 8),
-          twoColRow('Course', a?.safeCourseName ?? '—', context),
+          _twoColRowAdaptive('Course', a?.safeCourseName ?? '—'),
           const SizedBox(height: 8),
-          twoColRow('Package', a?.safeCoursePackageName ?? '—', context),
+          _twoColRowAdaptive('Package', a?.safeCoursePackageName ?? '—'),
         ],
       ),
+    );
+  }
+
+  Widget _twoColRowAdaptive(String left, String right) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double size;
+
+        if (constraints.maxWidth > 400) {
+          size = Sizes.normalText(context);
+        } else if (constraints.maxWidth > 300) {
+          size = Sizes.smallText(context);
+        } else {
+          size = Sizes.verySmallText(context);
+        }
+
+        return twoColRow(left, right, size, context);
+      },
     );
   }
 
   // ---------- Payment methods ----------
   Widget _buildPaymentMethods(List<PaymentGateway> gateways) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: cardDecoration(),
       child: Column(
@@ -492,6 +581,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const Expanded(
                 child: Text(
                   'Select Payment Method',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
               ),
@@ -515,12 +606,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   child: PaymentMethodOptionTile(
                     value: value,
                     imagePath: logoForVendor(g.safeVendor),
-                    title: g.hasValidName
-                        ? g.safeName
-                        : titleForVendor(g.safeVendor),
+                    title: g.hasValidName ? g.safeName : titleForVendor(g.safeVendor),
                     description: subtitleForVendor(g.safeVendor),
-                    selected:
-                    _selectedVendor?.toLowerCase() == g.safeVendor.toLowerCase(),
+                    selected: _selectedVendor?.toLowerCase() == value,
                     onTap: () => setState(() => _selectedVendor = value),
                   ),
                 );
@@ -533,8 +621,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ---------- Pay button ----------
   Widget _buildPayButton(List<Color> gradientColors, double payableAmount) {
-    final bool canPay =
-        payableAmount > 0 && (_selectedVendor?.isNotEmpty ?? false);
+    final bool canPay = payableAmount > 0 && (_selectedVendor?.isNotEmpty ?? false);
 
     return Container(
       decoration: BoxDecoration(
@@ -563,7 +650,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             borderRadius: 32,
             outerColor: Colors.transparent, // show parent gradient
             innerColor: Colors.white,
-            text: 'Slide to Pay ৳${payableAmount.toStringAsFixed(2)}',
+            text: 'Swipe to pay ৳${payableAmount.toStringAsFixed(2)}',
             textStyle: const TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -571,8 +658,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               letterSpacing: 0.2,
             ),
             sliderRotate: true,
-            sliderButtonIcon: const Icon(Icons.arrow_forward_ios,
-                color: Colors.black, size: 18),
+            sliderButtonIcon:
+            const Icon(Icons.arrow_forward_ios, color: Colors.black, size: 18),
             submittedIcon: const Icon(Icons.check, color: Colors.white),
             onSubmit: () async {
               if (!canPay) {
@@ -604,11 +691,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         child: AlertDialog(
           content: Row(
             children: [
-              const SizedBox(
-                width: 32,
-                height: 32,
-                child: LoadingWidget(),
-              ),
+              const SizedBox(width: 48, height: 48, child: LoadingWidget()),
               const SizedBox(width: 12),
               Expanded(child: Text(text)),
             ],
@@ -640,11 +723,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-
   Future<void> _processBkashPayment() async {
     final admissionId = (batchData['admissionId'] ?? '').toString();
     final amountDouble = _paymentDetails?.admission?.safePayableAmount ?? 0.0;
-    final amountStr = amountDouble.toStringAsFixed(0);  // API expects String
+    final amountStr = amountDouble.toStringAsFixed(0); // API expects String
 
     if (admissionId.isEmpty || amountDouble <= 9) {
       Get.snackbar(
@@ -711,9 +793,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     // Handle success / failure
     if (result.isSuccess) {
-      final message = result.statusMessage.isNotEmpty
-          ? result.statusMessage
-          : 'Successful';
+      final message =
+      result.statusMessage.isNotEmpty ? result.statusMessage : 'Successful';
       final amountText = '৳${amountDouble.toStringAsFixed(2)}';
 
       await PaymentSuccessDialog.show(
@@ -725,7 +806,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       await _fetchPaymentDetails();
     } else {
       await _showPaymentFailedDialog(
-        result.statusMessage.isNotEmpty ? result.statusMessage : 'Invalid Payment State',
+        result.statusMessage.isNotEmpty
+            ? result.statusMessage
+            : 'Invalid Payment State',
       );
 
       // Optionally refresh to reflect unchanged due amount
@@ -736,9 +819,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   void _processPayment() {
     final vendor = _selectedVendor?.toLowerCase();
     if (vendor == 'bkash') {
-
       _processBkashPayment();
-
     } else if (vendor == 'sslcommerz') {
       Get.snackbar(
         'SSLCommerz Payment',
@@ -771,7 +852,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
 
       _slideKey.currentState?.reset();
-      // no immediate reset; dialog handles nav + reset
     } else {
       Get.snackbar(
         'Payment',
@@ -783,5 +863,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-
+  // --------- utils ---------
+  double _clamp(double v, double min, double max) =>
+      v < min ? min : (v > max ? max : v);
 }

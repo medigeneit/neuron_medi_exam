@@ -329,6 +329,10 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                 const SubmittedAnswer())
                 .copyWith(answer: optionLetter, questionTypeId: 2);
       });
+
+      // ✅ Force rebuild to refresh tab counts
+      if (mounted) setState(() {});
+
     } else {
       setState(() {
         // revert lock & selection on failure
@@ -408,6 +412,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                 const SubmittedAnswer())
                 .copyWith(answer: answerStr, questionTypeId: 1);
       });
+
+      // ✅ Force rebuild to refresh tab counts
+      if (mounted) setState(() {});
       // Keep lock true on success
     } else {
       // Revert state & unlock on failure
@@ -740,7 +747,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                   style: Theme.of(context)
                       .textTheme
                       .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                      ?.copyWith(fontWeight: FontWeight.w700, fontSize: Sizes.titleText(context)),
                 ),
               ),
             ],
@@ -827,7 +834,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           child: TabBar(
             controller: _tabController,
             labelStyle: TextStyle(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               fontSize: Sizes.smallText(context),
             ),
             tabs: [

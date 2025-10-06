@@ -5,7 +5,8 @@ class AssetsPath {
 
 
   static const String _images = 'assets/images';
-  static const String appLogo = '$_images/neuron_logo.png';
+  //static const String appLogo = '$_images/neuron_logo.png';
+  static const String appLogo = '$_images/pg_easy_logo.png';
   static const String placeholderImage = '$_images/placeholder_image.png';
   static const String sslcommerzLogo = '$_images/sslcommerz_logo.png';
   static const String bkashLogo = '$_images/bkash_logo.png';

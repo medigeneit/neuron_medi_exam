@@ -4,7 +4,6 @@ import 'package:medi_exam/data/models/doctor_schedule_model.dart';
 import 'package:medi_exam/data/services/doctor_schedule_service.dart';
 import 'package:medi_exam/main.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
-import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/date_section.dart';
 import 'package:medi_exam/presentation/widgets/helpers/doctor_schedule_screen_helpers.dart';
@@ -486,7 +485,7 @@ class _DoctorScheduleScreenState extends State<DoctorScheduleScreen> with Widget
                   const SliverToBoxAdapter(
                     child: SizedBox(
                       height: 420,
-                      child: Center(child: LoadingWidget()),
+                      child: Center(),
                     ),
                   )
 

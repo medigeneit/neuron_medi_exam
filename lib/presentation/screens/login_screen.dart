@@ -10,6 +10,7 @@ import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/animated_text_widget.dart';
 // Background & glass card you already have
 import 'package:medi_exam/presentation/widgets/custom_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
@@ -170,8 +171,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _verifyOtp() async {
     final otp = _otpController.text.trim();
-    if (otp.length != 6 || int.tryParse(otp) == null) {
-      _error('Enter the 6-digit OTP');
+    if (otp.length != 4 || int.tryParse(otp) == null) {
+      _error('Enter the 4-digit OTP');
       return;
     }
 
@@ -301,8 +302,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _verifyForgotOtp() async {
     final otp = _otpController.text.trim();
-    if (otp.length != 6 || int.tryParse(otp) == null) {
-      _error('Enter the 6-digit OTP');
+    if (otp.length != 4 || int.tryParse(otp) == null) {
+      _error('Enter the 4-digit OTP');
       return;
     }
 
@@ -678,10 +679,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const SizedBox(height: 8),
-                                    Image.asset(AssetsPath.appLogo),
+                            /*        const SizedBox(height: 8),
+                                    Image.asset(AssetsPath.appLogo),*/
                                     const SizedBox(height: 12),
-                                    ShaderMask(
+                                    AnimatedText(
+                                      text: _titleForStep(),
+                                      color: AppColor.primaryColor,
+                                      animationType: AnimationType.colorShift,
+                                      colorPalette: [AppColor.primaryColor, AppColor.indigo, AppColor.purple],
+                                      duration: Duration(seconds: 2),
+                                      fontSize: Sizes.bigText(context),
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.2,
+                                    ),
+            /*                        ShaderMask(
                                       shaderCallback: (r) =>
                                           LinearGradient(
                                             colors: [
@@ -700,7 +711,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
 
                                       ),
-                                    ),
+                                    ),*/
                                     const SizedBox(height: 4),
                                     Text(
                                       _subtitleForStep(),
@@ -743,10 +754,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ] else if (_step ==
                                         _AuthStep.verifyOtp) ...[
                                       if (_otpRemainingSeconds > 0) ...[
-                                        // --- OTP code input (6 boxes) ---
+                                        // --- OTP code input (4 boxes) ---
                                         OtpCodeInput(
                                           key: _otpFieldKey,
-                                          length: 6,
+                                          length: 4,
                                           onChanged: (code) =>
                                           _otpController.text = code,
                                           onCompleted: (code) {
@@ -828,7 +839,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       if (_otpRemainingSeconds > 0) ...[
                                         OtpCodeInput(
                                           key: _otpFieldKey,
-                                          length: 6,
+                                          length: 4,
                                           onChanged: (code) =>
                                           _otpController.text = code,
                                           onCompleted: (code) =>
