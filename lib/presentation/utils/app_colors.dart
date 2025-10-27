@@ -3,10 +3,19 @@ import 'package:flutter/material.dart';
 class AppColor {
 
   static const Color primaryColor = Color(0xFF662483);
+  static const Color secondaryColor = Color(0xFFC580EA);
   static const Color primaryDisableColor = Color(0xFF8C7594);
+
+/*  static const Color primaryColor = Color(0xFF1373B6);
+  static const Color secondaryColor = Colors.lightBlueAccent;
+  static const Color primaryDisableColor = Colors.blueGrey;*/
+
+
+
   static const Color lightCardColor = Color(0xFFF7ECF0);
   static const Color lightCircleColor = Color(0xFFF1DBFF);
-  static const Color secondaryColor = Color(0xFFC580EA);
+
+
   static const Color backgroundColor = Color(0xFFF7F5F8);
   static const Color primaryTextColor = Color(0xFF1F003B);
   static const Color secondaryTextColor = Color(0xFF505050);

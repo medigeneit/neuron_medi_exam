@@ -4,6 +4,8 @@ import 'package:medi_exam/presentation/utils/responsive.dart';
 import 'package:medi_exam/presentation/widgets/app_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_drawer.dart';
 
+import '../utils/sizes.dart';
+
 
 class CommonScaffold extends StatelessWidget {
   final String title;
@@ -54,7 +56,7 @@ class CommonScaffold extends StatelessWidget {
         backgroundColor: AppColor.backgroundColor,
         appBar: AppBar(
           backgroundColor: AppColor.primaryColor,
-          title: Text(title, style: const TextStyle(color: Colors.white)),
+          title: Text(title, style:  TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: Sizes.titleText(context))),
           iconTheme: const IconThemeData(color: Colors.white),
           centerTitle: true,
           actions: actions,

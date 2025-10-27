@@ -1,6 +1,4 @@
 // lib/presentation/widgets/payment_screen_helpers.dart
-import 'dart:ffi';
-
 import 'package:flutter/material.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/assets_path.dart';
@@ -45,7 +43,10 @@ class ErrorCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Text('Something went wrong', style: const TextStyle(fontSize: 14.5)),
+          Text(
+            message.isEmpty ? 'Something went wrong' : message,
+            style: const TextStyle(fontSize: 14.5),
+          ),
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
@@ -195,11 +196,13 @@ BoxDecoration cardDecoration() {
 
 Widget twoColRow(String label, String value, double size, BuildContext context) {
   return Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    mainAxisAlignment: MainAxisAlignment.start,
     children: [
       Expanded(
         child: Text(
           label,
-          style:  TextStyle(
+          style: TextStyle(
             fontSize: size,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
@@ -216,17 +219,16 @@ Widget twoColRow(String label, String value, double size, BuildContext context) 
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.black12),
           ),
-          child: Expanded(
-            child: Text(
-              value,
-              style:  TextStyle(
-                fontSize: size,
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          // FIX: No Expanded here.
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: size,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
@@ -414,7 +416,10 @@ Widget pill({
   );
 }
 
-Widget softChip({required IconData icon, required String label, required BuildContext context}) {
+Widget softChip(
+    {required IconData icon,
+      required String label,
+      required BuildContext context}) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
@@ -471,7 +476,8 @@ String logoForVendor(String vendor) {
   if (v == 'bkash') return AssetsPath.bkashLogo;
   if (v == 'sslcommerz') return AssetsPath.sslcommerzLogo;
   if (v == 'nagad') return AssetsPath.nagadLogo;
-  if (v == 'manual-payment') { return AssetsPath.manualPayment;
+  if (v == 'manual-payment') {
+    return AssetsPath.manualPayment;
   }
   return AssetsPath.sslcommerzLogo;
 }

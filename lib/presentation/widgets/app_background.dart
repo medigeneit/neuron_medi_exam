@@ -32,9 +32,9 @@ class AppBackground extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                _blendColors(const Color(0xFF662483), Colors.white, 0.95),
-                _blendColors(const Color(0xFF6366F1), Colors.white, 0.98),
-                _blendColors(const Color(0xFF8B5CF6), Colors.white, 0.96),
+                _blendColors(AppColor.primaryColor, Colors.white, 0.95),
+                _blendColors(AppColor.indigo, Colors.white, 0.98),
+                _blendColors(AppColor.purple, Colors.white, 0.96),
               ],
               stops: const [0.0, 0.5, 1.0],
             ),
@@ -82,9 +82,9 @@ class AppBackground extends StatelessWidget {
   List<Widget> _buildParticles(BuildContext context, double intensity) {
     final particles = <Widget>[];
     final colors = [
-      const Color(0xFF662483).withOpacity(0.12 * intensity),
-      const Color(0xFF6366F1).withOpacity(0.12 * intensity),
-      const Color(0xFF8B5CF6).withOpacity(0.12 * intensity),
+      AppColor.primaryColor.withOpacity(0.12 * intensity),
+      AppColor.indigo.withOpacity(0.12 * intensity),
+      AppColor.purple.withOpacity(0.12 * intensity),
     ];
 
     // Add multiple particles at different positions

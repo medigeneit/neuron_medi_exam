@@ -1,5 +1,5 @@
 // lib/presentation/screens/payment/payment_screen.dart
-import 'dart:ui' show ImageFilter, lerpDouble;
+import 'dart:ui' show ImageFilter; // removed unused lerpDouble
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // for Clipboard (kept from your version)
 import 'package:get/get.dart';
@@ -126,8 +126,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     return CommonScaffold(
       title: 'Payment',
-      body: SafeArea(
-        bottom: false,
+      body: RefreshIndicator(
+        onRefresh: _fetchPaymentDetails,
+        edgeOffset: 120,
         child: Stack(
           children: [
             CustomScrollView(
@@ -213,7 +214,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                   ),
 
-// Add some safe area space
+                  // Add some safe area space
                   SliverToBoxAdapter(
                     child: SizedBox(height: safeBottom),
                   ),
@@ -229,15 +230,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   child: Center(child: LoadingWidget()),
                 ),
               ),
-
-  /*          // Pinned slide-to-pay at bottom (with SafeArea)
-            if (!_loading && _error == null)
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: sliderVerticalMargin + safeBottom,
-                child: _buildPayButton([AppColor.indigo, AppColor.purple], payableAmount),
-              ),*/
           ],
         ),
       ),
@@ -371,7 +363,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   icon: Icons.flash_on_rounded,
                                   fg: Colors.white,
                                   bg: AppColor.purple,
-                                  context: context
+                                  context: context,
                                 ),
                                 if (doctorDiscountAmount > 0)
                                   softChip(
@@ -416,7 +408,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 title: 'Course Price',
                                 value: '৳${coursePrice.toStringAsFixed(2)}',
                                 leading: Icons.school_rounded,
-                                  context: context
+                                context: context,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -429,7 +421,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                       : '৳0.00',
                                   leading: Icons.local_offer_rounded,
                                   isDiscount: doctorDiscountAmount > 0,
-                                    context: context
+                                  context: context,
                                 ),
                               ),
                           ],
@@ -441,7 +433,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               title: 'Course Price',
                               value: '৳${coursePrice.toStringAsFixed(2)}',
                               leading: Icons.school_rounded,
-                              context: context
+                              context: context,
                             ),
                             if (doctorDiscountAmount > 0) const SizedBox(height: 12),
                             if (doctorDiscountAmount > 0)
@@ -452,7 +444,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     : '৳0.00',
                                 leading: Icons.local_offer_rounded,
                                 isDiscount: doctorDiscountAmount > 0,
-                                  context: context
+                                context: context,
                               ),
                           ],
                         ),
@@ -838,7 +830,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _slideKey.currentState?.reset();
     } else if (vendor == 'manual-payment') {
       // Manual payment: fetch account number from API data and show dialog
-      final accountNumber = _findGatewayByVendor('manual-payment')?.safeAccount ?? '';
+      final accountNumber =
+          _findGatewayByVendor('manual-payment')?.safeAccount ?? '';
       final admissionId = (batchData['admissionId'] ?? '').toString();
       final amount = _paymentDetails?.admission?.safePayableAmount ?? 0.0;
 
