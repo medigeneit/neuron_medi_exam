@@ -11,7 +11,6 @@ class Urls {
   static const String forgotPasswordRequestOtp = "${_baseUrl}forgot-password/request-otp";
   static const String forgotPasswordVerifyOtp = "${_baseUrl}forgot-password/verify-otp";
   static const String forgotPasswordReset = "${_baseUrl}forgot-password/reset";
-
   static const String allBatchCourses = "${_baseUrl}batch-courses";
   static const String activeBatchCourses = "${_baseUrl}active-batch-courses";
   static const String slider = "${_baseUrl}hero-slider";
@@ -24,6 +23,7 @@ class Urls {
   static const String doctorProfileUpdate = "${_baseUrl}doctor/profile/update";
   static const String paymentHistory = "${_baseUrl}doctor/admission-payments";
   static const String manualPayments = "${_baseUrl}doctor/admission-manual-payments";
+  static const String freeExamSingleAnswerSubmit = "${_baseUrl}doctor/open-exam-submit-answer";
 
 
   static String noticeDetails(String noticeId) {
@@ -56,6 +56,33 @@ class Urls {
 
   static String invoice(String admissionId) {
     return "${_baseUrl}payment-details-pdf/$admissionId";
+  }
+
+  static String freeExamList(String courseId) {
+    return "${_baseUrl}doctor/open-exam-list/$courseId";
+  }
+
+  static String freeExamProperty(String examId) {
+    return "${_baseUrl}doctor/open-exam-questions-property/$examId";
+  }
+  static String freeExamQuestion(String examId) {
+    return "${_baseUrl}doctor/open-exam-questions/$examId";
+  }
+
+  static String freeExamFeedback(String examId) {
+    return "${_baseUrl}doctor/submit-open-exam-feedback/$examId";
+  }
+
+  static String finishFreeExam(String examId) {
+    return "${_baseUrl}doctor/open-exam-finish/$examId";
+  }
+
+  static String freeExamResult(String examId) {
+    return "${_baseUrl}doctor/open-exam-result/$examId";
+  }
+
+  static String freeExamAnswers(String examId) {
+    return "${_baseUrl}doctor/open-exam-question-result/$examId";
   }
 
   static String solveVideo(String admissionId, String solveVideoID) {

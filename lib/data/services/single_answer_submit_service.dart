@@ -12,6 +12,7 @@ class SingleAnswerSubmitService {
   final NetworkCaller _caller = NetworkCaller(logger: Logger());
 
   Future<NetworkResponse> submitSingleAnswer({
+    bool? isFreeExam,
     String? admissionId,
     String? examId,
     String? questionId,
@@ -20,7 +21,11 @@ class SingleAnswerSubmitService {
     String? answer,
     String? endDuration,
   }) async {
-    final url = Urls.singleAnswerSubmit;
+    final bool free = isFreeExam == true;
+
+    // Pick URL based on free/paid
+    final String url =
+    free ? Urls.freeExamSingleAnswerSubmit : Urls.singleAnswerSubmit;
 
     // Get token from local storage if not provided
     final rawToken = LocalStorageService.getString(LocalStorageService.token);
@@ -34,12 +39,12 @@ class SingleAnswerSubmitService {
       );
     }
 
-    // Build body: API expects strings; convert null -> "" to be safe.
+    // Helper: trim string, convert null -> ''
     String _s(String? v) => v?.trim() ?? '';
 
+    // Build body. For FREE exam we must NOT include 'admission_id' at all.
     final Map<String, dynamic> body = {
       'token': _s(rawToken),
-      'admission_id': _s(admissionId),
       'exam_id': _s(examId),
       'question_id': _s(questionId),
       'exam_question_id': _s(examQuestionId),
@@ -47,6 +52,11 @@ class SingleAnswerSubmitService {
       'answer': _s(answer),
       'end_duration': _s(endDuration),
     };
+
+    if (!free) {
+      // Only attach admission_id for paid/admission exams
+      body['admission_id'] = _s(admissionId);
+    }
 
     // Fire the POST request (pass token as header too, for consistency)
     final resp = await _caller.postRequest(

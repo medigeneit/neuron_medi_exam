@@ -1,4 +1,13 @@
 class BatchDetailsModel {
+  // New fields from the response
+  final String? name;
+  final int? courseId;
+  final String? courseName;
+  final DateTime? startDate; // parsed from "YYYY-MM-DD"
+  final String? examDays;    // e.g., "Sun, Mon"
+  final String? examTime;    // e.g., "10:00 AM"
+
+  // Existing fields
   final int? id;
   final String? bannerUrl;
   final String? description;
@@ -13,6 +22,14 @@ class BatchDetailsModel {
   final String? coursePackageName;
 
   BatchDetailsModel({
+    // new
+    this.name,
+    this.courseId,
+    this.courseName,
+    this.startDate,
+    this.examDays,
+    this.examTime,
+    // existing
     this.id,
     this.bannerUrl,
     this.description,
@@ -29,6 +46,14 @@ class BatchDetailsModel {
 
   factory BatchDetailsModel.fromJson(Map<String, dynamic> json) {
     return BatchDetailsModel(
+      // new
+      name: _parseString(json['name']),
+      courseId: _parseInt(json['course_id']),
+      courseName: _parseString(json['course_name']),
+      startDate: _parseDate(json['start_date']),
+      examDays: _parseString(json['exam_days']),
+      examTime: _parseString(json['exam_time']),
+      // existing
       id: _parseInt(json['id']),
       bannerUrl: _parseString(json['banner_url']),
       description: _parseString(json['description']),
@@ -46,6 +71,14 @@ class BatchDetailsModel {
 
   Map<String, dynamic> toJson() {
     return {
+      // new
+      'name': name,
+      'course_id': courseId,
+      'course_name': courseName,
+      'start_date': _formatDate(startDate), // back to "YYYY-MM-DD"
+      'exam_days': examDays,
+      'exam_time': examTime,
+      // existing
       'id': id,
       'banner_url': bannerUrl,
       'description': description,
@@ -61,28 +94,62 @@ class BatchDetailsModel {
     };
   }
 
-  // Helper method to parse integers with null/empty handling
+  // ---------- Helpers ----------
+
+  // Parse integers with null/empty handling
   static int? _parseInt(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
     if (value is String) {
-      if (value.isEmpty) return null;
+      if (value.trim().isEmpty) return null;
       return int.tryParse(value);
     }
     if (value is double) return value.toInt();
     return null;
   }
 
-  // Helper method to parse strings with null/empty handling
+  // Parse strings with null/empty handling
   static String? _parseString(dynamic value) {
     if (value == null) return null;
     if (value is String) {
-      return value.isEmpty ? null : value;
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
     }
     return value.toString();
   }
 
-  // Convenience methods to check if fields have meaningful values
+  // Parse date in "YYYY-MM-DD" (or null/empty) to DateTime (UTC at midnight)
+  static DateTime? _parseDate(dynamic value) {
+    final s = _parseString(value);
+    if (s == null) return null;
+    try {
+      // Keep it simple: treat as local date with no time component
+      final parts = s.split('-');
+      if (parts.length != 3) return null;
+      final y = int.parse(parts[0]);
+      final m = int.parse(parts[1]);
+      final d = int.parse(parts[2]);
+      return DateTime(y, m, d);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Format DateTime to "YYYY-MM-DD"
+  static String? _formatDate(DateTime? date) {
+    if (date == null) return null;
+    String two(int n) => n < 10 ? '0$n' : '$n';
+    return '${date.year}-${two(date.month)}-${two(date.day)}';
+  }
+
+  // ---------- Convenience: has* checks ----------
+
+  bool get hasName => name != null && name!.isNotEmpty;
+  bool get hasCourseName => courseName != null && courseName!.isNotEmpty;
+  bool get hasStartDate => startDate != null;
+  bool get hasExamDays => examDays != null && examDays!.isNotEmpty;
+  bool get hasExamTime => examTime != null && examTime!.isNotEmpty;
+
   bool get hasBannerUrl => bannerUrl != null && bannerUrl!.isNotEmpty;
   bool get hasDescription => description != null && description!.isNotEmpty;
   bool get hasCourseOutline => courseOutline != null && courseOutline!.isNotEmpty;
@@ -90,7 +157,15 @@ class BatchDetailsModel {
   bool get hasRegistrationProcess => registrationProcess != null && registrationProcess!.isNotEmpty;
   bool get hasCoursePackageName => coursePackageName != null && coursePackageName!.isNotEmpty;
 
-  // Convenience methods to get safe values with defaults
+  // ---------- Convenience: safe getters ----------
+
+  String get safeName => name ?? '';
+  int get safeCourseId => courseId ?? 0;
+  String get safeCourseName => courseName ?? '';
+  String get safeStartDate => _formatDate(startDate) ?? '';
+  String get safeExamDays => examDays ?? '';
+  String get safeExamTime => examTime ?? '';
+
   String get safeBannerUrl => bannerUrl ?? '';
   String get safeDescription => description ?? '';
   String get safeCourseOutline => courseOutline ?? '';

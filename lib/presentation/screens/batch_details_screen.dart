@@ -16,6 +16,7 @@ import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_help
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
+// ------------------------- Batch Details Screen -------------------------
 class BatchDetailsScreen extends StatefulWidget {
   const BatchDetailsScreen({Key? key}) : super(key: key);
 
@@ -82,7 +83,8 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     } else {
       setState(() {
         _isLoading = false;
-        _errorMessage = response.errorMessage ?? 'Failed to load batch details';
+        _errorMessage =
+            response.errorMessage ?? 'Failed to load batch details';
       });
     }
   }
@@ -93,6 +95,68 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     if (p is num) return p.toDouble();
     final s = p.toString().replaceAll(RegExp(r'[^0-9\.\-]'), '');
     return double.tryParse(s);
+  }
+
+  // ---------------- NEW: Free Exam handler (auth + navigation) ----------------
+  Future<void> _onFreeExamPressed() async {
+    final authed = await AuthChecker.to.isAuthenticated();
+
+    Future<void> goNow() async {
+      final String courseId =
+          _batchDetails?.courseId?.toString() ?? '';
+      final String courseName =
+          _batchDetails?.courseName?.toString() ?? '';
+      if (courseId.isEmpty) {
+        Get.snackbar(
+          'Unavailable',
+          'Free exam is not available for this batch yet.',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+      Get.toNamed(
+        RouteNames.freeExams,
+        arguments: {
+          'courseId': courseId,
+          'courseName': courseName,
+        },
+        preventDuplicates: true,
+      );
+    }
+
+    if (!authed) {
+      Get.snackbar('Login Required',
+          'Please log in to try the free exam',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3));
+
+      final result = await Get.toNamed(
+        RouteNames.login,
+        arguments: {
+          'popOnSuccess': true,
+          'returnRoute': null,
+          'returnArguments': null,
+          'message':
+          "You’re one step away! Log in to take the Free Exam.",
+        },
+      );
+
+      if (result == true) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        final isNowAuthenticated = await AuthChecker.to.isAuthenticated();
+        if (isNowAuthenticated) {
+          await goNow();
+        }
+      }
+      return;
+    }
+
+    await goNow();
   }
 
   @override
@@ -125,21 +189,19 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
               ),
             )
           else
-          // ------------------ CHANGED: Scroll view with collapsible hero ------------------
+          // ------------------ Scroll view with collapsible hero ------------------
             CustomScrollView(
               slivers: [
                 // Collapsible/minimizable hero image
                 SliverAppBar(
                   automaticallyImplyLeading: false,
-                  // keep CommonScaffold appbar only
                   toolbarHeight: 0,
-                  // no second toolbar
                   collapsedHeight: 0,
                   pinned: false,
                   stretch: true,
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  expandedHeight: isMobile? 260 : 420,
+                  expandedHeight: isMobile ? 260 : 420,
                   flexibleSpace: FlexibleSpaceBar(
                     stretchModes: const [
                       StretchMode.zoomBackground,
@@ -148,7 +210,6 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                     background: Stack(
                       fit: StackFit.expand,
                       children: [
-                        // Keep your existing BannerImage
                         ClipRRect(
                           borderRadius: const BorderRadius.only(
                             bottomLeft: Radius.circular(12),
@@ -156,7 +217,6 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                           ),
                           child: BannerImage(url: imageUrl),
                         ),
-                        // same soft drop shadow effect as before
                         Align(
                           alignment: Alignment.bottomCenter,
                           child: Container(
@@ -174,7 +234,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                   ),
                 ),
 
-                // Rest of your previous content (unchanged)
+                // Rest of content
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
@@ -219,7 +279,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                           mainAxisSpacing: 10,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: isMobile? 3.5 : 5.5,
+                          childAspectRatio: isMobile ? 3.5 : 5.5,
                           children: [
                             BatchInfoPill(
                               icon: Icons.calendar_today_rounded,
@@ -251,7 +311,14 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
 
                         const SizedBox(height: 18),
 
-                        // NEW: Schedule Button
+                        // ---------------- NEW: Free Exam Button (above Schedule) ----------------
+                        _FreeExamCardButton(
+                          onTap: _onFreeExamPressed,
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Schedule Button
                         Container(
                           width: double.infinity,
                           decoration: BoxDecoration(
@@ -273,18 +340,27 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                                 Get.toNamed(
                                   RouteNames.batchSchedule,
                                   arguments: {
-                                    'batchPackageId': _batchDetails?.batchPackageId?.toString() ?? '',
-                                    'coursePackageId': _batchDetails?.coursePackageId?.toString() ?? '',
+                                    'batchPackageId': _batchDetails
+                                        ?.batchPackageId
+                                        ?.toString() ??
+                                        '',
+                                    'coursePackageId': _batchDetails
+                                        ?.coursePackageId
+                                        ?.toString() ??
+                                        '',
                                     'batchId': batchId,
                                     'title': title, // batch title
-                                    'subTitle': _batchDetails?.coursePackageName ?? '', // course_package_name
+                                    'subTitle': _batchDetails
+                                        ?.coursePackageName ??
+                                        '', // course_package_name
                                     'startDate': startDate,
                                     'imageUrl': imageUrl,
                                     'time': time ?? '',
                                     'days': days ?? '',
                                   },
                                 );
-                                print('batchPackageID: ${_batchDetails?.batchPackageId}');
+                                print(
+                                    'batchPackageID: ${_batchDetails?.batchPackageId}');
                               },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -297,7 +373,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                                       color: Colors.white,
                                       size: Sizes.smallIcon(context),
                                     ),
-                                    SizedBox(width: 12),
+                                    const SizedBox(width: 12),
                                     Text(
                                       'View Full Schedule',
                                       style: TextStyle(
@@ -315,7 +391,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
 
                         const SizedBox(height: 18),
 
-                        // Offers (unchanged)
+                        // Offers
                         if ((_batchDetails?.newDoctorDiscount ?? 0) > 0 ||
                             (_batchDetails?.oldDoctorDiscount ?? 0) > 0)
                           OfferSection(
@@ -330,7 +406,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
 
                         const SizedBox(height: 24),
 
-                        // Expandable HTML (unchanged)
+                        // Expandable HTML sections
                         if (_batchDetails?.hasDescription ?? false)
                           ExpandableHtmlSection(
                             title: 'Batch Details',
@@ -364,7 +440,8 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                         if (_batchDetails?.hasRegistrationProcess ?? false)
                           ExpandableHtmlSection(
                             title: 'Registration Process',
-                            htmlContent: _batchDetails!.safeRegistrationProcess,
+                            htmlContent:
+                            _batchDetails!.safeRegistrationProcess,
                             gradientColors: gradientColors,
                           ),
 
@@ -377,7 +454,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
             ),
           // --------------------------------------------------------------------
 
-          // CTA (unchanged)
+          // Bottom CTA (unchanged)
           if (!_isLoading && _errorMessage.isEmpty)
             Positioned(
               left: 16,
@@ -389,7 +466,8 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                   onEnrollPressed(
                     batchId: batchId,
                     coursePackageId: coursePackageId,
-                    batchPackageId: _batchDetails?.batchPackageId?.toString() ?? '',
+                    batchPackageId:
+                    _batchDetails?.batchPackageId?.toString() ?? '',
                     title: title,
                     subTitle: subTitle,
                     imageUrl: imageUrl,
@@ -401,6 +479,105 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------- Fancy Free Exam Button UI ----------------
+class _FreeExamCardButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _FreeExamCardButton({
+    Key? key,
+    required this.onTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Vibrant gradient for attention
+    final gradient = const LinearGradient(
+      colors: [
+        Color(0xFFFF7A7A), // coral/pink
+        Color(0xFF7B61FF), // purple
+        Color(0xFF3AC2FF), // aqua
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Row(
+              children: [
+                // Badge-ish icon circle
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white30, width: 1),
+                  ),
+                  child:  Icon(
+                    Icons.bolt_rounded,
+                    color: Colors.white,
+                    size: Sizes.verySmallIcon(context),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Texts
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Free Exam',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: Sizes.normalText(context),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Test yourself with our free exams!',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: Sizes.verySmallText(context),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

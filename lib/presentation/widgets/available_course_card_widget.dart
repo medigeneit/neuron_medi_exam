@@ -5,6 +5,7 @@ import 'package:medi_exam/presentation/utils/sizes.dart';
 /// A modern, touch-friendly course card with animated press,
 /// gradient border, and material ripple.
 /// Updated: no top icon, centered title text, arrow at bottom.
+/// Safe for use inside scrollables (no Expanded in unbounded height).
 class AvailableCourseCardWidget extends StatefulWidget {
   final IconData icon; // kept for backwards-compat but no longer used visually
   final String title;
@@ -33,9 +34,8 @@ class _AvailableCourseCardWidgetState extends State<AvailableCourseCardWidget> {
     final radius = BorderRadius.circular(16);
 
     // Keep gradient border style consistent with container
-    final gradientBorder = widget.isBatch
-        ? AppColor.secondaryGradient
-        : AppColor.primaryGradient;
+    final gradientBorder =
+    widget.isBatch ? AppColor.secondaryGradient : AppColor.primaryGradient;
 
     // Subtle scale & elevation when pressed/hovered
     final scale = _pressed ? 0.98 : (_hovered ? 1.01 : 1.0);
@@ -48,7 +48,7 @@ class _AvailableCourseCardWidgetState extends State<AvailableCourseCardWidget> {
       child: DecoratedBox(
         // Outer gradient border
         decoration: BoxDecoration(
-          gradient: gradientBorder.withOpacity(0.5),
+          gradient: gradientBorder /* .withOpacity(0.5) if you have an extension */,
           color: Colors.white,
           borderRadius: radius,
           boxShadow: [
@@ -82,10 +82,12 @@ class _AvailableCourseCardWidgetState extends State<AvailableCourseCardWidget> {
                 // a bit more vertical padding to center things nicely
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min, // ✅ shrink-wrap; safe in scrollables
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Centered title (takes available space)
-                    Expanded(
+                    // Centered title (no Expanded; use loose Flexible if you really want flex behavior)
+                    Flexible(
+                      fit: FlexFit.loose, // ✅ don't force infinite height
                       child: Center(
                         child: Text(
                           widget.title,
@@ -102,6 +104,8 @@ class _AvailableCourseCardWidgetState extends State<AvailableCourseCardWidget> {
                         ),
                       ),
                     ),
+
+                    const SizedBox(height: 8), // ✅ use fixed gap instead of Spacer()
 
                     // Right arrow pinned at bottom-center
                     AnimatedSlide(

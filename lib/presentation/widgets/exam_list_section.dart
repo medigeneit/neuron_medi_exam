@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/doctor_schedule_model.dart';
+import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
@@ -110,6 +111,7 @@ class _ExamCard extends StatelessWidget {
                 final data = {
                   'admissionId': admissionId.toString(),
                   'examId': examId.toString(),
+                  'isFreeExam': false,
                 };
                 Get.toNamed(
                   RouteNames.examResult,
@@ -253,17 +255,14 @@ class _ExamCard extends StatelessWidget {
       final started = await showExamOverviewDialog(
         context,
         model: model,
-        admissionId: admissionId,
+        url: Urls.examQuestion(admissionId, content.examId.toString()),
+        isFreeExam: false,
+        admissionId: admissionId.toString(),
       );
 
       // 4) user tapped "Start exam"
       if (started == true) {
-        // TODO: navigate into your exam flow (adjust to your routes)
-        // Get.toNamed('/exam', arguments: {
-        //   'admissionId': admissionId,
-        //   'examId': model.exam?.id,
-        //   'topic': content.safeTopicName,
-        // });
+
       }
     } catch (e) {
       // close loader if still open
@@ -360,7 +359,8 @@ Future<ExamPropertyModel> _loadExamPropertyForContent({
   }
 
   final service = ExamPropertyService();
-  final res = await service.fetchExamProperty(admissionId, examId);
+  final String url = Urls.examProperty(admissionId, examId);
+  final res = await service.fetchExamProperty(url);
 
   if (!res.isSuccess) {
     throw Exception(res.errorMessage ?? 'Failed to load exam property.');

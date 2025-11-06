@@ -1,19 +1,18 @@
 // lib/presentation/screens/exam_answers_screen.dart
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import 'package:medi_exam/data/models/exam_answers_model.dart';
 import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/data/services/exam_answers_service.dart';
-
+import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
-import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
-import 'package:medi_exam/presentation/widgets/loading_widget.dart';
-import 'package:medi_exam/presentation/widgets/helpers/exam_questions_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
+import 'package:medi_exam/presentation/widgets/helpers/exam_questions_screen_helpers.dart';
+import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/mcq_answer_review_tile.dart';
 import 'package:medi_exam/presentation/widgets/sba_answer_review_tile.dart';
 
@@ -28,10 +27,12 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
   late final Map<String, dynamic> _args;
   late final String admissionId;
   late final String examId;
+  late final bool isFreeExam;
 
   // Optional extras coming from the Result screen:
   dynamic _examInfo; // title, totalQuestion, fullMark
-  dynamic _result;   // obtainedMarkPercent, obtainedMark, correctMark, negativeMark, wrongAnswers, overallPosition, batchPosition
+  dynamic
+      _result; // obtainedMarkPercent, obtainedMark, correctMark, negativeMark, wrongAnswers, overallPosition, batchPosition
 
   final _service = ExamAnswersService();
 
@@ -45,6 +46,7 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     _args = Get.arguments ?? {};
     admissionId = (_args['admissionId'] ?? '').toString();
     examId = (_args['examId'] ?? '').toString();
+    isFreeExam = (_args['isFreeExam'] ?? false) as bool;
 
     // These may be typed objects (from your models) OR Map<String, dynamic>.
     _examInfo = _args['examInfo'];
@@ -59,8 +61,11 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
       _error = null;
     });
 
-    final NetworkResponse resp =
-    await _service.fetchExamAnswers(admissionId, examId);
+    final url = isFreeExam
+        ? Urls.freeExamAnswers(examId)
+        : Urls.examAnswers(admissionId, examId);
+
+    final NetworkResponse resp = await _service.fetchExamAnswers(url);
 
     if (!mounted) return;
 
@@ -105,8 +110,8 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
       body: _loading
           ? const Center(child: LoadingWidget())
           : _error != null
-          ? ErrorCardExam(message: _error!, onRetry: _load)
-          : _buildContent(context),
+              ? ErrorCardExam(message: _error!, onRetry: _load)
+              : _buildContent(context),
     );
   }
 
@@ -114,7 +119,7 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth =
-        constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
+            constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
 
         return CustomScrollView(
           slivers: [
@@ -169,7 +174,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                       ],
                     ),
 
-
                     const SizedBox(height: 12),
                     _legend(context),
                     const SizedBox(height: 12),
@@ -192,19 +196,19 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                       constraints: BoxConstraints(maxWidth: maxWidth),
                       child: item.isMCQ
                           ? MCQAnswerReviewTile(
-                        indexLabel: idxLabel,
-                        titleHtml: item.questionTitle ?? '',
-                        options: item.questionOption ?? const [],
-                        doctorStates: item.doctorStates,
-                        correctStates: item.correctStates,
-                      )
+                              indexLabel: idxLabel,
+                              titleHtml: item.questionTitle ?? '',
+                              options: item.questionOption ?? const [],
+                              doctorStates: item.doctorStates,
+                              correctStates: item.correctStates,
+                            )
                           : SBAAnswerReviewTile(
-                        indexLabel: idxLabel,
-                        titleHtml: item.questionTitle ?? '',
-                        options: item.questionOption ?? const [],
-                        doctorIndex: item.doctorSbaIndex,
-                        correctIndex: item.correctSbaIndex,
-                      ),
+                              indexLabel: idxLabel,
+                              titleHtml: item.questionTitle ?? '',
+                              options: item.questionOption ?? const [],
+                              doctorIndex: item.doctorSbaIndex,
+                              correctIndex: item.correctSbaIndex,
+                            ),
                     ),
                   );
                 },
@@ -219,30 +223,40 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
 
   // ---------- Overview (pretty + compact) ----------
   Widget _buildOverview(BuildContext context) {
-    final percent = _toDouble(_readDyn(_result, (d) => (d as dynamic).obtainedMarkPercent,
-        ['obtainedMarkPercent', 'obtained_mark_percent'])) ??
+    final percent = _toDouble(_readDyn(
+            _result,
+            (d) => (d as dynamic).obtainedMarkPercent,
+            ['obtainedMarkPercent', 'obtained_mark_percent'])) ??
         0.0;
 
-    final totalQ = _toInt(_readDyn(_examInfo, (d) => (d as dynamic).totalQuestion,
+    final totalQ = _toInt(_readDyn(
+        _examInfo,
+        (d) => (d as dynamic).totalQuestion,
         ['totalQuestion', 'total_question']));
-    final fullMark = _toInt(_readDyn(_examInfo, (d) => (d as dynamic).fullMark,
-        ['fullMark', 'full_mark']));
+    final fullMark = _toInt(_readDyn(
+        _examInfo, (d) => (d as dynamic).fullMark, ['fullMark', 'full_mark']));
 
-    final obtained = _toDouble(_readDyn(_result, (d) => (d as dynamic).obtainedMark,
-        ['obtainedMark', 'obtained_mark']));
-    final correct = _toDouble(_readDyn(_result, (d) => (d as dynamic).correctMark,
-        ['correctMark', 'correct_mark']));
-    final negative = _toDouble(_readDyn(_result, (d) => (d as dynamic).negativeMark,
-        ['negativeMark', 'negative_mark']));
+    final obtained = _toDouble(_readDyn(_result,
+        (d) => (d as dynamic).obtainedMark, ['obtainedMark', 'obtained_mark']));
+    final correct = _toDouble(_readDyn(_result,
+        (d) => (d as dynamic).correctMark, ['correctMark', 'correct_mark']));
+    final negative = _toDouble(_readDyn(_result,
+        (d) => (d as dynamic).negativeMark, ['negativeMark', 'negative_mark']));
     final wrong = _toInt(_readDyn(_result, (d) => (d as dynamic).wrongAnswers,
         ['wrongAnswers', 'wrong_answers']));
 
-    final overallPos = _toInt(_readDyn(_result, (d) => (d as dynamic).overallPosition,
+    final overallPos = _toInt(_readDyn(
+        _result,
+        (d) => (d as dynamic).overallPosition,
         ['overallPosition', 'overall_position']));
-    final batchPos = _toInt(_readDyn(_result, (d) => (d as dynamic).batchPosition,
+    final batchPos = _toInt(_readDyn(
+        _result,
+        (d) => (d as dynamic).batchPosition,
         ['batchPosition', 'batch_position']));
 
-    final title = _toString(_readDyn(_examInfo, (d) => (d as dynamic).title, ['title'])) ?? '—';
+    final title = _toString(
+            _readDyn(_examInfo, (d) => (d as dynamic).title, ['title'])) ??
+        '—';
 
     return CustomBlobBackground(
       backgroundColor: Colors.white,
@@ -267,7 +281,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                               size: 20,
                               color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 8),
-
                           Text(
                             title,
                             maxLines: 2,
@@ -474,10 +487,10 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
 
   // ---------- Safe readers / formatters ----------
   dynamic _readDyn(
-      dynamic obj,
-      dynamic Function(dynamic d) dynGet,
-      List<String> mapKeys,
-      ) {
+    dynamic obj,
+    dynamic Function(dynamic d) dynGet,
+    List<String> mapKeys,
+  ) {
     if (obj == null) return null;
     // Try dynamic property access (works if a typed model was passed).
     try {
@@ -494,6 +507,7 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
   }
 
   String? _toString(dynamic v) => v?.toString();
+
   int? _toInt(dynamic v) {
     if (v == null) return null;
     if (v is int) return v;
@@ -511,8 +525,10 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
   }
 
   String _fmtInt(int? v) => v == null ? '—' : v.toString();
-  String _fmtDouble(double? v) =>
-      v == null ? '—' : v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+
+  String _fmtDouble(double? v) => v == null
+      ? '—'
+      : v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
 
   Color _getProgressColor(double percent) {
     if (percent >= 80) return Colors.green;

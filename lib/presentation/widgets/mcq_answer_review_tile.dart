@@ -8,16 +8,15 @@ import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/labeled_radio.dart';
 
 /// Read-only MCQ review tile that shows both:
-/// - Doctor's T/F (colored green if matches, red if wrong)
-/// - Correct T/F (blue)
-/// Now: statement text and radios are in the SAME ROW,
-/// and there is a vertical divider between doctor vs correct radios.
+/// - Your (doctor's) T/F (green if matches, red if wrong; grey if unanswered)
+/// - Correct T/F (brand indigo)
+/// Works with ANY number of statements (matches options.length).
 class MCQAnswerReviewTile extends StatelessWidget {
   final String indexLabel;
   final String titleHtml;
-  final List<AnswerOption> options; // 5 statements (A..E with text)
-  final List<bool?>? doctorStates;   // length 5: true/false/null
-  final List<bool?>? correctStates;  // length 5: true/false/null
+  final List<AnswerOption> options; // N statements (A..)
+  final List<bool?>? doctorStates;   // length N: true/false/null
+  final List<bool?>? correctStates;  // length N: true/false/null
 
   const MCQAnswerReviewTile({
     super.key,
@@ -30,8 +29,9 @@ class MCQAnswerReviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ds = doctorStates ?? const [null, null, null, null, null];
-    final cs = correctStates ?? const [null, null, null, null, null];
+    final int len = options.length;
+    final List<bool?> ds = _normalizeStates(doctorStates, len);
+    final List<bool?> cs = _normalizeStates(correctStates, len);
 
     return CustomBlobBackground(
       backgroundColor: Colors.white,
@@ -46,8 +46,7 @@ class MCQAnswerReviewTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColor.secondaryGradient,
@@ -87,10 +86,10 @@ class MCQAnswerReviewTile extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // Statements rows (each in single row with radios)
+            // Statement rows
             ...List.generate(
-              options.length,
-                  (i) => _statementRow(context, i, options[i], ds, cs),
+              len,
+                  (i) => _statementRow(context, i, options[i], ds[i], cs[i]),
             ),
           ],
         ),
@@ -98,24 +97,31 @@ class MCQAnswerReviewTile extends StatelessWidget {
     );
   }
 
+  // Normalize incoming states to exactly `len` (pad/truncate to match options).
+  List<bool?> _normalizeStates(List<bool?>? src, int len) {
+    if (len <= 0) return const <bool?>[];
+    final out = List<bool?>.filled(len, null);
+    if (src == null || src.isEmpty) return out;
+    final copy = src.length < len ? src.length : len;
+    for (var i = 0; i < copy; i++) {
+      out[i] = src[i];
+    }
+    return out;
+  }
+
   Widget _statementRow(
       BuildContext context,
       int i,
       AnswerOption opt,
-      List<bool?> ds,
-      List<bool?> cs,
+      bool? doc,
+      bool? cor,
       ) {
-    final bool? doc = i < ds.length ? ds[i] : null;
-    final bool? cor = i < cs.length ? cs[i] : null;
+    // null -> unanswered or unknown
+    final bool? docIsCorrect = (doc == null || cor == null) ? null : (doc == cor);
 
-    // Doctor correctness (null -> no attempt)
-    final bool? docIsCorrect =
-    (doc == null || cor == null) ? null : (doc == cor);
-
-    // Selected colors per spec
-    final Color correctColor = AppColor.indigo; // blue-ish (brand)
-    final Color docColor = (docIsCorrect == null)
-        ? Colors.grey // unanswered -> neutral
+    final Color correctColor = AppColor.indigo; // correct key color (blue-ish)
+    final Color youColor = (docIsCorrect == null)
+        ? Colors.grey // unanswered -> neutral grey
         : (docIsCorrect ? Colors.green : Colors.red);
 
     const double radioSize = 24;
@@ -128,7 +134,7 @@ class MCQAnswerReviewTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Statement text (expand to take free space)
+              // Statement text
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(left: 12, right: 8),
@@ -144,7 +150,7 @@ class MCQAnswerReviewTile extends StatelessWidget {
                 ),
               ),
 
-              // Doctor radios: T / F
+              // Your (doctor) radios
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -152,7 +158,7 @@ class MCQAnswerReviewTile extends StatelessWidget {
                     label: 'T',
                     selected: doc == true,
                     disabled: true,
-                    selectedColor: docColor,
+                    selectedColor: youColor,
                     size: radioSize,
                   ),
                   const SizedBox(width: 8),
@@ -160,22 +166,18 @@ class MCQAnswerReviewTile extends StatelessWidget {
                     label: 'F',
                     selected: doc == false,
                     disabled: true,
-                    selectedColor: docColor,
+                    selectedColor: youColor,
                     size: radioSize,
                   ),
                 ],
               ),
 
-              // Vertical divider
+              // Divider
               const SizedBox(width: 10),
-              Container(
-                width: 1,
-                height: radioSize + 6,
-                color: Colors.black12,
-              ),
+              Container(width: 1, height: radioSize + 6, color: Colors.black12),
               const SizedBox(width: 10),
 
-              // Correct radios: T / F
+              // Correct radios
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

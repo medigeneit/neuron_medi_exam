@@ -11,8 +11,8 @@ import 'package:logger/logger.dart';
 class FinishExamService {
   final NetworkCaller _caller = NetworkCaller(logger: Logger());
 
-  Future<NetworkResponse> fetchFinishExam(String admissionId, String examId) async {
-    final url = Urls.finishExam(admissionId, examId);
+  Future<NetworkResponse> fetchFinishExam(String url) async {
+
 
     // This endpoint requires authentication
     final token = LocalStorageService.getString(LocalStorageService.token);

@@ -73,6 +73,10 @@ class Sizes {
     return Responsive.isMobile(context) ? 44 : (Responsive.isTablet(context) ? 60 : 72);
   }
 
+  static double mediumBigIcon(BuildContext context) {
+    return Responsive.isMobile(context) ? 34 : (Responsive.isTablet(context) ? 38 : 42);
+  }
+
   static double bigIcon(BuildContext context) {
     return Responsive.isMobile(context) ? 30 : (Responsive.isTablet(context) ? 32 : 34);
   }

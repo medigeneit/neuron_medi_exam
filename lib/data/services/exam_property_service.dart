@@ -1,4 +1,3 @@
-import 'package:medi_exam/data/models/doctor_schedule_model.dart';
 import 'package:medi_exam/data/models/exam_property_model.dart';
 import 'package:medi_exam/data/network_caller.dart';
 import 'package:medi_exam/data/network_response.dart';
@@ -9,9 +8,11 @@ import 'package:logger/logger.dart';
 class ExamPropertyService {
   final NetworkCaller _caller = NetworkCaller(logger: Logger());
 
-  Future<NetworkResponse> fetchExamProperty(String admissionId, String examId) async {
-    final url = Urls.examProperty(admissionId, examId);
+  Future<NetworkResponse> fetchExamProperty(String url) async {
+    return _fetchModelUsingUrl(url);
+  }
 
+  Future<NetworkResponse> _fetchModelUsingUrl(String url) async {
     // This endpoint requires authentication
     final token = LocalStorageService.getString(LocalStorageService.token);
 
@@ -30,7 +31,6 @@ class ExamPropertyService {
 
     if (response.isSuccess && response.responseData != null) {
       try {
-        // doctor schedule response is a Map<String, dynamic>
         if (response.responseData is Map<String, dynamic>) {
           final model = ExamPropertyModel.fromJson(
             response.responseData as Map<String, dynamic>,

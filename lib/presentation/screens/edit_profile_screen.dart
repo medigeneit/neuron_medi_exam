@@ -14,6 +14,9 @@ import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -30,8 +33,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   final _updateService = UpdateProfileService();
 
-  XFile? _selectedImage; // newly picked image (local)
-  String? _photoUrl; // existing photo from storage (URL or local path)
+  XFile? _selectedImage; // newly picked (temp)
+  String? _photoUrl; // either server URL or app-private local path
   bool _isLoading = false;
   bool _initializing = true;
 
@@ -53,7 +56,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (name != null && name.isNotEmpty) _nameController.text = name;
       if (email != null && email.isNotEmpty) _emailController.text = email;
       if (phone != null && phone.isNotEmpty) _phoneController.text = phone;
-      _photoUrl = photo; // can be URL or a local file path, or null
+      _photoUrl = photo; // may be URL or app-private file path
       _initializing = false;
     });
   }
@@ -69,20 +72,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  /// Copy a picked image into app-private storage so we don't rely on
+  /// persistent shared-storage access or need READ_MEDIA_* permissions.
+  Future<File> _persistPickedImage(XFile xfile) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final filename =
+        'profile_${DateTime.now().millisecondsSinceEpoch}${p.extension(xfile.path)}';
+    final dest = File(p.join(appDir.path, filename));
+
+    final bytes = await xfile.readAsBytes(); // works for content:// URIs
+    return dest.writeAsBytes(bytes, flush: true);
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
-    // Call API: name + email + (optional) photo
+    File? uploadFile;
+    String? localPathToStore;
+
+    if (_selectedImage != null) {
+      // Move/copy to app-private storage
+      final localFile = await _persistPickedImage(_selectedImage!);
+      uploadFile = localFile;
+      localPathToStore = localFile.path;
+    }
+
     final NetworkResponse resp = await _updateService.updateProfile(
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
-      photo: _selectedImage != null ? File(_selectedImage!.path) : null,
+      photo: uploadFile, // may be null
     );
 
     if (resp.isSuccess) {
-      // Try to normalize into UpdateProfileResponse
       UpdateProfileResponse? model;
       final raw = resp.responseData;
 
@@ -96,19 +119,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       final doc = model?.doctor;
 
-      // Persist locally (prefer server values; fallback to current UI/local values)
+      // Persist locally: prefer server values; fall back to current locals
       await LocalStorageService.setDoctorFields(
         name: doc?.name ?? _nameController.text.trim(),
         email: doc?.email ?? _emailController.text.trim(),
         phone: doc?.phoneNumber ?? _phoneController.text.trim(),
-        photo: doc?.photo ??
-            (_selectedImage != null ? _selectedImage!.path : _photoUrl),
+        // Prefer server photo URL; else the new app-private path; else keep old
+        photo: doc?.photo?.isNotEmpty == true
+            ? doc!.photo
+            : (localPathToStore ?? _photoUrl),
       );
 
       setState(() {
-        _photoUrl = doc?.photo ??
-            (_selectedImage != null ? _selectedImage!.path : _photoUrl);
-        _selectedImage = null; // clear picker after upload
+        _photoUrl = doc?.photo?.isNotEmpty == true
+            ? doc!.photo
+            : (localPathToStore ?? _photoUrl);
+        _selectedImage = null;
         _isLoading = false;
       });
 
@@ -141,131 +167,120 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: _initializing
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        // Profile Image
-                        _buildProfileImageSection(),
-                        const SizedBox(height: 24),
-
-                        // Card with fields
-                        GlassCard(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Personal Information',
-                                  style: TextStyle(
-                                    fontSize: Sizes.subTitleText(context),
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColor.primaryTextColor,
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-
-                                // Name
-                                TextFormField(
-                                  controller: _nameController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Full Name',
-                                    prefixIcon: Icon(Icons.person_outline),
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Please enter your name';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Email
-                                TextFormField(
-                                  controller: _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Email Address',
-                                    prefixIcon: Icon(Icons.email_outlined),
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  validator: (value) {
-                                    final v = value?.trim() ?? '';
-                                    if (v.isEmpty) {
-                                      return 'Please enter your email';
-                                    }
-                                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$')
-                                        .hasMatch(v)) {
-                                      return 'Please enter a valid email';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Phone (disabled)
-                                TextFormField(
-                                  controller: _phoneController,
-                                  keyboardType: TextInputType.phone,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Phone Number',
-                                    prefixIcon: Icon(Icons.phone_outlined),
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  enabled: false,
-                                ),
-                                const SizedBox(height: 24),
-
-                                // Save Button
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: 50,
-                                  child: ElevatedButton(
-                                    onPressed: _isLoading ? null : _saveProfile,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColor.primaryColor,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: _isLoading
-                                        ? const SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                      Colors.white),
-                                            ),
-                                          )
-                                        : const Text(
-                                            'Save Changes',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                              ],
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  _buildProfileImageSection(),
+                  const SizedBox(height: 24),
+                  GlassCard(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Personal Information',
+                            style: TextStyle(
+                              fontSize: Sizes.subTitleText(context),
+                              fontWeight: FontWeight.w700,
+                              color: AppColor.primaryTextColor,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Full Name',
+                              prefixIcon: Icon(Icons.person_outline),
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your name';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Email Address',
+                              prefixIcon: Icon(Icons.email_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              final v = value?.trim() ?? '';
+                              if (v.isEmpty) {
+                                return 'Please enter your email';
+                              }
+                              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$')
+                                  .hasMatch(v)) {
+                                return 'Please enter a valid email';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Phone Number',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                            enabled: false,
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _saveProfile,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColor.primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor:
+                                  AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                                  : const Text(
+                                'Save Changes',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -317,7 +332,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildProfileImageContent() {
-    // Priority: newly picked image -> stored URL -> stored local path -> default avatar
+    // Priority: newly picked image -> stored URL -> stored app-private path -> default avatar
     if (_selectedImage != null) {
       return Image.file(
         File(_selectedImage!.path),
@@ -327,17 +342,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     if (_photoUrl != null && _photoUrl!.isNotEmpty) {
-      final p = _photoUrl!;
-      if (p.startsWith('http://') || p.startsWith('https://')) {
+      final pth = _photoUrl!;
+      if (pth.startsWith('http://') || pth.startsWith('https://')) {
         return Image.network(
-          p,
+          pth,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
         );
       } else {
-        // treat as local file path
+        // App-private local path
         return Image.file(
-          File(p),
+          File(pth),
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
         );

@@ -10,8 +10,7 @@ import 'package:logger/logger.dart';
 class ExamQuestionsService {
   final NetworkCaller _caller = NetworkCaller(logger: Logger());
 
-  Future<NetworkResponse> fetchExamQuestions(String admissionId, String examId) async {
-    final url = Urls.examQuestion(admissionId, examId);
+  Future<NetworkResponse> fetchExamQuestions(String url) async {
 
     // This endpoint requires authentication
     final token = LocalStorageService.getString(LocalStorageService.token);

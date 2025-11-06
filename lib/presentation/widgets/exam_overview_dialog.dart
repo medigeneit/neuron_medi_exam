@@ -11,7 +11,9 @@ import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 Future<bool?> showExamOverviewDialog(
     BuildContext context, {
       required ExamPropertyModel model,
+      required String url,
       required String admissionId,
+      required bool isFreeExam,
     }) {
   return showGeneralDialog<bool>(
     context: context,
@@ -28,7 +30,9 @@ Future<bool?> showExamOverviewDialog(
           constraints: const BoxConstraints(maxWidth: 600),
           child: ExamOverviewDialog(
             model: model,
+            url: url,
             admissionId: admissionId,
+            isFreeExam: isFreeExam,
           ),
         ),
       );
@@ -51,11 +55,15 @@ class ExamOverviewDialog extends StatelessWidget {
   const ExamOverviewDialog({
     super.key,
     required this.model,
+    required this.url,
     required this.admissionId,
+    required this.isFreeExam,
   });
 
   final ExamPropertyModel model;
+  final String url;
   final String admissionId;
+  final bool isFreeExam;
 
   @override
   Widget build(BuildContext context) {
@@ -149,8 +157,10 @@ class ExamOverviewDialog extends StatelessWidget {
                             Navigator.of(context).pop(true);
 
                             final data = {
-                              'admissionId': (admissionId ?? '').toString(), // safe pass-through
-                              'examId': (exam!.id ?? '').toString(), // safe pass-through
+                              'url': url,
+                              'examId': (exam!.id ?? '').toString(),
+                              'admissionId': admissionId,
+                              'isFreeExam': isFreeExam,
                             };
                             Get.toNamed(
                               RouteNames.examQuestion,

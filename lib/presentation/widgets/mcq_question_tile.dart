@@ -14,9 +14,10 @@ class MCQQuestionTile extends StatelessWidget {
   final int questionId;
   final String examQuestionId;
   final String titleHtml;
-  final List<QuestionOption> options; // 5 statements
-  final List<bool?> states; // length 5: true/false/null
-  final List<bool> locks; // length 5: true = that statement locked
+  final List<QuestionOption> options; // N statements
+  final List<bool?> states; // length N: true/false/null
+  final List<bool> locks; // length N: true = that statement locked
+  final List<bool> busy; // length N: true = submitting that statement
   final bool enabled;
   final void Function(int index, bool value) onSelect;
 
@@ -29,6 +30,7 @@ class MCQQuestionTile extends StatelessWidget {
     required this.options,
     required this.states,
     required this.locks,
+    required this.busy,
     required this.enabled,
     required this.onSelect,
   });
@@ -47,7 +49,8 @@ class MCQQuestionTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColor.secondaryGradient,
@@ -68,23 +71,20 @@ class MCQQuestionTile extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
-                // ⬇️ Constrain and allow wrapping
                 Expanded(
                   child: Html(
                     data: titleHtml,
                     style: {
-                      // compact body
                       "body": Style(
                         margin: Margins.zero,
                         padding: HtmlPaddings.zero,
                         lineHeight: const LineHeight(1.35),
                       ),
-                      // make images/tables fit the width
                       "img": Style(width: Width(100, Unit.percent)),
-                      "table": Style(width: Width(100, Unit.percent),),
+                      "table": Style(
+                        width: Width(100, Unit.percent),
+                      ),
                     },
                   ),
                 ),
@@ -104,7 +104,8 @@ class MCQQuestionTile extends StatelessWidget {
   Widget _statementRow(BuildContext context, int i, QuestionOption opt) {
     final bool? state = states[i]; // true / false / null
     final bool locked = locks[i] == true;
-    final bool rowEnabled = enabled && !locked;
+    final bool isBusy = (busy.length > i) ? busy[i] : false;
+    final bool rowEnabled = enabled && !locked && !isBusy;
     const double radioSize = 28;
 
     return Padding(
@@ -149,6 +150,13 @@ class MCQQuestionTile extends StatelessWidget {
                     size: radioSize,
                     selectedColor: AppColor.primaryColor,
                   ),
+                  const SizedBox(width: 10),
+                  if (isBusy)
+                    SizedBox(
+                      width: Sizes.veryExtraSmallIcon(context),
+                      height: Sizes.veryExtraSmallIcon(context),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueGrey,),
+                    ),
                 ],
               ),
             ],

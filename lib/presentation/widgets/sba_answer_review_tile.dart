@@ -8,14 +8,15 @@ import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/labeled_radio.dart';
 
 /// Read-only SBA review tile that shows:
-/// - Doctor's selected option (green if correct, red if wrong)
-/// - Correct option (blue)
+/// - Your selected option (green if correct, red if wrong; grey if unanswered)
+/// - Correct option (brand indigo)
+/// Works with ANY number of options (matches options.length).
 class SBAAnswerReviewTile extends StatelessWidget {
   final String indexLabel;
   final String titleHtml;
-  final List<AnswerOption> options; // A..E
-  final int? doctorIndex;  // 0..4
-  final int? correctIndex; // 0..4
+  final List<AnswerOption> options; // A..Z (dynamic)
+  final int? doctorIndex;  // 0..N-1
+  final int? correctIndex; // 0..N-1
 
   const SBAAnswerReviewTile({
     super.key,
@@ -28,9 +29,16 @@ class SBAAnswerReviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool? docIsCorrect = (doctorIndex == null || correctIndex == null)
-        ? null
-        : (doctorIndex == correctIndex);
+    final int len = options.length;
+
+    final bool inRangeDoc =
+        doctorIndex != null && doctorIndex! >= 0 && doctorIndex! < len;
+    final bool inRangeCor =
+        correctIndex != null && correctIndex! >= 0 && correctIndex! < len;
+
+    final bool? docIsCorrect = (inRangeDoc && inRangeCor)
+        ? (doctorIndex == correctIndex)
+        : null;
 
     return CustomBlobBackground(
       backgroundColor: Colors.white,
@@ -45,8 +53,7 @@ class SBAAnswerReviewTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColor.secondaryGradient,
@@ -87,18 +94,18 @@ class SBAAnswerReviewTile extends StatelessWidget {
             const SizedBox(height: 8),
 
             // Options
-            ...List.generate(options.length, (i) {
+            ...List.generate(len, (i) {
               final opt = options[i];
               final String letter = (opt.serial ?? '').toUpperCase();
+
+              final bool youSelected = inRangeDoc && (doctorIndex == i);
+              final bool correctSelected = inRangeCor && (correctIndex == i);
 
               // Colors
               final Color correctColor = AppColor.indigo; // blue
               final Color youColor = (docIsCorrect == null)
                   ? Colors.grey
                   : (docIsCorrect ? Colors.green : Colors.red);
-
-              final bool youSelected = (doctorIndex == i);
-              final bool correctSelected = (correctIndex == i);
 
               const double radioSize = 24;
 
@@ -129,7 +136,7 @@ class SBAAnswerReviewTile extends StatelessWidget {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // YOU (A..E)
+                            // YOU (letter)
                             LabeledRadio(
                               label: letter,
                               selected: youSelected,
@@ -144,7 +151,7 @@ class SBAAnswerReviewTile extends StatelessWidget {
                               color: Colors.black12,
                             ),
                             const SizedBox(width: 10),
-                            // CORRECT (A..E)
+                            // CORRECT (letter)
                             LabeledRadio(
                               label: letter,
                               selected: correctSelected,

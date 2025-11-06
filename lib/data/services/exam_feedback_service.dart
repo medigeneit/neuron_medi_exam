@@ -17,11 +17,9 @@ class ExamFeedbackService {
   ///
   /// On success, `responseData` is an [ExamFeedbackModel].
   Future<NetworkResponse> submitExamFeedback({
-    required String admissionId,
-    required String examId,
+    required String url,
     required String feedback,
   }) async {
-    final url = Urls.examFeedback(admissionId, examId);
 
     // Token
     final token = LocalStorageService.getString(LocalStorageService.token);

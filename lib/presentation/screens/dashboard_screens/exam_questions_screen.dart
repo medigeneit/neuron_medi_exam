@@ -9,6 +9,7 @@ import 'package:medi_exam/data/services/exam_feedback_service.dart';
 import 'package:medi_exam/data/services/exam_questions_service.dart';
 import 'package:medi_exam/data/services/finish_exam_service.dart';
 import 'package:medi_exam/data/services/single_answer_submit_service.dart';
+import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
@@ -22,9 +23,7 @@ import 'package:medi_exam/presentation/widgets/mcq_question_tile.dart';
 import 'package:medi_exam/presentation/widgets/sba_question_tile.dart';
 
 class ExamQuestionsScreen extends StatefulWidget {
-  const ExamQuestionsScreen({
-    super.key,
-  });
+  const ExamQuestionsScreen({super.key});
 
   @override
   State<ExamQuestionsScreen> createState() => _ExamQuestionsScreenState();
@@ -33,8 +32,10 @@ class ExamQuestionsScreen extends StatefulWidget {
 class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     with SingleTickerProviderStateMixin {
   late Map<String, dynamic> args;
+  late String examQuestionUrl;
   late String admissionId;
   late String examId;
+  late bool isFreeExam;
   final _examService = ExamQuestionsService();
   final _submitService = SingleAnswerSubmitService();
   final _finishService = FinishExamService();
@@ -47,22 +48,19 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
   // Timer
   Timer? _ticker;
-  int _secondsLeft = 0; // used for logic (unchanged)
-  final ValueNotifier<int> _secondsVN = ValueNotifier<int>(0); // used for UI
+  int _secondsLeft = 0; // logic
+  final ValueNotifier<int> _secondsVN = ValueNotifier<int>(0); // UI
   bool get _timeUp => _secondsLeft <= 0;
 
   // Local state caches
+  // MCQ: per statement T/F/null, LENGTH = number of statements for that MCQ
   final Map<int, List<bool?>> _mcqStates = {};
-  final Map<int, List<bool>> _mcqLocks = {};
-
-  // NEW: in-flight tap/request guards per MCQ statement
-  // true = this statement's pair (T/F) is busy (ignores subsequent taps immediately)
+  // Per-statement in-flight guards (length matches statement count)
   final Map<int, List<bool>> _mcqBusy = {};
 
+  // SBA: selected letter
   final Map<int, String?> _sbaSelected = {};
-  final Set<int> _sbaLocked = {};
-
-  // NEW: SBA in-flight guard to prevent ultra-fast double taps
+  // In-flight guard per SBA question
   final Set<int> _sbaBusy = {};
 
   List<int> get _allQuestionIds {
@@ -85,10 +83,11 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   }
 
   /// Locally compute partial MCQ questions:
-  /// partial = at least one answered AND at least one unanswered (among 5 statements).
+  /// partial = at least one answered AND at least one unanswered among N statements.
   Set<int> get _partialIdsComputed {
     final out = <int>{};
     _mcqStates.forEach((qId, states) {
+      if (states.isEmpty) return;
       final anyAnswered = states.any((e) => e != null);
       final anyUnanswered = states.any((e) => e == null);
       if (anyAnswered && anyUnanswered) out.add(qId);
@@ -96,15 +95,15 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     return out;
   }
 
-  /// Helper to check current local partial state for a questionId.
+  /// Is the question still partial now (based on local MCQ states)?
   bool _isStillPartialNow(int qId) {
-    final states = _mcqStates[qId] ?? const [null, null, null, null, null];
+    final states = _mcqStates[qId] ?? const <bool?>[];
+    if (states.isEmpty) return false;
     final answered = states.where((e) => e != null).length;
-    return answered > 0 && answered < 5;
+    return answered > 0 && answered < states.length;
   }
 
-  /// FINAL list for the Partial tab:
-  /// Keep only server-marked partials that are STILL partial locally, union with locally computed.
+  /// Final list for the Partial tab: server-marked and still partial locally, union locally computed.
   List<int> get _partialIds {
     final filteredServer =
     _partialIdsFromServer.where(_isStillPartialNow).toSet();
@@ -122,8 +121,10 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   void initState() {
     super.initState();
     args = Get.arguments ?? {};
+    examQuestionUrl = (args['url'] ?? '').toString();
     admissionId = (args['admissionId'] ?? '').toString();
     examId = (args['examId'] ?? '').toString();
+    isFreeExam = (args['isFreeExam'] ?? false) as bool;
     _tabController = TabController(length: 3, vsync: this);
     _load();
   }
@@ -143,10 +144,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     });
 
     try {
-      final resp = await _examService.fetchExamQuestions(
-        admissionId,
-        examId,
-      );
+      final resp = await _examService.fetchExamQuestions(examQuestionUrl);
 
       if (!resp.isSuccess) {
         setState(() {
@@ -169,9 +167,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           if (decoded is Map<String, dynamic>) {
             model = ExamQuestionModel.fromJson(decoded);
           }
-        } catch (_) {
-          /* ignore */
-        }
+        } catch (_) {}
       }
 
       if (model == null) {
@@ -201,10 +197,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
   void _primeLocalState(ExamQuestionModel model) {
     _mcqStates.clear();
-    _mcqLocks.clear();
     _mcqBusy.clear();
     _sbaSelected.clear();
-    _sbaLocked.clear();
     _sbaBusy.clear();
 
     final questions = model.questions ?? {};
@@ -213,20 +207,19 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     for (final entry in questions.entries) {
       final qId = entry.key;
       final q = entry.value;
+
       if (q.isMCQ) {
+        final int len = (q.questionOption?.length ?? 0).clamp(0, 1000);
+        // decode any server answer and normalize to `len`
         final ans = submitted[qId]?.answer;
-        final states = _parseMcq(ans);
+        final states = _parseMcq(ans, expectedLen: len);
         _mcqStates[qId] = states;
-        _mcqLocks[qId] = List<bool>.generate(5, (i) => states[i] != null);
-        _mcqBusy[qId] = List<bool>.filled(5, false);
+        _mcqBusy[qId] = List<bool>.filled(len, false);
       } else if (q.isSBA) {
         final ans = submitted[qId]?.answer;
         final letter =
         (ans ?? '').trim().isEmpty ? null : ans!.trim().toUpperCase();
         _sbaSelected[qId] = letter;
-        if (letter != null) {
-          _sbaLocked.add(qId);
-        }
       }
     }
   }
@@ -243,22 +236,25 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         t.cancel();
         _secondsLeft = 0;
         _secondsVN.value = 0;
-        // Only now do a setState so the UI disables interactions.
         setState(() {});
       } else {
         _secondsLeft -= 1;
-        _secondsVN.value = _secondsLeft; // updates timer UI only
+        _secondsVN.value = _secondsLeft;
       }
     });
   }
 
-  // ---------- MCQ helpers ----------
-  List<bool?> _parseMcq(String? input) {
-    const len = 5;
-    final out = List<bool?>.filled(len, null);
+  // ---------- MCQ helpers (dynamic length) ----------
+  List<bool?> _parseMcq(String? input, {required int expectedLen}) {
+    if (expectedLen <= 0) return const <bool?>[];
+    final out = List<bool?>.filled(expectedLen, null);
     if (input == null || input.isEmpty) return out;
-    for (var i = 0; i < len && i < input.length; i++) {
-      final c = input[i].toUpperCase();
+
+    // We accept any length the server sent; map into expectedLen
+    final upper = input.toUpperCase();
+    final limit = upper.length < expectedLen ? upper.length : expectedLen;
+    for (var i = 0; i < limit; i++) {
+      final c = upper[i];
       if (c == 'T') {
         out[i] = true;
       } else if (c == 'F') {
@@ -272,7 +268,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
   String _buildMcq(List<bool?> states) {
     final buf = StringBuffer();
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < states.length; i++) {
       final v = states[i];
       if (v == null) {
         buf.write('.');
@@ -287,22 +283,20 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   Future<void> _onSelectSBA({
     required int questionId,
     required String examQuestionId,
-    required String optionLetter, // 'A'..'E'
+    required String optionLetter, // 'A'..'Z'
   }) async {
     if (_timeUp) return;
-    if (_sbaLocked.contains(questionId)) return;
     if (_sbaBusy.contains(questionId)) return;
 
-    _sbaBusy.add(questionId); // guard immediately
+    _sbaBusy.add(questionId);
 
     final prev = _sbaSelected[questionId];
     setState(() {
       _sbaSelected[questionId] = optionLetter;
-      // Optimistic lock: disable instantly
-      _sbaLocked.add(questionId);
     });
 
     final resp = await _submitService.submitSingleAnswer(
+      isFreeExam: isFreeExam,
       admissionId: admissionId,
       examId: examId,
       questionId: '$questionId',
@@ -325,67 +319,53 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           ),
         );
         _model?.submittedAnswers?[questionId] =
-            (_model?.submittedAnswers?[questionId] ??
-                const SubmittedAnswer())
+            (_model?.submittedAnswers?[questionId] ?? const SubmittedAnswer())
                 .copyWith(answer: optionLetter, questionTypeId: 2);
       });
-
-      // ✅ Force rebuild to refresh tab counts
-      if (mounted) setState(() {});
-
     } else {
       setState(() {
-        // revert lock & selection on failure
         _sbaSelected[questionId] = prev;
-        _sbaLocked.remove(questionId);
       });
       _showSnack(resp.errorMessage ?? 'Failed to submit answer');
     }
 
     _sbaBusy.remove(questionId);
+    if (mounted) setState(() {});
   }
 
   Future<void> _onSelectMCQ({
     required int questionId,
     required String examQuestionId,
-    required int index, // 0..4
+    required int index, // 0..N-1
     required bool value, // true for 'T', false for 'F'
   }) async {
     if (_timeUp) return;
 
-    // Create/access busy list for this question
+    // Create/access busy list for this question; size must match statements length
+    final currentLen = _mcqStates[questionId]?.length ?? 0;
     final busyList = _mcqBusy.putIfAbsent(
       questionId,
-          () => List<bool>.filled(5, false),
+          () => List<bool>.filled(currentLen, false),
     );
 
-    // If this statement is already busy or locked, ignore
+    if (index < 0 || index >= currentLen) return;
     if (busyList[index] == true) return;
 
-    final locks =
-    _mcqLocks.putIfAbsent(questionId, () => List<bool>.filled(5, false));
-    if (locks[index] == true) return;
-
-    // Mark busy immediately to guard against ultra-fast double taps
     busyList[index] = true;
 
-    // Prepare local state
     final states = List<bool?>.from(
-      _mcqStates.putIfAbsent(questionId, () => List<bool?>.filled(5, null)),
+      _mcqStates.putIfAbsent(questionId, () => List<bool?>.filled(0, null)),
     );
     final prev = states[index];
     states[index] = value;
     final answerStr = _buildMcq(states);
 
-    // Optimistic lock: disable the pair instantly
-    final newLocks = List<bool>.from(locks)..[index] = true;
-
     setState(() {
       _mcqStates[questionId] = states;
-      _mcqLocks[questionId] = newLocks;
     });
 
     final resp = await _submitService.submitSingleAnswer(
+      isFreeExam: isFreeExam,
       admissionId: admissionId,
       examId: examId,
       questionId: '$questionId',
@@ -408,29 +388,19 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           ),
         );
         _model?.submittedAnswers?[questionId] =
-            (_model?.submittedAnswers?[questionId] ??
-                const SubmittedAnswer())
+            (_model?.submittedAnswers?[questionId] ?? const SubmittedAnswer())
                 .copyWith(answer: answerStr, questionTypeId: 1);
       });
-
-      // ✅ Force rebuild to refresh tab counts
-      if (mounted) setState(() {});
-      // Keep lock true on success
     } else {
-      // Revert state & unlock on failure
       final revertedStates = List<bool?>.from(states)..[index] = prev;
-      final revertedLocks = List<bool>.from(newLocks)..[index] = false;
-
       setState(() {
         _mcqStates[questionId] = revertedStates;
-        _mcqLocks[questionId] = revertedLocks;
       });
-
       _showSnack(resp.errorMessage ?? 'Failed to submit answer');
     }
 
-    // Clear busy (lock controls future interaction anyway, but this is clean)
     busyList[index] = false;
+    if (mounted) setState(() {});
   }
 
   Future<void> _onFinishExam() async {
@@ -443,10 +413,11 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
       if (sure != true) return;
     }
 
-    final resp = await _finishService.fetchFinishExam(
-      admissionId.toString(),
-      examId.toString(),
-    );
+    final url = isFreeExam
+        ? Urls.finishFreeExam(examId)
+        : Urls.finishExam(admissionId, examId);
+
+    final resp = await _finishService.fetchFinishExam(url);
 
     if (!mounted) return;
 
@@ -456,12 +427,10 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           ? (resp.responseData as Map)['message'].toString()
           : 'Exam finished successfully';
 
-      // ⬇️ Dialog returns true if it already navigated to results.
       final bool navigated =
           await _showFinishFeedbackDialog(successMessage: msg) ?? false;
 
       if (!navigated && mounted) {
-        // If the user skipped/closed without navigation, fall back to previous behavior:
         Navigator.of(context).pop(true);
       }
     } else {
@@ -508,7 +477,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Header
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -538,7 +506,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                 ),
                               ],
                             ),
-
                             const SizedBox(height: 12),
                             Text(
                               successMessage,
@@ -546,12 +513,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-
                             const SizedBox(height: 16),
-                            // ⬇️ from helpers
                             CalculatingRow(accent: accent),
                             const SizedBox(height: 16),
-
                             Text(
                               'Your Feedback',
                               style: theme.textTheme.titleSmall?.copyWith(
@@ -559,7 +523,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                               ),
                             ),
                             const SizedBox(height: 8),
-
                             TextField(
                               controller: _feedbackCtrl,
                               maxLines: 4,
@@ -567,16 +530,12 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                               textInputAction: TextInputAction.newline,
                               decoration: const InputDecoration(
                                 hintText: 'Share your thoughts about the exam…',
-                                hintStyle: TextStyle(
-                                  color: Colors.grey,
-                                ),
+                                hintStyle: TextStyle(color: Colors.grey),
                                 border: InputBorder.none,
                               ),
                               enabled: !submitting,
                             ),
-
                             const SizedBox(height: 18),
-
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
@@ -589,11 +548,19 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                     try {
                                       final fb =
                                       _feedbackCtrl.text.trim();
+
+                                      final url = isFreeExam
+                                          ? Urls.freeExamFeedback(
+                                        examId,
+                                      )
+                                          : Urls.examFeedback(
+                                        admissionId,
+                                        examId,
+                                      );
+
                                       final resp = await service
                                           .submitExamFeedback(
-                                        admissionId:
-                                        admissionId.toString(),
-                                        examId: examId.toString(),
+                                        url: url,
                                         feedback: fb,
                                       );
                                       if (!mounted) return;
@@ -607,16 +574,14 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                           backgroundColor: Colors.green,
                                           colorText: Colors.white,
                                         );
-
-                                        // Close the dialog, returning "navigated = true"
                                         Navigator.pop(context, true);
-
                                         final data = {
                                           'admissionId':
-                                          (admissionId).toString(),
+                                          (admissionId).toString() ??
+                                              '',
                                           'examId': (examId).toString(),
+                                          'isFreeExam': isFreeExam,
                                         };
-
                                         Get.offNamed(
                                           RouteNames.examResult,
                                           arguments: data,
@@ -657,8 +622,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                       borderRadius: BorderRadius.circular(12),
                                       boxShadow: [
                                         BoxShadow(
-                                          color:
-                                          AppColor.purple.withOpacity(0.28),
+                                          color: AppColor.purple
+                                              .withOpacity(0.28),
                                           blurRadius: 16,
                                           offset: const Offset(0, 8),
                                         ),
@@ -721,8 +686,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         body: _loading
             ? const Center(child: LoadingWidget())
             : _loadError != null
-            ? ErrorCard(
-            message: _loadError!, onRetry: _load) // ⬅️ from helpers
+            ? ErrorCard(message: _loadError!, onRetry: _load)
             : _buildContent(context),
       ),
     );
@@ -733,7 +697,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
     return Column(
       children: [
-        // Title
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
           child: Row(
@@ -744,17 +707,15 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
               Expanded(
                 child: Text(
                   examTitle,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w700, fontSize: Sizes.titleText(context)),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: Sizes.titleText(context),
+                  ),
                 ),
               ),
             ],
           ),
         ),
-
-        // Timer + Finish button row
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -814,8 +775,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
             ],
           ),
         ),
-
-        // Tabs
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.all(4),
@@ -844,7 +803,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
             ],
           ),
         ),
-
         Expanded(
           child: TabBarView(
             controller: _tabController,
@@ -884,7 +842,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
             if (q.isSBA) {
               final selected = _sbaSelected[qId];
-              final locked = _sbaLocked.contains(qId);
+              final isBusy = _sbaBusy.contains(qId);
               return Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
@@ -895,7 +853,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                     titleHtml: q.questionTitle ?? '',
                     options: (q.questionOption ?? const []),
                     selectedLetter: selected,
-                    enabled: enabled && !locked,
+                    enabled: enabled && !isBusy,
+                    isBusy: isBusy,
                     onChanged: (letter) {
                       _onSelectSBA(
                         questionId: qId,
@@ -907,10 +866,36 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                 ),
               );
             } else {
-              final states =
-                  _mcqStates[qId] ?? List<bool?>.filled(5, null);
-              final locks =
-                  _mcqLocks[qId] ?? List<bool>.filled(5, false);
+              // MCQ: dynamic statement count from question options
+              final int len = (q.questionOption?.length ?? 0).clamp(0, 1000);
+
+              // Ensure state length matches `len`
+              var states = _mcqStates[qId] ?? List<bool?>.filled(len, null);
+              if (states.length != len) {
+                final newStates = List<bool?>.filled(len, null);
+                final copy = states.length < len ? states.length : len;
+                for (var k = 0; k < copy; k++) {
+                  newStates[k] = states[k];
+                }
+                states = newStates;
+                _mcqStates[qId] = states;
+              }
+
+              // Keep busy list in sync as well
+              var busy = _mcqBusy[qId] ?? List<bool>.filled(len, false);
+              if (busy.length != len) {
+                final newBusy = List<bool>.filled(len, false);
+                final copy = busy.length < len ? busy.length : len;
+                for (var k = 0; k < copy; k++) {
+                  newBusy[k] = busy[k];
+                }
+                busy = newBusy;
+                _mcqBusy[qId] = busy;
+              }
+
+              // No locks (answers can change)
+              final locks = List<bool>.filled(len, false);
+
               return Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxWidth),
@@ -922,6 +907,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                     options: (q.questionOption ?? const []),
                     states: states,
                     locks: locks,
+                    busy: busy,
                     enabled: enabled,
                     onSelect: (statementIdx, value) {
                       _onSelectMCQ(
@@ -989,7 +975,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -1028,20 +1013,14 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 16),
-
-                        // Message
                         Text(
                           message,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface.withOpacity(0.9),
                           ),
                         ),
-
                         const SizedBox(height: 20),
-
-                        // Actions
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
@@ -1053,7 +1032,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                               ),
                             ),
                             const SizedBox(width: 10),
-                            // Gradient primary action (uses warningGradient)
                             InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () => Navigator.pop(context, true),
@@ -1097,9 +1075,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           ),
         );
       },
-    ).then((value) {
-      return value;
-    });
+    ).then((value) => value);
   }
 
   Future<void> _showInfo(String title, String message,
@@ -1111,7 +1087,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         content: Text(message),
         actions: [
           FilledButton(
-              onPressed: () => Navigator.pop(context), child: Text(positive))
+            onPressed: () => Navigator.pop(context),
+            child: Text(positive),
+          )
         ],
       ),
     );

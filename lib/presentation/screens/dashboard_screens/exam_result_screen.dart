@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:medi_exam/data/models/exam_result_model.dart';
 import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/data/services/exam_result_service.dart';
+import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
@@ -25,6 +26,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
   late final Map<String, dynamic> _args;
   late final String admissionId;
   late final String examId;
+  late final bool isFreeExam;
 
   final _service = ExamResultService();
 
@@ -38,6 +40,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     _args = Get.arguments ?? {};
     admissionId = (_args['admissionId'] ?? '').toString();
     examId = (_args['examId'] ?? '').toString();
+    isFreeExam = (_args['isFreeExam'] ?? false) as bool;
     _load();
   }
 
@@ -47,7 +50,11 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
       _error = null;
     });
 
-    final NetworkResponse resp = await _service.fetchExamResult(admissionId, examId);
+    final url = isFreeExam
+        ? Urls.freeExamResult(examId)
+        : Urls.examResult(admissionId, examId);
+
+    final NetworkResponse resp = await _service.fetchExamResult(url);
 
     if (!mounted) return;
 
@@ -165,6 +172,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     _fmtInt(res?.overallPosition),
                     Colors.orange,
                   ),
+                  if (res?.batchPosition != null)
                   _positionItem(
                     Icons.groups_outlined,
                     'Batch Position',
@@ -479,6 +487,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
       'examId': examId.toString(),
       'examInfo': _model?.exam,
       'result': _model?.result,
+      'isFreeExam': isFreeExam,
     };
     Get.toNamed(
       RouteNames.examAnswer,

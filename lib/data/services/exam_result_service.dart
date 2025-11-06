@@ -12,8 +12,7 @@ import 'package:medi_exam/data/utils/urls.dart';
 class ExamResultService {
   final NetworkCaller _caller = NetworkCaller(logger: Logger());
 
-  Future<NetworkResponse> fetchExamResult(String admissionId, String examId) async {
-    final url = Urls.examResult(admissionId, examId);
+  Future<NetworkResponse> fetchExamResult(String url) async {
 
     // This endpoint requires authentication
     final token = LocalStorageService.getString(LocalStorageService.token);

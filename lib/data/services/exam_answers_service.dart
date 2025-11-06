@@ -9,8 +9,9 @@ import 'package:medi_exam/data/utils/urls.dart';
 class ExamAnswersService {
   final NetworkCaller _caller = NetworkCaller(logger: Logger());
 
-  Future<NetworkResponse> fetchExamAnswers(String admissionId, String examId) async {
-    final url = Urls.examAnswers(admissionId, examId);
+  Future<NetworkResponse> fetchExamAnswers(String url) async {
+
+
 
     // This endpoint requires authentication
     final token = LocalStorageService.getString(LocalStorageService.token);

@@ -17,6 +17,7 @@ class SBAQuestionTile extends StatelessWidget {
   final List<QuestionOption> options;
   final String? selectedLetter; // 'A'..'E'
   final bool enabled;
+  final bool isBusy; // submitting state for this SBA question
   final ValueChanged<String> onChanged;
 
   const SBAQuestionTile({
@@ -28,6 +29,7 @@ class SBAQuestionTile extends StatelessWidget {
     required this.options,
     required this.selectedLetter,
     required this.enabled,
+    required this.isBusy,
     required this.onChanged,
   });
 
@@ -46,7 +48,8 @@ class SBAQuestionTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColor.secondaryGradient,
@@ -67,23 +70,18 @@ class SBAQuestionTile extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
-                // ⬇️ Constrain and allow wrapping
                 Expanded(
                   child: Html(
                     data: titleHtml,
                     style: {
-                      // compact body
                       "body": Style(
                         margin: Margins.zero,
                         padding: HtmlPaddings.zero,
                         lineHeight: const LineHeight(1.35),
                       ),
-                      // make images/tables fit the width
                       "img": Style(width: Width(100, Unit.percent)),
-                      "table": Style(width: Width(100, Unit.percent),),
+                      "table": Style(width: Width(100, Unit.percent)),
                     },
                   ),
                 ),
@@ -113,6 +111,7 @@ class SBAQuestionTile extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // Option text
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(left: 12, right: 8),
@@ -127,16 +126,26 @@ class SBAQuestionTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: LabeledRadio(
-                    label: letter,
-                    selected: selected,
-                    disabled: !enabled,
-                    onTap: () => onChanged(letter),
-                    size: radioSize,
-                    selectedColor: AppColor.primaryColor,
-                  ),
+                // Radio + tiny loader
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LabeledRadio(
+                      label: letter,
+                      selected: selected,
+                      disabled: !enabled || isBusy,
+                      onTap: () => onChanged(letter),
+                      size: radioSize,
+                      selectedColor: AppColor.primaryColor,
+                    ),
+                    const SizedBox(width: 10),
+                    if (isBusy && selected)
+                       SizedBox(
+                        width: Sizes.veryExtraSmallIcon(context),
+                        height: Sizes.veryExtraSmallIcon(context),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueGrey,),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -149,5 +158,3 @@ class SBAQuestionTile extends StatelessWidget {
     return list;
   }
 }
-
-

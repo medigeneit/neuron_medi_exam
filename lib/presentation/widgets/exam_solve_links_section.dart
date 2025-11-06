@@ -168,7 +168,7 @@ class _SolveLinkTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                        fontSize: 14,
                         color: unlocked
                             ? theme.colorScheme.onSurface
                             : theme.colorScheme.onSurfaceVariant,
