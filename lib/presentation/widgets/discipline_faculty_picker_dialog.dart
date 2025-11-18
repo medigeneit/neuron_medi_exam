@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:medi_exam/data/models/courses_model.dart'; // Import Package model
+import 'package:medi_exam/data/models/courses_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
@@ -12,17 +12,17 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final bool isBatch;
-  final List<Package> packages; // Changed from faculties to packages
-  final ValueChanged<Package> onSelected; // Changed to accept Package
+  final List<Package> packages;
+  final ValueChanged<Package> onSelected;
 
   const DisciplineFacultyPickerDialog({
     Key? key,
     required this.courseTitle,
     required this.subtitle,
-    required this.packages, // Changed parameter name
+    required this.packages,
     required this.isBatch,
     required this.icon,
-    required this.onSelected, // Changed callback type
+    required this.onSelected,
   }) : super(key: key);
 
   @override
@@ -54,7 +54,7 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header with Gradient (unchanged)
+            // Header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 20, 16, 20),
@@ -88,31 +88,39 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
               ),
             ),
 
-            // Content Area — auto sizes to content, scrolls only if needed
+            // Body
             Padding(
               padding: const EdgeInsets.all(20),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // Grid configuration
-                  final crossAxisCount =
-                  (constraints.maxWidth / 300).floor().clamp(2, 4);
+                  // Grid configuration based on width
+                  final crossAxisCount = (constraints.maxWidth / 300).floor().clamp(2, 4);
+
+                  // Compute tile width
                   const mainSpacing = 16.0;
                   const crossSpacing = 16.0;
-                  const aspectRatio = 2.0; // width / height
-
-                  // Compute tile size
                   final gridWidth = constraints.maxWidth;
                   final itemWidth = (gridWidth - (crossAxisCount - 1) * crossSpacing) / crossAxisCount;
-                  final itemHeight = itemWidth / aspectRatio;
 
-                  // Compute rows & total content height
+                  // --- IMPORTANT PART ---
+                  // Guarantee a MIN tile height so 2 text lines always fit on phones.
+                  // You can tweak these numbers if your font sizes change.
+                  final textScale = MediaQuery.of(context).textScaleFactor;
+                  final baseMinHeight = 84.0; // baseline for ~2 lines + paddings
+                  final minTileHeight = baseMinHeight * textScale.clamp(0.9, 1.3);
+
+                  // Translate that into a childAspectRatio (width / height) that
+                  // won't go below the required min height.
+                  // If itemWidth / desiredHeight is < 1.0, tiles get taller than wide.
+                  final childAspectRatio = itemWidth / minTileHeight;
+
+                  // Compute the effective grid height to cap dialog body
                   final itemCount = packages.length;
-                  final rows = (itemCount / crossAxisCount).ceil().clamp(0, 9999);
+                  final rows = (itemCount / crossAxisCount).ceil();
                   final totalHeight = rows > 0
-                      ? rows * itemHeight + (rows - 1) * mainSpacing
+                      ? rows * (itemWidth / childAspectRatio) + (rows - 1) * mainSpacing
                       : 0.0;
 
-                  // Cap height to 60% screen; scroll if over
                   final maxHeight = MediaQuery.of(context).size.height * 0.6;
                   final effectiveHeight = math.min(totalHeight, maxHeight);
                   final shouldScroll = totalHeight > maxHeight;
@@ -121,7 +129,7 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
                     duration: const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
                     child: SizedBox(
-                      height: effectiveHeight, // take only the space it needs (up to cap)
+                      height: effectiveHeight,
                       child: GridView.builder(
                         padding: const EdgeInsets.only(bottom: 8),
                         physics: shouldScroll
@@ -132,7 +140,7 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
                           crossAxisCount: crossAxisCount,
                           mainAxisSpacing: mainSpacing,
                           crossAxisSpacing: crossSpacing,
-                          childAspectRatio: aspectRatio,
+                          childAspectRatio: childAspectRatio, // <= dynamic now
                         ),
                         itemBuilder: (context, index) {
                           final package = packages[index];
@@ -221,8 +229,8 @@ Future<void> showDisciplineFacultyPickerDialog(
       required String subtitle,
       required IconData icon,
       required bool isBatch,
-      required List<Package> packages, // Changed parameter
-      required ValueChanged<Package> onSelected, // Changed callback type
+      required List<Package> packages,
+      required ValueChanged<Package> onSelected,
     }) {
   return showDialog(
     context: context,
@@ -231,7 +239,7 @@ Future<void> showDisciplineFacultyPickerDialog(
     builder: (_) => DisciplineFacultyPickerDialog(
       courseTitle: title,
       subtitle: subtitle,
-      packages: packages, // Pass packages directly
+      packages: packages,
       icon: icon,
       isBatch: isBatch,
       onSelected: onSelected,

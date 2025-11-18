@@ -260,14 +260,8 @@ class _PublishedContent extends StatelessWidget {
                 _metricChip(
                   context,
                   icon: Icons.checklist_rounded,
-                  label: 'Mark / Q',
+                  label: 'Total Mark',
                   value: _dashIfNull(qp?.perQuestionMark),
-                ),
-                _metricChip(
-                  context,
-                  icon: Icons.remove_circle_outline_rounded,
-                  label: 'Neg. / Q',
-                  value: _dashIfNull(qp?.negativeMarking),
                 ),
               ],
             ),

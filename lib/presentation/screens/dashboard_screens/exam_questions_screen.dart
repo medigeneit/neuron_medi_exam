@@ -794,12 +794,36 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
             controller: _tabController,
             labelStyle: TextStyle(
               fontWeight: FontWeight.w500,
-              fontSize: Sizes.smallText(context),
+              fontSize: Sizes.verySmallText(context),
             ),
             tabs: [
-              Tab(text: 'All (${_allQuestionIds.length})'),
-              Tab(text: 'Unanswered (${_unansweredIds.length})'),
-              Tab(text: 'Partial (${_partialIds.length})'),
+              Tab(child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('All', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w500, color: Colors.black),),
+                  Text('(${_allQuestionIds.length})', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w400, color: Colors.black54),),
+                ],
+              ), ),
+              Tab(child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Unanswered', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w500, color: Colors.black),),
+                  Text('(${_unansweredIds.length})', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w400, color: Colors.black54),),
+                ],
+              ), ),
+              Tab(child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Partial', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w500, color: Colors.black),),
+                  Text('(${_partialIds.length})', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w400, color: Colors.black54),),
+                ],
+              ), ),
             ],
           ),
         ),

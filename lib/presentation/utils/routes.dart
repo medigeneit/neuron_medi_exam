@@ -19,7 +19,6 @@ import 'package:medi_exam/presentation/screens/notice_screen.dart';
 import 'package:medi_exam/presentation/screens/payment_history_screen.dart';
 import 'package:medi_exam/presentation/screens/payment_screen.dart';
 import 'package:medi_exam/presentation/screens/profile_section_screen.dart';
-import 'package:medi_exam/presentation/screens/registration_screen.dart';
 import 'package:medi_exam/presentation/screens/session_wise_batches_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/solve_video_screen.dart';
 import 'package:medi_exam/presentation/screens/splash_screen.dart';
@@ -28,7 +27,7 @@ class RouteNames {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
   static const String login = '/login';
-  static const String registration = '/registration';
+
   static const String forgotPassword = '/forgotPassword';
   static const String forgotPasswordVerification =
       '/forgotPasswordVerification';
@@ -87,10 +86,6 @@ final List<GetPage> appRoutes = [
     page: () => const LoginScreen(),
   ),
 
-  GetPage(
-    name: RouteNames.registration,
-    page: () => const RegistrationScreen(),
-  ),
 
   GetPage(
     name: RouteNames.courses,

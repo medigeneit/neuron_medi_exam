@@ -130,6 +130,15 @@ class SBAQuestionTile extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (isBusy && selected)
+                      SizedBox(
+                        width: Sizes.veryExtraSmallIcon(context),
+                        height: Sizes.veryExtraSmallIcon(context),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueGrey,),
+                      ),
+
+                    const SizedBox(width: 6),
+
                     LabeledRadio(
                       label: letter,
                       selected: selected,
@@ -138,13 +147,6 @@ class SBAQuestionTile extends StatelessWidget {
                       size: radioSize,
                       selectedColor: AppColor.primaryColor,
                     ),
-                    const SizedBox(width: 10),
-                    if (isBusy && selected)
-                       SizedBox(
-                        width: Sizes.veryExtraSmallIcon(context),
-                        height: Sizes.veryExtraSmallIcon(context),
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueGrey,),
-                      ),
                   ],
                 ),
               ],

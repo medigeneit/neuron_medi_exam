@@ -51,26 +51,28 @@ class CommonScaffold extends StatelessWidget {
       ),
     );
 
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: AppColor.backgroundColor,
-        appBar: AppBar(
-          backgroundColor: AppColor.primaryColor,
-          title: Text(title, style:  TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: Sizes.titleText(context))),
-          iconTheme: const IconThemeData(color: Colors.white),
-          centerTitle: true,
-          actions: actions,
+    return Scaffold(
+      body: SafeArea(
+        child: Scaffold(
+          backgroundColor: AppColor.backgroundColor,
+          appBar: AppBar(
+            backgroundColor: AppColor.primaryColor,
+            title: Text(title, style:  TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: Sizes.titleText(context))),
+            iconTheme: const IconThemeData(color: Colors.white),
+            centerTitle: true,
+            actions: actions,
+          ),
+          endDrawer: showDrawer ? const CustomDrawer() : null,
+          body: isMobile ? AppBackground(
+            intensity: 0.20,
+              opacity: 0.05,
+              child: responsiveBody) : AppBackground(
+              intensity: 0.25,
+              opacity: 0.06,
+              child: responsiveBody),
+          bottomNavigationBar: bottomNavigationBar,
+          floatingActionButton: floatingActionButton,
         ),
-        endDrawer: showDrawer ? const CustomDrawer() : null,
-        body: isMobile ? AppBackground(
-          intensity: 0.20,
-            opacity: 0.05,
-            child: responsiveBody) : AppBackground(
-            intensity: 0.25,
-            opacity: 0.06,
-            child: responsiveBody),
-        bottomNavigationBar: bottomNavigationBar,
-        floatingActionButton: floatingActionButton,
       ),
     );
   }

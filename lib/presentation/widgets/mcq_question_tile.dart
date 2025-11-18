@@ -133,6 +133,16 @@ class MCQQuestionTile extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+
+                  if (isBusy)
+                    SizedBox(
+                      width: Sizes.veryExtraSmallIcon(context),
+                      height: Sizes.veryExtraSmallIcon(context),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueGrey,),
+                    ),
+
+                  const SizedBox(width: 6),
+
                   LabeledRadio(
                     label: 'T',
                     selected: state == true,
@@ -150,13 +160,7 @@ class MCQQuestionTile extends StatelessWidget {
                     size: radioSize,
                     selectedColor: AppColor.primaryColor,
                   ),
-                  const SizedBox(width: 10),
-                  if (isBusy)
-                    SizedBox(
-                      width: Sizes.veryExtraSmallIcon(context),
-                      height: Sizes.veryExtraSmallIcon(context),
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueGrey,),
-                    ),
+
                 ],
               ),
             ],
