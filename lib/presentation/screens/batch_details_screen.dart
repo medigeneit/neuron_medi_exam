@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:medi_exam/data/models/batch_details_model.dart';
 import 'package:medi_exam/data/services/batch_details_service.dart';
 import 'package:medi_exam/data/utils/auth_checker.dart';
+import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/data/utils/payment_navigator.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
@@ -11,6 +12,7 @@ import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/animated_gradient_button.dart';
 import 'package:medi_exam/presentation/widgets/date_formatter_widget.dart';
+import 'package:medi_exam/presentation/widgets/free_exam_card.dart';
 import 'package:medi_exam/presentation/widgets/helpers/banner_card_helpers.dart';
 import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
@@ -104,8 +106,6 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     Future<void> goNow() async {
       final String courseId =
           _batchDetails?.courseId?.toString() ?? '';
-      final String courseName =
-          _batchDetails?.courseName?.toString() ?? '';
       if (courseId.isEmpty) {
         Get.snackbar(
           'Unavailable',
@@ -120,8 +120,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
       Get.toNamed(
         RouteNames.freeExams,
         arguments: {
-          'courseId': courseId,
-          'courseName': courseName,
+          'url': Urls.freeExamListCourseWise(courseId),
         },
         preventDuplicates: true,
       );
@@ -312,7 +311,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                         const SizedBox(height: 18),
 
                         // ---------------- NEW: Free Exam Button (above Schedule) ----------------
-                        _FreeExamCardButton(
+                        FreeExamCardButton(
                           onTap: _onFreeExamPressed,
                         ),
 
@@ -484,101 +483,4 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
   }
 }
 
-// ---------------- Fancy Free Exam Button UI ----------------
-class _FreeExamCardButton extends StatelessWidget {
-  final VoidCallback onTap;
 
-  const _FreeExamCardButton({
-    Key? key,
-    required this.onTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // Vibrant gradient for attention
-    final gradient = const LinearGradient(
-      colors: [
-        Color(0xFFFF7A7A), // coral/pink
-        Color(0xFF7B61FF), // purple
-        Color(0xFF3AC2FF), // aqua
-      ],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                // Badge-ish icon circle
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white30, width: 1),
-                  ),
-                  child:  Icon(
-                    Icons.bolt_rounded,
-                    color: Colors.white,
-                    size: Sizes.verySmallIcon(context),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Texts
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Free Exam',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: Sizes.normalText(context),
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.1,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Test yourself with our free exams!',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: Sizes.verySmallText(context),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

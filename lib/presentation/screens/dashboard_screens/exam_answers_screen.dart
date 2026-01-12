@@ -281,14 +281,16 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                               size: 20,
                               color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 8),
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: AppColor.primaryColor,
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: AppColor.primaryColor,
+                              ),
                             ),
                           ),
                         ],

@@ -6,8 +6,8 @@ import 'package:medi_exam/presentation/utils/sizes.dart';
 
 /// High-level status the UI needs to show.
 enum FreeExamStatus {
-  available,   // doctor_open_exam == null
-  continueExam,// doctor_open_exam.status == "Running"
+  available, // doctor_open_exam == null
+  continueExam, // doctor_open_exam.status == "Running"
   checkResult, // doctor_open_exam.status == "Finish"
 }
 
@@ -26,13 +26,11 @@ class FreeExamItemWidget extends StatelessWidget {
     final status = _deriveStatus(exam);
     final statusMeta = _statusUi(status);
 
-    // Card styling: subtle gradient border + soft surface + hover splash
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
-          // faint colorful border
           colors: [
             statusMeta.accent.withOpacity(0.4),
             statusMeta.accent.withOpacity(0.1),
@@ -42,7 +40,6 @@ class FreeExamItemWidget extends StatelessWidget {
         ),
       ),
       child: Container(
-        // inner white/foreground container
         margin: const EdgeInsets.all(1.5),
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark
@@ -72,7 +69,6 @@ class FreeExamItemWidget extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Leading icon badge
                   Container(
                     width: Sizes.mediumBigIcon(context),
                     height: Sizes.mediumBigIcon(context),
@@ -102,7 +98,6 @@ class FreeExamItemWidget extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
 
-                  // Title + Course + Status Pill + Action hint
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,10 +115,10 @@ class FreeExamItemWidget extends StatelessWidget {
                                 : Colors.black,
                           ),
                         ),
-         /*               const SizedBox(height: 6),
 
-                        // Course name (muted)
-                        if (exam.course?.hasName == true)
+                        // ✅ NEW: Course name under title
+                        if (exam.course?.hasName == true) ...[
+                          const SizedBox(height: 6),
                           Text(
                             exam.course!.safeName,
                             maxLines: 1,
@@ -135,11 +130,11 @@ class FreeExamItemWidget extends StatelessWidget {
                                   : Colors.black54,
                               fontWeight: FontWeight.w600,
                             ),
-                          ),*/
+                          ),
+                        ],
 
                         const SizedBox(height: 12),
 
-                        // Status + CTA-like chip row
                         Row(
                           children: [
                             _StatusPill(
@@ -148,7 +143,6 @@ class FreeExamItemWidget extends StatelessWidget {
                               foregroundOnLight: statusMeta.foregroundOnLight,
                             ),
                             const Spacer(),
-                            // Subtle CTA text
                             Row(
                               children: [
                                 Text(
@@ -182,10 +176,8 @@ class FreeExamItemWidget extends StatelessWidget {
   }
 
   FreeExamStatus _deriveStatus(FreeExamModel e) {
-    // doctor_open_exam == null  => Available
     if (e.doctorOpenExam == null) return FreeExamStatus.available;
 
-    // If list provided, look at the first (typical API shape)
     final item = e.doctorOpenExam!.isNotEmpty ? e.doctorOpenExam!.first : null;
     final s = item?.status?.toLowerCase().trim();
 
@@ -193,7 +185,6 @@ class FreeExamItemWidget extends StatelessWidget {
     if (s == 'finish' || s == 'finished' || s == 'completed') {
       return FreeExamStatus.checkResult;
     }
-    // Unknown status -> treat as available to allow taking it
     return FreeExamStatus.available;
   }
 
@@ -204,7 +195,7 @@ class FreeExamItemWidget extends StatelessWidget {
           label: 'Available',
           action: 'Start now',
           icon: Icons.bolt_rounded,
-          accent: AppColor.primaryColor, // aqua
+          accent: AppColor.primaryColor,
           foregroundOnLight: Colors.white,
         );
       case FreeExamStatus.continueExam:
@@ -212,7 +203,7 @@ class FreeExamItemWidget extends StatelessWidget {
           label: 'Running',
           action: 'Continue',
           icon: Icons.timelapse_rounded,
-          accent: AppColor.orange, // purple
+          accent: AppColor.orange,
           foregroundOnLight: Colors.white,
         );
       case FreeExamStatus.checkResult:
@@ -220,7 +211,7 @@ class FreeExamItemWidget extends StatelessWidget {
           label: 'Finished',
           action: 'View result',
           icon: Icons.verified_rounded,
-          accent: AppColor.green, // coral
+          accent: AppColor.green,
           foregroundOnLight: Colors.white,
         );
     }

@@ -1,5 +1,11 @@
 // lib/presentation/screens/home_screen.dart
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:medi_exam/data/utils/auth_checker.dart';
+import 'package:medi_exam/data/utils/urls.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
+import 'package:medi_exam/presentation/widgets/free_exam_card.dart';
+import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_helpers.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:medi_exam/data/models/courses_model.dart';
 import 'package:medi_exam/data/models/slide_items_model.dart';
@@ -237,6 +243,53 @@ class _HomeScreenState extends State<HomeScreen> {
     // You could enforce "+<country><number>" here if you want.
   }
 
+
+  // ---------------- NEW: Free Exam handler (auth + navigation) ----------------
+  Future<void> _onFreeExamPressed() async {
+    final authed = await AuthChecker.to.isAuthenticated();
+
+    Future<void> goNow() async {
+      Get.toNamed(
+        RouteNames.freeExams,
+        arguments: {
+          'url': Urls.freeExamList,
+        },
+        preventDuplicates: true,
+      );
+    }
+
+    if (!authed) {
+      Get.snackbar('Login Required',
+          'Please log in to try the free exam',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3));
+
+      final result = await Get.toNamed(
+        RouteNames.login,
+        arguments: {
+          'popOnSuccess': true,
+          'returnRoute': null,
+          'returnArguments': null,
+          'message':
+          "You’re one step away! Log in to take the Free Exam.",
+        },
+      );
+
+      if (result == true) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        final isNowAuthenticated = await AuthChecker.to.isAuthenticated();
+        if (isNowAuthenticated) {
+          await goNow();
+        }
+      }
+      return;
+    }
+
+    await goNow();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -300,6 +353,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     vertical: 8,
                   ),
                   child: _buildCoursesSection(),
+                ),
+              ),// Courses
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : 24,
+                    vertical: 8,
+                  ),
+                  child:  FreeExamCardButton(
+                    onTap: _onFreeExamPressed,
+                  ),
                 ),
               ),
 

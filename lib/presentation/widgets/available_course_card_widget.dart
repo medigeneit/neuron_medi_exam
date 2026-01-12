@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 
-/// A modern, touch-friendly course card with animated press,
-/// gradient border, and material ripple.
-/// Updated: no top icon, centered title text, arrow at bottom.
-/// Safe for use inside scrollables (no Expanded in unbounded height).
 class AvailableCourseCardWidget extends StatefulWidget {
   final IconData icon; // kept for backwards-compat but no longer used visually
   final String title;

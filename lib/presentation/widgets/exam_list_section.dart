@@ -10,8 +10,8 @@ import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
 import 'exam_solve_links_section.dart';
+import 'exam_materials_section.dart'; // ✅ NEW
 
-// NEW: model, service, and dialog imports (adjust paths if needed)
 import 'package:medi_exam/data/models/exam_property_model.dart';
 import 'package:medi_exam/data/services/exam_property_service.dart';
 import 'package:medi_exam/presentation/widgets/exam_overview_dialog.dart';
@@ -33,9 +33,7 @@ class ExamListSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final contents = date.safeContents;
-    if (contents.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (contents.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: padding,
@@ -43,12 +41,25 @@ class ExamListSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: List.generate(contents.length, (index) {
           final c = contents[index];
+
           return _ExamCard(
             content: c,
-            admissionId: admissionId, // pass down for fetching/navigating
-            // Child list of solve/video links (only shows if allowed + has items)
+            admissionId: admissionId,
             child: showSolveChildren
-                ? ExamSolveLinksSection(content: c, admissionId: admissionId)
+                ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ✅ Exam Materials (PDF)
+                ExamMaterialsSection(content: c),
+
+                // spacing only if both visible
+                if (c.hasPdfMaterials && c.canShowSolve && c.hasSolveLinks)
+                  const SizedBox(height: 12),
+
+                // ✅ Solve links (videos)
+                ExamSolveLinksSection(content: c, admissionId: admissionId),
+              ],
+            )
                 : null,
           );
         }),
@@ -104,7 +115,7 @@ class _ExamCard extends StatelessWidget {
 
             final status = content.safeExamStatus.toLowerCase().trim();
 
-            // Handle completed exam immediately without loading dialog
+            // completed => go result
             if (status == 'completed') {
               final examId = content.examId;
               if (examId != null && examId.isNotEmpty) {
@@ -127,10 +138,7 @@ class _ExamCard extends StatelessWidget {
 
             if (shouldOpenDialog) {
               await _openExamOverview(context);
-            }
-
-            else {
-              // fallback: keep your previous behavior
+            } else {
               Get.snackbar(
                 content.safeTopicName,
                 "Status: ${content.safeExamStatus}",
@@ -146,7 +154,6 @@ class _ExamCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Leading icon with gradient
                     Container(
                       width: 34,
                       height: 34,
@@ -162,7 +169,6 @@ class _ExamCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
 
-                    // Content
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,7 +191,7 @@ class _ExamCard extends StatelessWidget {
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                                 fontSize: Sizes.smallText(context),
-                                letterSpacing: 0.1
+                                letterSpacing: 0.1,
                               ),
                             ),
                           ],
@@ -193,13 +199,11 @@ class _ExamCard extends StatelessWidget {
                       ),
                     ),
 
-                    // Status indicator
                     const SizedBox(width: 8),
                     _StatusIndicator(content: content),
                   ],
                 ),
 
-                // Child content (solve links)
                 if (child != null) ...[
                   const SizedBox(height: 12),
                   child!,
@@ -213,12 +217,11 @@ class _ExamCard extends StatelessWidget {
   }
 
   String? _computeSubtitle(Content c) {
-    // Prefer API status_message if present
     final apiMessage = c.safeStatusMessage.trim();
     if (apiMessage.isNotEmpty) return apiMessage;
 
-    // Fallbacks per requirements
     if (c.isLocked) return "Locked";
+
     if (c.isUnlocked) {
       final status = c.safeExamStatus.toLowerCase();
       if (status == "completed") return "View Result";
@@ -229,51 +232,45 @@ class _ExamCard extends StatelessWidget {
   }
 
   Future<void> _openExamOverview(BuildContext context) async {
-    // 1) tiny loader overlay
     Get.dialog(
-      const Center(child: CustomBlobBackground(
+      const Center(
+        child: CustomBlobBackground(
           backgroundColor: AppColor.whiteColor,
           blobColor: AppColor.purple,
           child: Padding(
             padding: EdgeInsets.all(16),
             child: LoadingWidget(),
-          ))),
+          ),
+        ),
+      ),
       barrierDismissible: false,
     );
 
     try {
-      // 2) fetch the full model using your service
       final model = await _loadExamPropertyForContent(
         admissionId: admissionId,
         content: content,
       );
 
-      // close loader
       if (Get.isDialogOpen == true) Get.back();
 
-      // 3) show the dialog
-      final started = await showExamOverviewDialog(
+      await showExamOverviewDialog(
         context,
         model: model,
         url: Urls.examQuestion(admissionId, content.examId.toString()),
         isFreeExam: false,
         admissionId: admissionId.toString(),
       );
-
-      // 4) user tapped "Start exam"
-      if (started == true) {
-
-      }
     } catch (e) {
-      // close loader if still open
       if (Get.isDialogOpen == true) Get.back();
       Get.snackbar(
         'Failed',
         e.toString(),
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade100,
+        backgroundColor: Colors.redAccent.shade100,
         colorText: Colors.black,
       );
+      // ignore: avoid_print
       print('Error loading exam property: $e');
     }
   }
@@ -312,7 +309,8 @@ class _StatusIndicator extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration:
           BoxDecoration(color: Colors.orange.withOpacity(0.1), shape: BoxShape.circle),
-          child: const Icon(Icons.incomplete_circle_rounded, size: 14, color: Colors.orange),
+          child:
+          const Icon(Icons.incomplete_circle_rounded, size: 14, color: Colors.orange),
         );
       }
       if (status == "not completed") {
@@ -320,12 +318,11 @@ class _StatusIndicator extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration:
           BoxDecoration(color: AppColor.indigo.withOpacity(0.1), shape: BoxShape.circle),
-          child: Icon(Icons.circle_outlined, size: 14, color: Colors.blue),
+          child: const Icon(Icons.circle_outlined, size: 14, color: Colors.blue),
         );
       }
     }
 
-    // Default neutral indicator
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -344,11 +341,6 @@ class _StatusIndicator extends StatelessWidget {
   }
 }
 
-
-
-/// ----------------------------------------------------------------------
-/// Service-backed fetch using your ExamPropertyService
-/// ----------------------------------------------------------------------
 Future<ExamPropertyModel> _loadExamPropertyForContent({
   required String admissionId,
   required Content content,
@@ -367,12 +359,8 @@ Future<ExamPropertyModel> _loadExamPropertyForContent({
   }
 
   final data = res.responseData;
-  if (data is ExamPropertyModel) {
-    return data;
-  }
-  if (data is Map<String, dynamic>) {
-    return ExamPropertyModel.fromJson(data);
-  }
+  if (data is ExamPropertyModel) return data;
+  if (data is Map<String, dynamic>) return ExamPropertyModel.fromJson(data);
+
   throw Exception('Unexpected response data type: ${data.runtimeType}');
 }
-

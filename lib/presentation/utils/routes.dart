@@ -23,6 +23,8 @@ import 'package:medi_exam/presentation/screens/session_wise_batches_screen.dart'
 import 'package:medi_exam/presentation/screens/dashboard_screens/solve_video_screen.dart';
 import 'package:medi_exam/presentation/screens/splash_screen.dart';
 
+import '../screens/dashboard_screens/pdf_screen.dart';
+
 class RouteNames {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
@@ -67,6 +69,7 @@ class RouteNames {
   static const String paymentHistory = '/paymentHistory';
   static const String manualPayment = '/manualPayment';
   static const String freeExams = '/freeExams';
+  static const String pdfScreen = '/pdfScreen';
 }
 
 // Define routes
@@ -181,6 +184,10 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.freeExams,
     page: () => const FreeExamListScreen(),
+  ),
+  GetPage(
+    name: RouteNames.pdfScreen,
+    page: () => const PdfScreen(),
   ),
 
 ];

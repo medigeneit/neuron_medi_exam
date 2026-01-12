@@ -11,8 +11,7 @@ class FreeExamListService {
 
   /// Fetch the list of free exams.
 
-  Future<NetworkResponse> fetchFreeExamList(String courseId) async {
-    final url = Urls.freeExamList(courseId);
+  Future<NetworkResponse> fetchFreeExamList(String url) async {
 
     final token = LocalStorageService.getString(LocalStorageService.token);
 

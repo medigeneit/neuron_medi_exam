@@ -8,10 +8,7 @@ import 'package:medi_exam/data/services/free_exam_list_service.dart';
 import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 
-import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
-import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
-import 'package:medi_exam/presentation/widgets/free_exam_item_widget.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
 // ▼ Reuse the SAME dialog + model + colors you already have
@@ -19,11 +16,15 @@ import 'package:medi_exam/data/models/exam_property_model.dart';
 import 'package:medi_exam/data/services/exam_property_service.dart';
 import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/widgets/exam_overview_dialog.dart';
+
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 
 // <<< IMPORTANT: bring in routeObserver just like your DoctorScheduleScreen >>>
 import 'package:medi_exam/main.dart';
+
+// item widget
+import 'package:medi_exam/presentation/widgets/free_exam_item_widget.dart';
 
 class FreeExamListScreen extends StatefulWidget {
   const FreeExamListScreen({Key? key}) : super(key: key);
@@ -40,26 +41,24 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
   // Reuse the same service to fetch the free exam property via URL
   final ExamPropertyService _examPropertyService = ExamPropertyService();
 
-  String _courseId = '';
-  String _courseName = '';
+  String url = '';
 
   bool _loading = true;
-  bool _refreshing = false; // NEW: background (silent) refresh flag
+  bool _refreshing = false; // background (silent) refresh flag
   String _error = '';
   FreeExamListModel _model = FreeExamListModel(items: const []);
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // NEW
+    WidgetsBinding.instance.addObserver(this);
     _readArgs();
-    _initialLoad(); // NEW: same pattern as DoctorScheduleScreen
+    _initialLoad();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Subscribe for RouteAware callbacks
     final route = ModalRoute.of(context);
     if (route != null) {
       routeObserver.subscribe(this, route);
@@ -68,7 +67,6 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
 
   @override
   void dispose() {
-    // Unsubscribe + remove observer
     routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -77,24 +75,23 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
   // Called when coming back to this screen (e.g., popped next route)
   @override
   void didPopNext() {
-    _refreshData(silent: true); // NEW: silent background refresh
+    _refreshData(silent: true);
   }
 
   // App comes back to foreground -> silent refresh
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshData(silent: true); // NEW
+      _refreshData(silent: true);
     }
   }
 
   void _readArgs() {
     final args = Get.arguments ?? {};
-    _courseId = (args['courseId'] ?? '').toString();
-    _courseName = (args['courseName'] ?? '').toString();
+    url = (args['url'] ?? '').toString();
   }
 
-  // ===== NEW: initial load (shows loading)
+  // initial load (shows loading)
   Future<void> _initialLoad() async {
     setState(() {
       _loading = true;
@@ -103,7 +100,7 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
     await _callApi();
   }
 
-  // ===== NEW: background refresh helper
+  // background refresh helper
   Future<void> _refreshData({bool silent = false}) async {
     if (silent) {
       setState(() {
@@ -115,23 +112,13 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
         _refreshing = false;
       });
     } else {
-      // Manual / pull-to-refresh path should not change your UI design
       await _callApi();
     }
   }
 
-  // ===== NEW: Pure API call (mirrors DoctorScheduleScreen’s _callApi)
+  // Pure API call
   Future<void> _callApi() async {
-    if (_courseId.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = 'Missing courseId';
-      });
-      return;
-    }
-
-    final NetworkResponse res = await _service.fetchFreeExamList(_courseId);
+    final NetworkResponse res = await _service.fetchFreeExamList(url);
     if (!mounted) return;
 
     if (res.isSuccess && res.responseData is FreeExamListModel) {
@@ -148,7 +135,6 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
     }
   }
 
-  // Keep your existing name used in UI, but route it to the new refresh helper
   Future<void> _fetch() async {
     await _refreshData(silent: false);
   }
@@ -157,8 +143,6 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
     switch (status) {
       case FreeExamStatus.available:
       case FreeExamStatus.continueExam:
-      // EXACT same behavior as ExamListSection: open overview dialog by
-      // fetching ExamProperty first — only difference: we call the URL-based method.
         await _openFreeExamOverview(exam);
         break;
 
@@ -182,7 +166,6 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
   }
 
   Future<void> _openFreeExamOverview(FreeExamModel exam) async {
-    // (1) loader overlay
     Get.dialog(
       const Center(
         child: CustomBlobBackground(
@@ -203,9 +186,9 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
         throw Exception('Unable to determine exam id for this free exam.');
       }
 
-      // (2) Build the free exam URL and fetch through the SAME service
       final String url = Urls.freeExamProperty(examId);
-      final NetworkResponse res = await _examPropertyService.fetchExamProperty(url);
+      final NetworkResponse res =
+      await _examPropertyService.fetchExamProperty(url);
 
       if (!res.isSuccess) {
         throw Exception(res.errorMessage ?? 'Failed to load exam property.');
@@ -215,15 +198,15 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
       if (res.responseData is ExamPropertyModel) {
         model = res.responseData as ExamPropertyModel;
       } else if (res.responseData is Map<String, dynamic>) {
-        model = ExamPropertyModel.fromJson(res.responseData as Map<String, dynamic>);
+        model = ExamPropertyModel.fromJson(
+            res.responseData as Map<String, dynamic>);
       } else {
-        throw Exception('Unexpected response data type: ${res.responseData.runtimeType}');
+        throw Exception(
+            'Unexpected response data type: ${res.responseData.runtimeType}');
       }
 
-      // (3) close loader
       if (Get.isDialogOpen == true) Get.back();
 
-      // (4) Show the SAME overview dialog
       final bool? started = await showExamOverviewDialog(
         context,
         model: model,
@@ -232,9 +215,8 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
         admissionId: '',
       );
 
-      // (5) If user tapped "Start exam" — your existing behavior applies
       if (started == true) {
-        // no-op / navigate if you add a route later
+        // no-op
       }
     } catch (e) {
       if (Get.isDialogOpen == true) Get.back();
@@ -251,10 +233,8 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
 
   @override
   Widget build(BuildContext context) {
-    final title = 'Free Exams';
-
     return CommonScaffold(
-      title: title,
+      title: 'Free Exams',
       body: _buildBody(),
     );
   }
@@ -271,16 +251,18 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 42),
+              Icon(Icons.error_outline_rounded,
+                  color: Colors.redAccent, size: 42),
               const SizedBox(height: 12),
               Text(
                 _error,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: _fetch, // unchanged public method
+                onPressed: _fetch,
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Retry'),
               ),
@@ -291,68 +273,18 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
     }
 
     if (_model.isEmpty) {
-      return _EmptyState(onRetry: _fetch); // unchanged behavior
+      return _EmptyState(onRetry: _fetch);
     }
 
     return RefreshIndicator(
-      onRefresh: _fetch, // unchanged behavior; now routes to _refreshData(silent: false)
+      onRefresh: _fetch,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // --- TOP: Course name on GlassCard ---
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-              child: GlassCard(
-                opacity: 0.15,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Accent round icon with gradient
-                      Container(
-                        width: Sizes.bigIcon(context),
-                        height: Sizes.bigIcon(context),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: AppColor.secondaryGradient,
-                        ),
-                        child: Icon(
-                          Icons.menu_book_rounded,
-                          color: Colors.white,
-                          size: Sizes.extraSmallIcon(context),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Centered text (wrap with Flexible to avoid overflow on small screens)
-                      Flexible(
-                        child: Text(
-                          _courseName.isNotEmpty ? _courseName : 'Course',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: Sizes.smallText(context),
-                            fontWeight: FontWeight.w800,
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white
-                                : Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          // ✅ REMOVED: Top courseName glass card section بالكامل
 
-          // --- Exams list ---
           SliverPadding(
-            padding: const EdgeInsets.only(top: 4, bottom: 24),
+            padding: const EdgeInsets.only(top: 8, bottom: 24),
             sliver: SliverList.builder(
               itemCount: _model.items.length,
               itemBuilder: (context, index) {
@@ -383,7 +315,6 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Decorative gradient circle
             Container(
               width: 96,
               height: 96,
@@ -402,17 +333,17 @@ class _EmptyState extends StatelessWidget {
             Text(
               'No Free Exams',
               style: TextStyle(
-                fontSize: Sizes.bigText(context),
+                fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: isDark ? Colors.white : Colors.black,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'There are no free exams available for this course yet.',
+              'There are no free exams available yet.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: Sizes.smallText(context),
+                fontSize: 14,
                 color: isDark ? Colors.white70 : Colors.black54,
                 fontWeight: FontWeight.w600,
               ),

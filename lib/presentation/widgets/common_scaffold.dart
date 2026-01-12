@@ -52,6 +52,7 @@ class CommonScaffold extends StatelessWidget {
     );
 
     return Scaffold(
+      backgroundColor: Colors.purple.shade900,
       body: SafeArea(
         child: Scaffold(
           backgroundColor: AppColor.backgroundColor,

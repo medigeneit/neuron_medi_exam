@@ -24,6 +24,8 @@ class Urls {
   static const String paymentHistory = "${_baseUrl}doctor/admission-payments";
   static const String manualPayments = "${_baseUrl}doctor/admission-manual-payments";
   static const String freeExamSingleAnswerSubmit = "${_baseUrl}doctor/open-exam-submit-answer";
+  static const String freeExamPublicList = "${_baseUrl}open-exams/free";
+  static const String freeExamList = "${_baseUrl}doctor/open-exam-list";
 
 
   static String noticeDetails(String noticeId) {
@@ -58,7 +60,7 @@ class Urls {
     return "${_baseUrl}payment-details-pdf/$admissionId";
   }
 
-  static String freeExamList(String courseId) {
+  static String freeExamListCourseWise(String courseId) {
     return "${_baseUrl}doctor/open-exam-list/$courseId";
   }
 
