@@ -196,19 +196,21 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                       constraints: BoxConstraints(maxWidth: maxWidth),
                       child: item.isMCQ
                           ? MCQAnswerReviewTile(
-                              indexLabel: idxLabel,
-                              titleHtml: item.questionTitle ?? '',
-                              options: item.questionOption ?? const [],
-                              doctorStates: item.doctorStates,
-                              correctStates: item.correctStates,
-                            )
+                        indexLabel: idxLabel,
+                        titleHtml: item.questionTitle ?? '',
+                        options: item.questionOption ?? const [],
+                        doctorStates: item.doctorStates,
+                        correctStates: item.correctStates,
+                        questionId: item.questionId, // ✅ NEW
+                      )
                           : SBAAnswerReviewTile(
-                              indexLabel: idxLabel,
-                              titleHtml: item.questionTitle ?? '',
-                              options: item.questionOption ?? const [],
-                              doctorIndex: item.doctorSbaIndex,
-                              correctIndex: item.correctSbaIndex,
-                            ),
+                        indexLabel: idxLabel,
+                        titleHtml: item.questionTitle ?? '',
+                        options: item.questionOption ?? const [],
+                        doctorIndex: item.doctorSbaIndex,
+                        correctIndex: item.correctSbaIndex,
+                        questionId: item.questionId, // ✅ NEW
+                      ),
                     ),
                   );
                 },

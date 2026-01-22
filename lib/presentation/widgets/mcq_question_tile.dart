@@ -108,6 +108,9 @@ class MCQQuestionTile extends StatelessWidget {
     final bool rowEnabled = enabled && !locked && !isBusy;
     const double radioSize = 28;
 
+    final String serial =
+    opt.serial != null ? '${opt.serial!.toLowerCase()})' : '';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: GlassCard(
@@ -117,17 +120,35 @@ class MCQQuestionTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 12, right: 8),
-                  child: Html(
-                    data: opt.title ?? '',
-                    style: {
-                      "body": Style(
-                        margin: Margins.zero,
-                        padding: HtmlPaddings.zero,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Option serial (a), b), c))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, right: 6),
+                      child: Text(
+                        serial,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColor.blackColor,
+                          fontSize: Sizes.smallText(context),
+                        ),
                       ),
-                    },
-                  ),
+                    ),
+
+                    // Statement text
+                    Expanded(
+                      child: Html(
+                        data: opt.title ?? '',
+                        style: {
+                          "body": Style(
+                            margin: Margins.zero,
+                            padding: HtmlPaddings.zero,
+                          ),
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Row(

@@ -1,3 +1,4 @@
+// lib/presentation/widgets/sba_answer_review_tile.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:medi_exam/data/models/exam_answers_model.dart';
@@ -6,17 +7,18 @@ import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/labeled_radio.dart';
+import 'package:medi_exam/presentation/widgets/question_action_row.dart';
+import 'package:medi_exam/presentation/widgets/question_explaination_button.dart';
 
-/// Read-only SBA review tile that shows:
-/// - Your selected option (green if correct, red if wrong; grey if unanswered)
-/// - Correct option (brand indigo)
-/// Works with ANY number of options (matches options.length).
 class SBAAnswerReviewTile extends StatelessWidget {
   final String indexLabel;
   final String titleHtml;
-  final List<AnswerOption> options; // A..Z (dynamic)
-  final int? doctorIndex;  // 0..N-1
-  final int? correctIndex; // 0..N-1
+  final List<AnswerOption> options;
+  final int? doctorIndex;
+  final int? correctIndex;
+
+  /// NEW
+  final int? questionId;
 
   const SBAAnswerReviewTile({
     super.key,
@@ -25,6 +27,7 @@ class SBAAnswerReviewTile extends StatelessWidget {
     required this.options,
     required this.doctorIndex,
     required this.correctIndex,
+    required this.questionId,
   });
 
   @override
@@ -36,9 +39,10 @@ class SBAAnswerReviewTile extends StatelessWidget {
     final bool inRangeCor =
         correctIndex != null && correctIndex! >= 0 && correctIndex! < len;
 
-    final bool? docIsCorrect = (inRangeDoc && inRangeCor)
-        ? (doctorIndex == correctIndex)
-        : null;
+    final bool? docIsCorrect =
+    (inRangeDoc && inRangeCor) ? (doctorIndex == correctIndex) : null;
+
+
 
     return CustomBlobBackground(
       backgroundColor: Colors.white,
@@ -48,12 +52,13 @@ class SBAAnswerReviewTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row with index and question title
+            // Header
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColor.secondaryGradient,
@@ -97,12 +102,13 @@ class SBAAnswerReviewTile extends StatelessWidget {
             ...List.generate(len, (i) {
               final opt = options[i];
               final String letter = (opt.serial ?? '').toUpperCase();
+              final String serial =
+              opt.serial != null ? '${opt.serial!.toLowerCase()})' : '';
 
               final bool youSelected = inRangeDoc && (doctorIndex == i);
               final bool correctSelected = inRangeCor && (correctIndex == i);
 
-              // Colors
-              final Color correctColor = AppColor.indigo; // blue
+              final Color correctColor = AppColor.indigo;
               final Color youColor = (docIsCorrect == null)
                   ? Colors.grey
                   : (docIsCorrect ? Colors.green : Colors.red);
@@ -117,31 +123,47 @@ class SBAAnswerReviewTile extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Option text
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 12, right: 8),
-                            child: Html(
-                              data: opt.title ?? '',
-                              style: {
-                                "body": Style(
-                                  margin: Margins.zero,
-                                  padding: HtmlPaddings.zero,
-                                ),
-                              },
+                    Expanded(
+                    child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Option serial (a), b), c))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2, right: 6),
+                          child: Text(
+                            serial,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColor.blackColor,
+                              fontSize: Sizes.smallText(context),
                             ),
                           ),
                         ),
-                        // Radios: You + Correct
+
+                        // Option text
+                        Expanded(
+                          child: Html(
+                            data: opt.title ?? '',
+                            style: {
+                              "body": Style(
+                                margin: Margins.zero,
+                                padding: HtmlPaddings.zero,
+                              ),
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // YOU (letter)
                             LabeledRadio(
                               label: letter,
                               selected: youSelected,
                               disabled: true,
-                              selectedColor: youSelected ? youColor : Colors.grey,
+                              selectedColor:
+                              youSelected ? youColor : Colors.grey,
                               size: radioSize,
                             ),
                             const SizedBox(width: 10),
@@ -151,7 +173,6 @@ class SBAAnswerReviewTile extends StatelessWidget {
                               color: Colors.black12,
                             ),
                             const SizedBox(width: 10),
-                            // CORRECT (letter)
                             LabeledRadio(
                               label: letter,
                               selected: correctSelected,
@@ -167,6 +188,10 @@ class SBAAnswerReviewTile extends StatelessWidget {
                 ),
               );
             }),
+
+            const SizedBox(height: 2),
+
+            QuestionActionRow(questionId: questionId),
           ],
         ),
       ),

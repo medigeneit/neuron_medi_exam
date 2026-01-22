@@ -77,8 +77,8 @@ class HeaderInfoContainer extends StatelessWidget {
             Text(
               additionalText!,
               style: TextStyle(
-                fontSize: Sizes.normalText(context),
-                color: AppColor.primaryTextColor.withOpacity(0.8),
+                fontSize: Sizes.smallText(context),
+                color: Colors.black54,
               ),
             ),
           ],

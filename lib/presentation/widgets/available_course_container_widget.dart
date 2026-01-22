@@ -5,17 +5,35 @@ import 'package:medi_exam/presentation/widgets/available_course_card_widget.dart
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/widgets/show_disciplne_dialog.dart';
 
+import 'package:flutter/material.dart';
+import 'package:medi_exam/data/models/courses_model.dart';
+import 'package:medi_exam/presentation/utils/sizes.dart';
+import 'package:medi_exam/presentation/widgets/available_course_card_widget.dart';
+import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/widgets/show_disciplne_dialog.dart';
+
 class AvailableCourseContainerWidget extends StatefulWidget {
   final String title;
+  final String subtitle;
   final CoursesModel batchCourses;
   final bool isBatch;
 
+  // ✅ NEW: bubble up selected package + course info
+  final void Function({
+  required bool isBatch,
+  required String courseTitle,
+  required IconData icon,
+  required Package package,
+  }) onPackagePicked;
+
   const AvailableCourseContainerWidget({
-    Key? key,
+    super.key,
     required this.title,
+    required this.subtitle,
     required this.batchCourses,
     required this.isBatch,
-  }) : super(key: key);
+    required this.onPackagePicked,
+  });
 
   @override
   State<AvailableCourseContainerWidget> createState() =>
@@ -33,21 +51,20 @@ class _AvailableCourseContainerWidgetState
     final theme = Theme.of(context);
     final radius = BorderRadius.circular(20);
 
-    final gradientStroke = widget.isBatch ? AppColor.primaryGradient : AppColor.secondaryGradient;
+    final gradientStroke = widget.isBatch
+        ? AppColor.primaryGradient
+        : AppColor.secondaryGradient;
 
     final textColor = const Color(0xFF111827);
 
-    // Get courses from batchCourses
     final courses = widget.batchCourses.courses ?? [];
-    final displayedCourses = _isExpanded
-        ? courses
-        : courses.take(_initialItemCount).toList();
+    final displayedCourses =
+    _isExpanded ? courses : courses.take(_initialItemCount).toList();
 
     return Semantics(
       container: true,
       label: '${widget.title} section',
       child: DecoratedBox(
-        // outer gradient border
         decoration: BoxDecoration(
           gradient: gradientStroke.withOpacity(0.5),
           borderRadius: radius,
@@ -60,7 +77,7 @@ class _AvailableCourseContainerWidgetState
           ],
         ),
         child: Container(
-          margin: const EdgeInsets.all(1.6), // border thickness
+          margin: const EdgeInsets.all(1.6),
           decoration: BoxDecoration(
             gradient: gradientStroke,
             color: Colors.white.withOpacity(0.9),
@@ -74,14 +91,13 @@ class _AvailableCourseContainerWidgetState
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Header
                   _Header(
                     title: widget.title,
+                    subtitle: widget.subtitle,
                     count: courses.length,
                     textColor: textColor,
                     isBatch: widget.isBatch,
                   ),
-
                   const SizedBox(height: 12),
                   Divider(
                     height: 1,
@@ -90,13 +106,13 @@ class _AvailableCourseContainerWidgetState
                   ),
                   const SizedBox(height: 12),
 
-                  // Responsive grid + animated height for expand/collapse
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final crossAxisCount = _crossAxisCountForWidth(constraints.maxWidth);
-                      final childAspectRatio = _childAspectRatioForWidth(constraints.maxWidth);
+                      final crossAxisCount =
+                      _crossAxisCountForWidth(constraints.maxWidth);
+                      final childAspectRatio =
+                      _childAspectRatioForWidth(constraints.maxWidth);
 
-                      // Calculate the actual number of items to display
                       final itemCount = displayedCourses.length;
 
                       return AnimatedSize(
@@ -107,14 +123,28 @@ class _AvailableCourseContainerWidgetState
                             ? Center(
                           child: AvailableCourseCardWidget(
                             icon: Icons.school_rounded,
-                            title: displayedCourses[0].courseName ?? 'Unknown Course',
-                            onTap: () => showDisciplineDialog(
-                              context,
-                              displayedCourses[0].courseName ?? 'Unknown Course',
-                              Icons.school_rounded,
-                              widget.isBatch,
-                              displayedCourses[0].package ?? [],
-                            ),
+                            title: displayedCourses[0].courseName ??
+                                'Unknown Course',
+                            onTap: () {
+                              final course = displayedCourses[0];
+                              showDisciplineDialog(
+                                context,
+                                courseTitle:
+                                course.courseName ?? 'Unknown Course',
+                                courseIcon: Icons.school_rounded,
+                                isBatch: widget.isBatch,
+                                packages: course.package ?? [],
+                                onPicked: (pickedPackage) {
+                                  widget.onPackagePicked(
+                                    isBatch: widget.isBatch,
+                                    courseTitle: course.courseName ??
+                                        'Unknown Course',
+                                    icon: Icons.school_rounded,
+                                    package: pickedPackage,
+                                  );
+                                },
+                              );
+                            },
                             isBatch: widget.isBatch,
                           ),
                         )
@@ -122,7 +152,8 @@ class _AvailableCourseContainerWidgetState
                           itemCount: itemCount,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                          SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: crossAxisCount,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
@@ -133,13 +164,25 @@ class _AvailableCourseContainerWidgetState
                             return AvailableCourseCardWidget(
                               icon: Icons.school_rounded,
                               title: course.courseName ?? 'Unknown Course',
-                              onTap: () => showDisciplineDialog(
-                                context,
-                                course.courseName ?? 'Unknown Course',
-                                Icons.school_rounded,
-                                widget.isBatch,
-                                course.package ?? [],
-                              ),
+                              onTap: () {
+                                showDisciplineDialog(
+                                  context,
+                                  courseTitle: course.courseName ??
+                                      'Unknown Course',
+                                  courseIcon: Icons.school_rounded,
+                                  isBatch: widget.isBatch,
+                                  packages: course.package ?? [],
+                                  onPicked: (pickedPackage) {
+                                    widget.onPackagePicked(
+                                      isBatch: widget.isBatch,
+                                      courseTitle: course.courseName ??
+                                          'Unknown Course',
+                                      icon: Icons.school_rounded,
+                                      package: pickedPackage,
+                                    );
+                                  },
+                                );
+                              },
                               isBatch: widget.isBatch,
                             );
                           },
@@ -147,7 +190,7 @@ class _AvailableCourseContainerWidgetState
                       );
                     },
                   ),
-                  // Toggle button (shown only when needed)
+
                   if (courses.length > _initialItemCount) ...[
                     const SizedBox(height: 8),
                     _ShowMoreButton(
@@ -157,7 +200,6 @@ class _AvailableCourseContainerWidgetState
                     ),
                   ],
 
-                  // Empty state
                   if (courses.isEmpty) ...[
                     const SizedBox(height: 8),
                     Opacity(
@@ -182,27 +224,28 @@ class _AvailableCourseContainerWidgetState
   int _crossAxisCountForWidth(double w) {
     if (w >= 1000) return 4;
     if (w >= 760) return 3;
-    return 3; // phones
+    return 3;
   }
 
   double _childAspectRatioForWidth(double w) {
-    // Slightly taller on narrow screens
     if (w < 360) return 0.80;
     if (w < 760) return 0.95;
     return 1.05;
   }
-
 }
+
 
 /// Header with title, count badge, and animated toggle button.
 class _Header extends StatelessWidget {
   final String title;
+  final String subtitle;
   final int count;
   final Color textColor;
   final bool isBatch;
 
   const _Header({
     required this.title,
+    required this.subtitle,
     required this.count,
     required this.textColor,
     required this.isBatch,
@@ -212,29 +255,46 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Expanded(
-          child: Row(
-            children: [
-              Flexible(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontSize: Sizes.bodyText(context),
-                    fontWeight: FontWeight.w800,
-                    color: textColor,
-                    letterSpacing: 0.1,
+        Row(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontSize: Sizes.bodyText(context),
+                        fontWeight: FontWeight.w800,
+                        color: textColor,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  _CountBadge(count: count, isBatch: isBatch),
+                ],
               ),
-              const SizedBox(width: 10),
-              _CountBadge(count: count, isBatch: isBatch),
-            ],
+            ),
+          ],
+        ),
+        Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontSize: Sizes.smallText(context),
+            color: Colors.black45,
           ),
         ),
+
       ],
     );
   }

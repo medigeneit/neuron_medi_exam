@@ -3,8 +3,8 @@ import 'package:get/get.dart';
 import 'package:medi_exam/data/models/courses_model.dart';
 import 'package:medi_exam/data/services/all_batch_courses_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
-import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/courses_card_widget.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/show_disciplne_dialog.dart';
@@ -18,6 +18,7 @@ class CoursesScreen extends StatefulWidget {
 
 class _CoursesScreenState extends State<CoursesScreen> {
   final AllBatchCoursesService _service = AllBatchCoursesService();
+
   List<Course>? _courses;
   bool _isLoading = true;
   String? _errorMessage;
@@ -25,45 +26,69 @@ class _CoursesScreenState extends State<CoursesScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchBatchCourses();
+    _fetchCourses();
   }
 
-  Future<void> _fetchBatchCourses() async {
+  Future<void> _fetchCourses() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final response = await _service.fetchAllBatchCourses();
+    try {
+      final response = await _service.fetchAllBatchCourses();
 
-    if (response.isSuccess && response.responseData is CoursesModel) {
-      final allBatchCourses = response.responseData as CoursesModel;
+      if (response.isSuccess && response.responseData is CoursesModel) {
+        final model = response.responseData as CoursesModel;
+        setState(() {
+          _courses = model.courses ?? [];
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = response.errorMessage ?? 'Failed to load courses';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
       setState(() {
-        _courses = allBatchCourses.courses;
+        _errorMessage = 'Network error: $e';
         _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _errorMessage = response.errorMessage ?? 'Failed to load courses';
-        _isLoading = false;
-        // ignore: avoid_print
-        print('error: $_errorMessage');
       });
     }
   }
 
   Future<void> _retry() async {
-    await _fetchBatchCourses();
+    await _fetchCourses();
+  }
+
+  // ✅ Centralized navigation logic for this screen
+  void _handlePickedPackage({
+    required bool isBatch,
+    required String courseTitle,
+    required IconData icon,
+    required Package package,
+  }) {
+
+      Get.toNamed(
+        RouteNames.session_wise_batches,
+        arguments: {
+          'courseTitle': courseTitle,
+          'icon': icon,
+          'title': package.packageName,
+          'isBatch': isBatch,
+          'coursePackageId': package.packageId,
+        },
+      );
+
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: _buildBody(),
-    );
+    return _buildBody(context);
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
     if (_isLoading) {
       return const Center(child: LoadingWidget());
     }
@@ -73,10 +98,9 @@ class _CoursesScreenState extends State<CoursesScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              // _errorMessage!,
+            const Text(
               'Try Again Later',
-              style: const TextStyle(color: Colors.red),
+              style: TextStyle(color: Colors.red),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -98,18 +122,18 @@ class _CoursesScreenState extends State<CoursesScreen> {
       );
     }
 
+    // ✅ This screen is "All Courses" => usually subject-wise
+    // Change this to true if you want batch-wise behavior here.
+    const bool isBatch = false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: const BoxDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
-              // Header section
               Text(
                 'All Courses',
                 style: TextStyle(
@@ -130,49 +154,58 @@ class _CoursesScreenState extends State<CoursesScreen> {
           ),
         ),
 
-        // Give the GridView a bounded height using Expanded
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Grid layout: 2 items per row
               const horizontalPadding = 16.0;
               const gridSpacing = 12.0;
+
               final gridWidth = constraints.maxWidth - (horizontalPadding * 2);
               final itemWidth = (gridWidth - gridSpacing) / 2;
 
               return GridView.builder(
                 padding: const EdgeInsets.fromLTRB(
-                  horizontalPadding, 16, horizontalPadding, 16,
+                  horizontalPadding,
+                  16,
+                  horizontalPadding,
+                  16,
                 ),
                 physics: const BouncingScrollPhysics(),
                 itemCount: _courses!.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // 2 items per row
+                  crossAxisCount: 2,
                   crossAxisSpacing: gridSpacing,
                   mainAxisSpacing: gridSpacing,
                   childAspectRatio: 0.85,
                 ),
                 itemBuilder: (context, index) {
                   final course = _courses![index];
+
+                  void openDialog() {
+                    showDisciplineDialog(
+                      context,
+                      courseTitle: course.courseName ?? 'Unknown Course',
+                      courseIcon: Icons.school_rounded,
+                      isBatch: isBatch,
+                      packages: course.package ?? [],
+                      onPicked: (pickedPackage) {
+                        _handlePickedPackage(
+                          isBatch: isBatch,
+                          courseTitle: course.courseName ?? 'Unknown Course',
+                          icon: Icons.school_rounded,
+                          package: pickedPackage,
+                        );
+                      },
+                    );
+                  }
+
                   return SizedBox(
                     width: itemWidth,
                     child: CoursesCardWidget(
                       title: course.courseName ?? 'Unnamed Course',
                       icon: Icons.menu_book_rounded,
-                      onTap: () => showDisciplineDialog(
-                        context,
-                        course.courseName ?? 'Unknown Course',
-                        Icons.school_rounded,
-                        true,
-                        course.package ?? [],
-                      ),
-                      onLearnMore: () => showDisciplineDialog(
-                        context,
-                        course.courseName ?? 'Unknown Course',
-                        Icons.school_rounded,
-                        true,
-                        course.package ?? [],
-                      ),
+                      onTap: openDialog,
+                      onLearnMore: openDialog,
                     ),
                   );
                 },

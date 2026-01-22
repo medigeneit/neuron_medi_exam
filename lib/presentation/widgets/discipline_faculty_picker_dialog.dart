@@ -1,9 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:medi_exam/data/models/courses_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
-import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/discipline_faculty_card_widget.dart';
 
@@ -59,7 +57,8 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 20, 16, 20),
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -70,7 +69,11 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _header(courseTitle: courseTitle, subtitle: subtitle, icon: icon),
+                    child: _Header(
+                      courseTitle: courseTitle,
+                      subtitle: subtitle,
+                      icon: icon,
+                    ),
                   ),
                   const SizedBox(width: 6),
                   IconButton(
@@ -93,32 +96,28 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // Grid configuration based on width
-                  final crossAxisCount = (constraints.maxWidth / 300).floor().clamp(2, 4);
+                  final crossAxisCount =
+                  (constraints.maxWidth / 300).floor().clamp(2, 4);
 
-                  // Compute tile width
                   const mainSpacing = 16.0;
                   const crossSpacing = 16.0;
-                  final gridWidth = constraints.maxWidth;
-                  final itemWidth = (gridWidth - (crossAxisCount - 1) * crossSpacing) / crossAxisCount;
 
-                  // --- IMPORTANT PART ---
-                  // Guarantee a MIN tile height so 2 text lines always fit on phones.
-                  // You can tweak these numbers if your font sizes change.
+                  final gridWidth = constraints.maxWidth;
+                  final itemWidth = (gridWidth -
+                      (crossAxisCount - 1) * crossSpacing) /
+                      crossAxisCount;
+
                   final textScale = MediaQuery.of(context).textScaleFactor;
-                  final baseMinHeight = 84.0; // baseline for ~2 lines + paddings
+                  final baseMinHeight = 84.0;
                   final minTileHeight = baseMinHeight * textScale.clamp(0.9, 1.3);
 
-                  // Translate that into a childAspectRatio (width / height) that
-                  // won't go below the required min height.
-                  // If itemWidth / desiredHeight is < 1.0, tiles get taller than wide.
                   final childAspectRatio = itemWidth / minTileHeight;
 
-                  // Compute the effective grid height to cap dialog body
                   final itemCount = packages.length;
                   final rows = (itemCount / crossAxisCount).ceil();
                   final totalHeight = rows > 0
-                      ? rows * (itemWidth / childAspectRatio) + (rows - 1) * mainSpacing
+                      ? rows * (itemWidth / childAspectRatio) +
+                      (rows - 1) * mainSpacing
                       : 0.0;
 
                   final maxHeight = MediaQuery.of(context).size.height * 0.6;
@@ -136,11 +135,12 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
                             ? const BouncingScrollPhysics()
                             : const NeverScrollableScrollPhysics(),
                         itemCount: packages.length,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        gridDelegate:
+                        SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
                           mainAxisSpacing: mainSpacing,
                           crossAxisSpacing: crossSpacing,
-                          childAspectRatio: childAspectRatio, // <= dynamic now
+                          childAspectRatio: childAspectRatio,
                         ),
                         itemBuilder: (context, index) {
                           final package = packages[index];
@@ -148,17 +148,7 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
                             title: package.packageName ?? 'Unknown Package',
                             onTap: () {
                               Navigator.of(context).pop();
-                              Get.toNamed(
-                                RouteNames.session_wise_batches,
-                                arguments: {
-                                  'courseTitle': courseTitle,
-                                  'icon': icon,
-                                  'title': package.packageName,
-                                  'isBatch': isBatch,
-                                  'coursePackageId': package.packageId,
-                                },
-                              );
-                              onSelected(package);
+                              onSelected(package); // ✅ ONLY return selection
                             },
                             gradientColors: gradientColors,
                           );
@@ -176,12 +166,16 @@ class DisciplineFacultyPickerDialog extends StatelessWidget {
   }
 }
 
-class _header extends StatelessWidget {
+class _Header extends StatelessWidget {
   final String courseTitle;
   final String subtitle;
   final IconData icon;
 
-  const _header({required this.courseTitle, required this.subtitle, required this.icon});
+  const _Header({
+    required this.courseTitle,
+    required this.subtitle,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +183,7 @@ class _header extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment:  CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, size: Sizes.smallIcon(context), color: Colors.white),
             const SizedBox(width: 6),

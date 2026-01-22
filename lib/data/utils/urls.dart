@@ -13,6 +13,8 @@ class Urls {
   static const String forgotPasswordReset = "${_baseUrl}forgot-password/reset";
   static const String allBatchCourses = "${_baseUrl}batch-courses";
   static const String activeBatchCourses = "${_baseUrl}active-batch-courses";
+  static const String activeCourseSpecialties = "${_baseUrl}active-course-specialties";
+  static const String activeCourseSpecialtiesSubjects = "${_baseUrl}active-course-specialties-subjects";
   static const String slider = "${_baseUrl}hero-slider";
   static const String noticeList = "${_baseUrl}notices";
   static const String allEnrolledBatches = "${_baseUrl}doctor/admission-batches";
@@ -118,9 +120,18 @@ class Urls {
     return "${_baseUrl}doctor/exam-question-result/$admissionId/$examId";
   }
 
+  static String questionExplanation(String questionId) {
+    return "${_baseUrl}doctor/questions/$questionId/explanation";
+  }
+
+
 
   static String makeBkashPayment(String admissionId, String amount) {
     return "${_baseUrl}doctor/batch-make-bkash-payment?admission-id=$admissionId&amount=$amount";
+  }
+
+  static String subjectWiseChapterTopics(String specialtyId, String subjectId) {
+    return "${_baseUrl}specialty/$specialtyId/question-subjects/$subjectId";
   }
 
 

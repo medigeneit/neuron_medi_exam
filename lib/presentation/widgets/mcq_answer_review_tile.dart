@@ -1,3 +1,4 @@
+// lib/presentation/widgets/mcq_answer_review_tile.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:medi_exam/data/models/exam_answers_model.dart';
@@ -6,17 +7,21 @@ import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/labeled_radio.dart';
+import 'package:medi_exam/presentation/widgets/question_action_row.dart';
+import 'package:medi_exam/presentation/widgets/question_explaination_button.dart';
 
 /// Read-only MCQ review tile that shows both:
-/// - Your (doctor's) T/F (green if matches, red if wrong; grey if unanswered)
-/// - Correct T/F (brand indigo)
-/// Works with ANY number of statements (matches options.length).
+/// - Your (doctor's) T/F
+/// - Correct T/F
 class MCQAnswerReviewTile extends StatelessWidget {
   final String indexLabel;
   final String titleHtml;
-  final List<AnswerOption> options; // N statements (A..)
-  final List<bool?>? doctorStates;   // length N: true/false/null
-  final List<bool?>? correctStates;  // length N: true/false/null
+  final List<AnswerOption> options;
+  final List<bool?>? doctorStates;
+  final List<bool?>? correctStates;
+
+  /// NEW: needed for explanation API
+  final int? questionId;
 
   const MCQAnswerReviewTile({
     super.key,
@@ -25,6 +30,7 @@ class MCQAnswerReviewTile extends StatelessWidget {
     required this.options,
     required this.doctorStates,
     required this.correctStates,
+    required this.questionId,
   });
 
   @override
@@ -46,7 +52,8 @@ class MCQAnswerReviewTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColor.secondaryGradient,
@@ -91,13 +98,16 @@ class MCQAnswerReviewTile extends StatelessWidget {
               len,
                   (i) => _statementRow(context, i, options[i], ds[i], cs[i]),
             ),
+
+            const SizedBox(height: 2),
+
+            QuestionActionRow(questionId: questionId),
           ],
         ),
       ),
     );
   }
 
-  // Normalize incoming states to exactly `len` (pad/truncate to match options).
   List<bool?> _normalizeStates(List<bool?>? src, int len) {
     if (len <= 0) return const <bool?>[];
     final out = List<bool?>.filled(len, null);
@@ -116,13 +126,14 @@ class MCQAnswerReviewTile extends StatelessWidget {
       bool? doc,
       bool? cor,
       ) {
-    // null -> unanswered or unknown
     final bool? docIsCorrect = (doc == null || cor == null) ? null : (doc == cor);
 
-    final Color correctColor = AppColor.indigo; // correct key color (blue-ish)
+    final Color correctColor = AppColor.indigo;
     final Color youColor = (docIsCorrect == null)
-        ? Colors.grey // unanswered -> neutral grey
+        ? Colors.grey
         : (docIsCorrect ? Colors.green : Colors.red);
+    final String serial =
+    opt.serial != null ? '${opt.serial!.toLowerCase()})' : '';
 
     const double radioSize = 24;
 
@@ -134,23 +145,38 @@ class MCQAnswerReviewTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Statement text
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 12, right: 8),
-                  child: Html(
-                    data: opt.title ?? '',
-                    style: {
-                      "body": Style(
-                        margin: Margins.zero,
-                        padding: HtmlPaddings.zero,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Option serial (a), b), c))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, right: 6),
+                      child: Text(
+                        serial,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColor.blackColor,
+                          fontSize: Sizes.smallText(context),
+                        ),
                       ),
-                    },
-                  ),
+                    ),
+
+                    // Statement text
+                    Expanded(
+                      child: Html(
+                        data: opt.title ?? '',
+                        style: {
+                          "body": Style(
+                            margin: Margins.zero,
+                            padding: HtmlPaddings.zero,
+                          ),
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
-
-              // Your (doctor) radios
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -171,13 +197,9 @@ class MCQAnswerReviewTile extends StatelessWidget {
                   ),
                 ],
               ),
-
-              // Divider
               const SizedBox(width: 10),
               Container(width: 1, height: radioSize + 6, color: Colors.black12),
               const SizedBox(width: 10),
-
-              // Correct radios
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

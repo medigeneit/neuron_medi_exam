@@ -99,6 +99,10 @@ class SBAQuestionTile extends StatelessWidget {
     final list = <Widget>[];
     for (final opt in options) {
       final letter = (opt.serial ?? '').toUpperCase();
+
+      final String serial =
+      opt.serial != null ? '${opt.serial!.toLowerCase()})' : '';
+
       final text = opt.title ?? '';
       final bool selected =
           selectedLetter != null && selectedLetter!.toUpperCase() == letter;
@@ -113,17 +117,35 @@ class SBAQuestionTile extends StatelessWidget {
               children: [
                 // Option text
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 12, right: 8),
-                    child: Html(
-                      data: text,
-                      style: {
-                        "body": Style(
-                          margin: Margins.zero,
-                          padding: HtmlPaddings.zero,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Option serial (a), b), c))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2, right: 6),
+                        child: Text(
+                          serial,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColor.blackColor,
+                            fontSize: Sizes.smallText(context),
+                          ),
                         ),
-                      },
-                    ),
+                      ),
+
+                      // Option text
+                      Expanded(
+                        child: Html(
+                          data: opt.title ?? '',
+                          style: {
+                            "body": Style(
+                              margin: Margins.zero,
+                              padding: HtmlPaddings.zero,
+                            ),
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 // Radio + tiny loader

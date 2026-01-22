@@ -13,6 +13,7 @@ import 'package:medi_exam/presentation/screens/dashboard_screens/exam_result_scr
 import 'package:medi_exam/presentation/screens/edit_profile_screen.dart';
 import 'package:medi_exam/presentation/screens/free_exam_list_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
+import 'package:medi_exam/presentation/screens/make_customize_question_screen.dart';
 import 'package:medi_exam/presentation/screens/manual_payment_screen.dart';
 import 'package:medi_exam/presentation/screens/navbar_screen.dart';
 import 'package:medi_exam/presentation/screens/notice_screen.dart';
@@ -22,6 +23,8 @@ import 'package:medi_exam/presentation/screens/profile_section_screen.dart';
 import 'package:medi_exam/presentation/screens/session_wise_batches_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/solve_video_screen.dart';
 import 'package:medi_exam/presentation/screens/splash_screen.dart';
+import 'package:medi_exam/presentation/screens/subject_wise_chapter_topics_screen.dart';
+import 'package:medi_exam/presentation/screens/subject_wise_preparation_screen.dart';
 
 import '../screens/dashboard_screens/pdf_screen.dart';
 
@@ -70,6 +73,9 @@ class RouteNames {
   static const String manualPayment = '/manualPayment';
   static const String freeExams = '/freeExams';
   static const String pdfScreen = '/pdfScreen';
+  static const String subjectWisePreparation = '/subjectWisePreparation';
+  static const String subjectWiseChapterTopics = '/subjectWiseChapterTopics';
+  static const String makeCustomizeQuestion = '/makeCustomizeQuestion';
 }
 
 // Define routes
@@ -188,6 +194,20 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.pdfScreen,
     page: () => const PdfScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.subjectWisePreparation,
+    page: () => const SubjectWisePreparationScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.subjectWiseChapterTopics,
+    page: () => const SubjectWiseChapterTopicsScreen(),
+  ),
+  GetPage(
+    name: RouteNames.makeCustomizeQuestion,
+    page: () => const MakeCustomizeQuestionScreen(),
   ),
 
 ];

@@ -1,27 +1,29 @@
 // lib/presentation/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:in_app_update/in_app_update.dart';
+import 'package:medi_exam/data/models/active_course_specialties_subjects_model.dart'; // ✅ NEW
+import 'package:medi_exam/data/models/courses_model.dart';
+import 'package:medi_exam/data/models/helpline_model.dart';
+import 'package:medi_exam/data/models/slide_items_model.dart';
+import 'package:medi_exam/data/services/active_batch_courses_service.dart';
+import 'package:medi_exam/data/services/active_course_specialties_subjects_service.dart'; // ✅ NEW
+import 'package:medi_exam/data/services/helpline_service.dart';
+import 'package:medi_exam/data/services/slide_items_service.dart';
 import 'package:medi_exam/data/utils/auth_checker.dart';
 import 'package:medi_exam/data/utils/urls.dart';
-import 'package:medi_exam/presentation/utils/routes.dart';
-import 'package:medi_exam/presentation/widgets/free_exam_card.dart';
-import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_helpers.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:medi_exam/data/models/courses_model.dart';
-import 'package:medi_exam/data/models/slide_items_model.dart';
-import 'package:medi_exam/data/models/helpline_model.dart';
-import 'package:medi_exam/data/services/active_batch_courses_service.dart';
-import 'package:medi_exam/data/services/slide_items_service.dart';
-import 'package:medi_exam/data/services/helpline_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/assets_path.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
-import 'package:medi_exam/presentation/widgets/coming_soon_widget.dart';
 import 'package:medi_exam/presentation/widgets/floating_customer_care.dart';
+import 'package:medi_exam/presentation/widgets/free_exam_card.dart';
+import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/helpers/home_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/image_slider_banner.dart';
 import 'package:medi_exam/presentation/widgets/youtube_video_dialog.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,18 +34,33 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ActiveBatchCoursesService _coursesService = ActiveBatchCoursesService();
+
+  // ✅ UPDATED: active-course-specialties-subjects service
+  final ActiveCourseSpecialtiesSubjectsService _specialtiesSubjectsService =
+  ActiveCourseSpecialtiesSubjectsService();
+
   final SlidingItemsService _slidingItemsService = SlidingItemsService();
   final HelplineService _helplineService = HelplineService();
 
-  CoursesModel? _batchCourses;
+  CoursesModel? _batchCourses; // isBatch = true section
+
+  // ✅ Subject-wise UI will still be shown using CoursesModel,
+  // but populated by converting ActiveCourseSpecialtiesSubjectsModel -> CoursesModel
+  CoursesModel? _subjectCourses;
+
+  // ✅ NEW: keep subjects list to pass to next screen later
+  List<Subject> _subjects = [];
+
   SlideItemsModel? _slideItemsModel;
   HelplineModel? _helpline;
 
-  bool _isLoading = true;
+  bool _isLoading = true; // batch-wise
+  bool _isSubjectLoading = true; // subject-wise
   bool _isSlidingLoading = true;
   bool _isHelplineLoading = true;
 
-  String? _errorMessage;
+  String? _errorMessage; // batch-wise
+  String? _subjectErrorMessage; // subject-wise
   String? _slidingErrorMessage;
   String? _helplineError;
 
@@ -55,7 +72,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchData() async {
     await Future.wait([
+      _checkForUpdate(),
       _fetchBatchCourses(),
+      _fetchSubjectWiseSpecialtiesAndSubjects(), // ✅ UPDATED
       _fetchSlidingItems(),
       _fetchHelpline(),
     ]);
@@ -85,6 +104,65 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ✅ UPDATED: Subject-wise uses active-course-specialties-subjects
+  Future<void> _fetchSubjectWiseSpecialtiesAndSubjects() async {
+    try {
+      final response =
+      await _specialtiesSubjectsService.fetchActiveCourseSpecialtiesSubjects();
+
+      if (response.isSuccess && response.responseData != null) {
+        final model =
+        response.responseData as ActiveCourseSpecialtiesSubjectsModel;
+
+        // ✅ keep subjects for next screen later
+        final subjects = model.subjects ?? [];
+
+        // ✅ Convert courses(specialties) -> CoursesModel for UI
+        final converted = _convertActiveCoursesToCoursesModel(model.courses ?? []);
+
+        setState(() {
+          _subjects = subjects;
+          _subjectCourses = converted;
+        });
+      } else {
+        setState(() {
+          _subjectErrorMessage =
+              response.errorMessage ?? 'Failed to load subject specialties';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _subjectErrorMessage = 'Network error: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isSubjectLoading = false;
+      });
+    }
+  }
+
+  /// ✅ Convert:
+  /// ActiveCourse(courseId, courseName, specialty[]) -> Course(courseId, courseName, package[])
+  /// Specialty(specialtyId, specialtyName) -> Package(packageId, packageName)
+  CoursesModel _convertActiveCoursesToCoursesModel(List<ActiveCourse> list) {
+    final convertedCourses = list.map((c) {
+      final packages = (c.specialty ?? [])
+          .map((s) => Package(
+        packageId: s.specialtyId,
+        packageName: s.specialtyName,
+      ))
+          .toList();
+
+      return Course(
+        courseId: c.courseId,
+        courseName: c.courseName,
+        package: packages,
+      );
+    }).toList();
+
+    return CoursesModel(courses: convertedCourses);
+  }
+
   Future<void> _fetchSlidingItems() async {
     try {
       final response = await _slidingItemsService.fetchSlidingItems();
@@ -95,8 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       } else {
         setState(() {
-          _slidingErrorMessage =
-              response.errorMessage ?? 'Failed to load slides';
+          _slidingErrorMessage = response.errorMessage ?? 'Failed to load slides';
         });
       }
     } catch (e) {
@@ -136,14 +213,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refreshData() async {
     setState(() {
       _isLoading = true;
+      _isSubjectLoading = true;
       _isSlidingLoading = true;
       _isHelplineLoading = true;
 
       _errorMessage = null;
+      _subjectErrorMessage = null;
       _slidingErrorMessage = null;
       _helplineError = null;
 
       _batchCourses = null;
+      _subjectCourses = null;
+      _subjects = [];
       _slideItemsModel = null;
       _helpline = null;
     });
@@ -151,17 +232,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ---------- Promo Video helpers ----------
-  // Lightweight check: try to embed on phones/tablets, open external on wide screens.
   bool get _isDesktopLike {
     final w = MediaQuery.of(context).size.width;
-    return w >= 900; // tweak if you want
+    return w >= 900;
   }
 
   String? _extractYouTubeId(String? url) {
     if (url == null || url.trim().isEmpty) return null;
     final u = url.trim();
 
-    // Common YouTube patterns
     final patterns = <RegExp>[
       RegExp(r'youtu\.be/([A-Za-z0-9_-]{6,})'),
       RegExp(r'youtube\.com/watch\?v=([A-Za-z0-9_-]{6,})'),
@@ -170,9 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     for (final p in patterns) {
       final m = p.firstMatch(u);
-      if (m != null && m.groupCount >= 1) {
-        return m.group(1);
-      }
+      if (m != null && m.groupCount >= 1) return m.group(1);
     }
     return null;
   }
@@ -181,13 +258,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final link = (_helpline?.promotionalVideoUrl ?? '').trim();
     final videoId = _extractYouTubeId(link);
 
-    // Try inline dialog on smaller screens if we can extract an ID
     if (!_isDesktopLike && videoId != null) {
       _showYouTubeDialog(videoId);
       return;
     }
 
-    // Fallback: open externally
     if (link.isNotEmpty) {
       await _openExternal(link);
     } else {
@@ -199,8 +274,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showYouTubeDialog(String videoId) {
-    // If you don't have YouTubeVideoDialog, this try/catch will safely
-    // fallback to external open.
     try {
       showDialog<void>(
         context: context,
@@ -229,7 +302,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Sanitizers (optional; keep light)
   String? _cleanWhatsapp(String? raw) {
     if (raw == null) return null;
     final s = raw.replaceAll(RegExp(r'[^0-9]'), '');
@@ -240,31 +312,57 @@ class _HomeScreenState extends State<HomeScreen> {
     if (raw == null) return null;
     final s = raw.trim();
     return s.isEmpty ? null : s;
-    // You could enforce "+<country><number>" here if you want.
   }
 
+  Future<void> _checkForUpdate() async {
+    try {
+      final updateInfo = await InAppUpdate.checkForUpdate();
+      if (updateInfo.updateAvailability == UpdateAvailability.updateAvailable) {
+        if (updateInfo.immediateUpdateAllowed) {
+          await _performImmediateUpdate();
+        } else if (updateInfo.flexibleUpdateAllowed) {
+          debugPrint('Flexible update available but not implemented');
+        }
+      }
+    } catch (e) {
+      debugPrint('Update check failed: $e');
+    }
+  }
 
-  // ---------------- NEW: Free Exam handler (auth + navigation) ----------------
+  Future<void> _performImmediateUpdate() async {
+    try {
+      final result = await InAppUpdate.performImmediateUpdate();
+      if (result == AppUpdateResult.success) {
+        debugPrint('Update successful');
+      } else {
+        debugPrint('Update failed with result: $result');
+      }
+    } catch (e) {
+      debugPrint('Immediate update failed: $e');
+    }
+  }
+
+  // ---------------- Free Exam handler (auth + navigation) ----------------
   Future<void> _onFreeExamPressed() async {
     final authed = await AuthChecker.to.isAuthenticated();
 
     Future<void> goNow() async {
       Get.toNamed(
         RouteNames.freeExams,
-        arguments: {
-          'url': Urls.freeExamList,
-        },
+        arguments: {'url': Urls.freeExamList},
         preventDuplicates: true,
       );
     }
 
     if (!authed) {
-      Get.snackbar('Login Required',
-          'Please log in to try the free exam',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 3));
+      Get.snackbar(
+        'Login Required',
+        'Please log in to try the free exam',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
 
       final result = await Get.toNamed(
         RouteNames.login,
@@ -272,8 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
           'popOnSuccess': true,
           'returnRoute': null,
           'returnArguments': null,
-          'message':
-          "You’re one step away! Log in to take the Free Exam.",
+          'message': "You’re one step away! Log in to take the Free Exam.",
         },
       );
 
@@ -299,7 +396,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Stack(
       children: [
-        // Content
         RefreshIndicator(
           onRefresh: _refreshData,
           color: AppColor.primaryColor,
@@ -309,7 +405,8 @@ class _HomeScreenState extends State<HomeScreen> {
               // Header
               SliverToBoxAdapter(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -345,37 +442,51 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // Courses
+              // ✅ Batch Wise Preparation (isBatch = true)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: isMobile ? 16 : 24,
                     vertical: 8,
                   ),
-                  child: _buildCoursesSection(),
+                  child: _buildCoursesSection(
+                    isLoading: _isLoading,
+                    errorMessage: _errorMessage,
+                    model: _batchCourses,
+                    title: "Batch Wise Preparation",
+                    subtitle:
+                    "Choose a batch and try free exams to check your level",
+                    isBatch: true,
+                  ),
                 ),
-              ),// Courses
+              ),
+
+              // Free exam card
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: isMobile ? 16 : 24,
                     vertical: 8,
                   ),
-                  child:  FreeExamCardButton(
+                  child: FreeExamCardButton(
                     onTap: _onFreeExamPressed,
                   ),
                 ),
               ),
 
-              // Coming Soon
+              // ✅ Subject Wise Preparation uses active-course-specialties-subjects
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: isMobile ? 16 : 24,
                     vertical: 8,
                   ),
-                  child: const ComingSoonWidget(
+                  child: _buildCoursesSection(
+                    isLoading: _isSubjectLoading,
+                    errorMessage: _subjectErrorMessage,
+                    model: _subjectCourses,
                     title: "Subject Wise Preparation",
+                    subtitle: "Explore any subject with one free exam every day",
                     isBatch: false,
                   ),
                 ),
@@ -386,15 +497,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
 
-        // 💬 Floating Customer Care (bottom-right)
-        // Auto-hides individual actions if they are null/empty.
+        // Floating Customer Care
         Positioned.fill(
           child: IgnorePointer(
             ignoring: false,
             child: Align(
               alignment: Alignment.bottomRight,
               child: FloatingCustomerCare(
-                // All optional now; pass null/empty safely.
                 messengerUrl: _helpline?.messenger,
                 whatsappPhone: _cleanWhatsapp(_helpline?.whatsapp),
                 phoneNumber: _cleanPhone(_helpline?.phone),
@@ -426,26 +535,79 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _buildCoursesSection() {
-    if (_isLoading) {
+  // ✅ Reusable section builder (used for BOTH batch + subject sections)
+  // ✅ UPDATED: for subject-wise, pass Subject list to next screen (implement later)
+  Widget _buildCoursesSection({
+    required bool isLoading,
+    required String? errorMessage,
+    required CoursesModel? model,
+    required String title,
+    required String subtitle,
+    required bool isBatch,
+  }) {
+    if (isLoading) {
       return CoursesShimmerLoading();
-    } else if (_errorMessage != null) {
+    } else if (errorMessage != null) {
       return BatchErrorWidget(
-        title: "Batch Wise Preparation",
-        errorMessage: _errorMessage!,
+        title: title,
+        errorMessage: errorMessage,
         onRetry: _refreshData,
-        isBatch: true,
+        isBatch: isBatch,
       );
-    } else if (_batchCourses?.courses?.isEmpty ?? true) {
-      return const EmptyWidget(
-        title: "Batch Wise Preparation",
-        isBatch: true,
+    } else if (model?.courses?.isEmpty ?? true) {
+      return EmptyWidget(
+        title: title,
+        isBatch: isBatch,
       );
     } else {
       return AvailableCourseContainerWidget(
-        title: "Batch Wise Preparation",
-        batchCourses: _batchCourses!,
-        isBatch: true,
+        title: title,
+        subtitle: subtitle,
+        batchCourses: model!,
+        isBatch: isBatch,
+        onPackagePicked: ({
+          required bool isBatch,
+          required String courseTitle,
+          required IconData icon,
+          required Package package,
+        }) {
+          if (isBatch) {
+            // ✅ Batch-wise navigation
+            Get.toNamed(
+              RouteNames.session_wise_batches,
+              arguments: {
+                'courseTitle': courseTitle,
+                'icon': icon,
+                'title': package.packageName,
+                'isBatch': isBatch,
+                'coursePackageId': package.packageId,
+              },
+            );
+          } else {
+            // ✅ Subject-wise
+
+            Get.toNamed(
+              RouteNames.subjectWisePreparation,
+              arguments: {
+                'courseTitle': courseTitle,
+                'icon': icon,
+                'specialtyId': package.packageId,
+                'specialtyName': package.packageName,
+                'subjects': _subjects, // List<Subject>
+              },
+            );
+
+/*            //If you don't have the route yet, you can keep snackbar for now:
+            Get.snackbar(
+              "Course: $courseTitle",
+              "Specialty: ${package.packageName} selected",
+              backgroundColor: Colors.blue,
+              colorText: Colors.white,
+              snackPosition: SnackPosition.BOTTOM,
+              duration: const Duration(seconds: 3),
+            );*/
+          }
+        },
       );
     }
   }
