@@ -1,16 +1,16 @@
-// free_exam_list_public_service.dart
+// open_exam_list_public_service.dart
 
 import 'package:medi_exam/data/network_caller.dart';
 import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/data/utils/urls.dart';
-import 'package:medi_exam/data/models/free_exam_list_public_model.dart';
+import 'package:medi_exam/data/models/open_exam_list_public_model.dart';
 import 'package:logger/logger.dart';
 
-class FreeExamListPublicService {
+class OpenExamListPublicService {
   final NetworkCaller _caller = NetworkCaller(logger: Logger());
 
   Future<NetworkResponse> fetchFreeExamPublicList() async {
-    const url = Urls.freeExamPublicList;
+    const url = Urls.openExamPublicList;
 
     final response = await _caller.getRequest(
       url,
@@ -22,7 +22,7 @@ class FreeExamListPublicService {
         // API returns a List<dynamic> (top-level JSON array)
         if (response.responseData is List) {
           final model =
-          FreeExamListPublicModel.fromJsonList(response.responseData as List);
+          OpenExamListPublicModel.fromJsonList(response.responseData as List);
           return NetworkResponse(
             statusCode: response.statusCode,
             isSuccess: true,
@@ -32,7 +32,7 @@ class FreeExamListPublicService {
 
         // Sometimes API may wrap list in { "data": [...] }
         if (response.responseData is Map) {
-          final model = FreeExamListPublicModel.fromJsonList(response.responseData);
+          final model = OpenExamListPublicModel.fromJsonList(response.responseData);
           if (model.isNotEmpty) {
             return NetworkResponse(
               statusCode: response.statusCode,

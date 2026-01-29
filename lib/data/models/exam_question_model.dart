@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 /// Convenience: decode from a raw JSON string.
@@ -11,7 +10,10 @@ String examQuestionModelToJson(ExamQuestionModel model) =>
 
 class ExamQuestionModel {
   final bool? runningExam;
-  final int? duration; // seconds (per your example: 1140)
+
+  /// Backend sends this as MINUTES (e.g. 20).
+  final int? duration;
+
   final Map<int, SubmittedAnswer>? submittedAnswers; // keyed by questionId when numeric
   final int? totalNumberOfQuestion;
   final int? submittedNumberOfQuestions;
@@ -34,6 +36,15 @@ class ExamQuestionModel {
     this.exam,
   });
 
+  /// ✅ Convenience getters (no breaking changes)
+  int get durationMinutes => duration ?? 0;
+
+  /// If you need seconds for timers.
+  int get durationSeconds => durationMinutes * 60;
+
+  /// If you want a Dart Duration.
+  Duration get durationAsDuration => Duration(minutes: durationMinutes);
+
   factory ExamQuestionModel.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const ExamQuestionModel();
 
@@ -44,8 +55,9 @@ class ExamQuestionModel {
       final out = <int, SubmittedAnswer>{};
       rawSubmitted.forEach((k, v) {
         final keyInt = JsonUtils.toIntSafe(k);
-        if (keyInt != null && v is Map<String, dynamic>) {
-          out[keyInt] = SubmittedAnswer.fromJson(v, questionIdFromKey: keyInt);
+        final map = JsonUtils.toMapStringDynamic(v);
+        if (keyInt != null && map != null) {
+          out[keyInt] = SubmittedAnswer.fromJson(map, questionIdFromKey: keyInt);
         }
       });
       _submittedAnswers = out.isEmpty ? null : out;
@@ -58,8 +70,9 @@ class ExamQuestionModel {
       final out = <int, Question>{};
       rawQuestions.forEach((k, v) {
         final keyInt = JsonUtils.toIntSafe(k);
-        if (keyInt != null && v is Map<String, dynamic>) {
-          out[keyInt] = Question.fromJson(v);
+        final map = JsonUtils.toMapStringDynamic(v);
+        if (keyInt != null && map != null) {
+          out[keyInt] = Question.fromJson(map);
         }
       });
       _questions = out.isEmpty ? null : out;
@@ -67,6 +80,7 @@ class ExamQuestionModel {
 
     return ExamQuestionModel(
       runningExam: JsonUtils.toBool(json['running_exam']),
+      // duration from backend is MINUTES (keep as-is)
       duration: JsonUtils.toInt(json['duration']),
       submittedAnswers: _submittedAnswers,
       totalNumberOfQuestion: JsonUtils.toInt(json['total_number_of_question']),
@@ -80,12 +94,14 @@ class ExamQuestionModel {
       JsonUtils.toInt(json['count_partial_answered_question_ids']),
       questions: _questions,
       exam: ExamInfo.fromJson(
-          json['exam'] is Map<String, dynamic> ? json['exam'] : null),
+        JsonUtils.toMapStringDynamic(json['exam']),
+      ),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'running_exam': runningExam,
+    // keep sending minutes
     'duration': duration,
     'submitted_answers': submittedAnswers == null
         ? null
@@ -161,6 +177,7 @@ class Question {
     List<QuestionOption>? options;
     if (optsRaw is List) {
       options = optsRaw
+          .map(JsonUtils.toMapStringDynamic)
           .whereType<Map<String, dynamic>>()
           .map(QuestionOption.fromJson)
           .toList();
@@ -214,9 +231,9 @@ class QuestionOption {
 /// For SBA, `answer` is one of "A".."E".
 class SubmittedAnswer {
   final int? questionIdFromKey; // the map key, if numeric (e.g., 4, 5, 27)
-  final int? examQuestionId;    // e.g., 27, 26...
-  final String? answer;         // raw answer string
-  final int? questionTypeId;    // 1 (MCQ) / 2 (SBA)
+  final int? examQuestionId; // e.g., 27, 26...
+  final String? answer; // raw answer string
+  final int? questionTypeId; // 1 (MCQ) / 2 (SBA)
 
   const SubmittedAnswer({
     this.questionIdFromKey,
@@ -231,7 +248,10 @@ class SubmittedAnswer {
   List<bool?>? get mcqStates => isMCQ ? MCQAnswer.parse(answer) : null;
   int? get sbaIndex => isSBA ? SBAAnswer.indexFromLetter(answer) : null;
 
-  factory SubmittedAnswer.fromJson(Map<String, dynamic>? json, {int? questionIdFromKey}) {
+  factory SubmittedAnswer.fromJson(
+      Map<String, dynamic>? json, {
+        int? questionIdFromKey,
+      }) {
     if (json == null) return const SubmittedAnswer();
     return SubmittedAnswer(
       questionIdFromKey: questionIdFromKey,
@@ -247,7 +267,6 @@ class SubmittedAnswer {
     'question_type_id': questionTypeId,
   };
 
-  // ✅ Add this:
   SubmittedAnswer copyWith({
     int? questionIdFromKey,
     int? examQuestionId,
@@ -282,7 +301,7 @@ class MCQAnswer {
       } else if (ch == 'F') {
         result[i] = false;
       } else {
-        result[i] = null; // '.', space, etc.
+        result[i] = null;
       }
     }
     return result;
@@ -315,7 +334,6 @@ class SBAAnswer {
     final code = c.codeUnitAt(0) - 'A'.codeUnitAt(0);
     if (code < 0 || code > 4) return null;
     return code;
-    // Mapping: A->0, B->1, C->2, D->3, E->4
   }
 
   /// Convert 0..4 back to 'A'..'E'. Returns null if out of range.
@@ -378,7 +396,6 @@ class JsonUtils {
       }
       return list.isEmpty ? null : list;
     }
-    // Single value -> singleton list (if parseable)
     final single = toInt(v);
     if (single != null) return [single];
     return null;
@@ -396,6 +413,16 @@ class JsonUtils {
     }
     final single = toStringOrNull(v);
     if (single != null) return [single];
+    return null;
+  }
+
+  /// ✅ Safe map conversion (handles Map<dynamic, dynamic> too)
+  static Map<String, dynamic>? toMapStringDynamic(dynamic v) {
+    if (v == null) return null;
+    if (v is Map<String, dynamic>) return v;
+    if (v is Map) {
+      return v.map((key, value) => MapEntry(key.toString(), value));
+    }
     return null;
   }
 }

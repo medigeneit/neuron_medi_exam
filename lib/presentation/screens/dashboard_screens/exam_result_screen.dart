@@ -7,7 +7,6 @@ import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/data/services/exam_result_service.dart';
 import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
-import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
@@ -26,7 +25,9 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
   late final Map<String, dynamic> _args;
   late final String admissionId;
   late final String examId;
-  late final bool isFreeExam;
+
+  /// 'freeExam', 'openExam', 'courseExam', 'subjectExam'
+  late final String examType;
 
   final _service = ExamResultService();
 
@@ -40,7 +41,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     _args = Get.arguments ?? {};
     admissionId = (_args['admissionId'] ?? '').toString();
     examId = (_args['examId'] ?? '').toString();
-    isFreeExam = (_args['isFreeExam'] ?? false) as bool;
+    examType = (_args['examType'] ?? '').toString();
     _load();
   }
 
@@ -50,10 +51,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
       _error = null;
     });
 
-    final url = isFreeExam
-        ? Urls.freeExamResult(examId)
-        : Urls.examResult(admissionId, examId);
-
+    final url = _resultUrlByExamType();
     final NetworkResponse resp = await _service.fetchExamResult(url);
 
     if (!mounted) return;
@@ -100,6 +98,19 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     }
   }
 
+  String _resultUrlByExamType() {
+    switch (examType) {
+      case 'freeExam':
+        return Urls.freeExamResult(examId);
+      case 'openExam':
+        return Urls.openExamResult(examId);
+      case 'courseExam':
+        return Urls.courseExamResult(admissionId, examId);
+      default:
+        return Urls.openExamResult(examId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return CommonScaffold(
@@ -117,21 +128,22 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     final res = _model?.result;
     final percent = res?.obtainedMarkPercent ?? 0.0;
 
+    // ✅ Show ranking section only if at least one position exists
+    final hasOverallPos = res?.overallPosition != null;
+    final hasBatchPos = res?.batchPosition != null;
+    final showRanking = hasOverallPos || hasBatchPos;
+
     return CustomScrollView(
       slivers: [
-        // Hero Section with Progress Circle
         SliverToBoxAdapter(
           child: _buildHeroSection(context, _model!, percent),
         ),
-
-        // Info Cards Section
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               const SizedBox(height: 16),
 
-              // Exam Info Card
               _buildInfoCard(
                 context,
                 title: 'Exam Information',
@@ -145,49 +157,51 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
 
               const SizedBox(height: 12),
 
-              // Result Card
               _buildInfoCard(
                 context,
                 title: 'Your Performance',
                 icon: Icons.analytics_outlined,
                 children: [
-                  _infoRow('Obtained Mark', '${_fmtDouble(res?.obtainedMark)} / ${_fmtInt(exam?.fullMark)}'),
+                  _infoRow(
+                    'Obtained Mark',
+                    '${_fmtDouble(res?.obtainedMark)} / ${_fmtInt(exam?.fullMark)}',
+                  ),
                   _infoRow('Correct Answers', _fmtDouble(res?.correctMark)),
                   _infoRow('Negative Mark', _fmtDouble(res?.negativeMark)),
                   _infoRow('Wrong Answers', _fmtInt(res?.wrongAnswers)),
                 ],
               ),
 
-              const SizedBox(height: 12),
-
-              // Position Card
-              _buildInfoCard(
-                context,
-                title: 'Ranking',
-                icon: Icons.leaderboard_outlined,
-                children: [
-                  _positionItem(
-                    Icons.emoji_events_outlined,
-                    'Overall Position',
-                    _fmtInt(res?.overallPosition),
-                    Colors.orange,
-                  ),
-                  if (res?.batchPosition != null)
-                  _positionItem(
-                    Icons.groups_outlined,
-                    'Batch Position',
-                    _fmtInt(res?.batchPosition),
-                    Colors.blue,
-                  ),
-                ],
-              ),
+              // ✅ Ranking card ONLY when there is data
+              if (showRanking) ...[
+                const SizedBox(height: 12),
+                _buildInfoCard(
+                  context,
+                  title: 'Ranking',
+                  icon: Icons.leaderboard_outlined,
+                  children: [
+                    if (hasOverallPos)
+                      _positionItem(
+                        Icons.emoji_events_outlined,
+                        'Overall Position',
+                        _fmtInt(res?.overallPosition),
+                        Colors.orange,
+                      ),
+                    if (hasBatchPos)
+                      _positionItem(
+                        Icons.groups_outlined,
+                        'Batch Position',
+                        _fmtInt(res?.batchPosition),
+                        Colors.blue,
+                      ),
+                  ],
+                ),
+              ],
 
               const SizedBox(height: 24),
             ]),
           ),
         ),
-
-        // View Answers Button
         SliverFillRemaining(
           hasScrollBody: false,
           child: Container(
@@ -204,7 +218,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     );
   }
 
-  Widget _buildHeroSection(BuildContext context, ExamResultModel model, double percent) {
+  Widget _buildHeroSection(
+      BuildContext context, ExamResultModel model, double percent) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: GlassCard(
@@ -213,7 +228,6 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              // Progress Circle with Percentage
               Stack(
                 alignment: Alignment.center,
                 children: [
@@ -221,7 +235,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     width: 110,
                     height: 110,
                     child: CircularProgressIndicator(
-                      value: percent / 100,
+                      value: (percent.clamp(0, 100)) / 100,
                       strokeWidth: 6,
                       backgroundColor: Colors.grey.shade300,
                       valueColor: AlwaysStoppedAnimation<Color>(
@@ -251,10 +265,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 16),
-
-              // Main Stats
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -285,11 +296,12 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     );
   }
 
-  Widget _buildInfoCard(BuildContext context, {
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
+  Widget _buildInfoCard(
+      BuildContext context, {
+        required String title,
+        required IconData icon,
+        required List<Widget> children,
+      }) {
     return CustomBlobBackground(
       backgroundColor: Colors.white,
       blobColor: AppColor.indigo,
@@ -298,7 +310,6 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Row(
               children: [
                 Container(
@@ -323,7 +334,6 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 12),
-            // Content
             ...children,
           ],
         ),
@@ -359,7 +369,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     );
   }
 
-  Widget _positionItem(IconData icon, String label, String value, Color color) {
+  Widget _positionItem(
+      IconData icon, String label, String value, Color color) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -402,7 +413,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     );
   }
 
-  Widget _heroStatItem(IconData icon, String label, String value, Color color) {
+  Widget _heroStatItem(
+      IconData icon, String label, String value, Color color) {
     return Column(
       children: [
         Container(
@@ -416,7 +428,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,
             color: AppColor.primaryTextColor,
@@ -454,11 +466,11 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: _onViewAnswersTap,
-          child: Row(
+          child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.visibility_outlined, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 'View Detailed Answers',
                 style: TextStyle(
@@ -485,20 +497,21 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     final data = {
       'admissionId': admissionId.toString(),
       'examId': examId.toString(),
+      'examType': examType,
       'examInfo': _model?.exam,
       'result': _model?.result,
-      'isFreeExam': isFreeExam,
     };
+
     Get.toNamed(
       RouteNames.examAnswer,
       arguments: data,
       preventDuplicates: true,
     );
-
   }
 
   // Format helpers
   String _fmtInt(int? v) => v == null ? '—' : v.toString();
-  String _fmtDouble(double? v) => v == null ? '—' : _trimZeros(v.toStringAsFixed(2));
+  String _fmtDouble(double? v) =>
+      v == null ? '—' : _trimZeros(v.toStringAsFixed(2));
   String _trimZeros(String s) => s.replaceFirst(RegExp(r'\.?0+$'), '');
 }

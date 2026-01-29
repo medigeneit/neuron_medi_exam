@@ -22,6 +22,8 @@ import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/mcq_question_tile.dart';
 import 'package:medi_exam/presentation/widgets/sba_question_tile.dart';
 
+import '../../widgets/exam_finish_feedback_dialog.dart';
+
 class ExamQuestionsScreen extends StatefulWidget {
   const ExamQuestionsScreen({super.key});
 
@@ -35,7 +37,10 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   late String examQuestionUrl;
   late String admissionId;
   late String examId;
-  late bool isFreeExam;
+
+  /// 'freeExam', 'openExam', 'courseExam', 'subjectExam'
+  late String examType;
+
   final _examService = ExamQuestionsService();
   final _submitService = SingleAnswerSubmitService();
   final _finishService = FinishExamService();
@@ -53,15 +58,15 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   bool get _timeUp => _secondsLeft <= 0;
 
   // Local state caches
-  // MCQ: per statement T/F/null, LENGTH = number of statements for that MCQ
   final Map<int, List<bool?>> _mcqStates = {};
-  // Per-statement in-flight guards (length matches statement count)
   final Map<int, List<bool>> _mcqBusy = {};
-
-  // SBA: selected letter
   final Map<int, String?> _sbaSelected = {};
-  // In-flight guard per SBA question
   final Set<int> _sbaBusy = {};
+
+  // ---------- Exam type helpers ----------
+  bool get _isFreeOrOpenExam => examType == 'freeExam' || examType == 'openExam';
+  bool get _isCourseOrSubjectExam =>
+      examType == 'courseExam' || examType == 'subjectExam';
 
   List<int> get _allQuestionIds {
     final q = _model?.questions;
@@ -82,7 +87,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     return list.toSet();
   }
 
-  /// Locally compute partial MCQ questions:
   /// partial = at least one answered AND at least one unanswered among N statements.
   Set<int> get _partialIdsComputed {
     final out = <int>{};
@@ -95,7 +99,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     return out;
   }
 
-  /// Is the question still partial now (based on local MCQ states)?
   bool _isStillPartialNow(int qId) {
     final states = _mcqStates[qId] ?? const <bool?>[];
     if (states.isEmpty) return false;
@@ -103,7 +106,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     return answered > 0 && answered < states.length;
   }
 
-  /// Final list for the Partial tab: server-marked and still partial locally, union locally computed.
   List<int> get _partialIds {
     final filteredServer =
     _partialIdsFromServer.where(_isStillPartialNow).toSet();
@@ -123,8 +125,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     args = Get.arguments ?? {};
     examQuestionUrl = (args['url'] ?? '').toString();
     admissionId = (args['admissionId'] ?? '').toString();
+    examType = (args['examType'] ?? '').toString();
     examId = (args['examId'] ?? '').toString();
-    isFreeExam = (args['isFreeExam'] ?? false) as bool;
+
     _tabController = TabController(length: 3, vsync: this);
     _load();
   }
@@ -180,8 +183,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
       _primeLocalState(model);
 
-      final duration = model.duration ?? 0;
-      _startTimer(duration);
+      // Backend duration is minutes; UI timer uses seconds
+      final durationSeconds = (model.duration ?? 0) * 60;
+      _startTimer(durationSeconds);
 
       setState(() {
         _model = model;
@@ -210,7 +214,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
       if (q.isMCQ) {
         final int len = (q.questionOption?.length ?? 0).clamp(0, 1000);
-        // decode any server answer and normalize to `len`
         final ans = submitted[qId]?.answer;
         final states = _parseMcq(ans, expectedLen: len);
         _mcqStates[qId] = states;
@@ -244,13 +247,12 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     });
   }
 
-  // ---------- MCQ helpers (dynamic length) ----------
+  // ---------- MCQ helpers ----------
   List<bool?> _parseMcq(String? input, {required int expectedLen}) {
     if (expectedLen <= 0) return const <bool?>[];
     final out = List<bool?>.filled(expectedLen, null);
     if (input == null || input.isEmpty) return out;
 
-    // We accept any length the server sent; map into expectedLen
     final upper = input.toUpperCase();
     final limit = upper.length < expectedLen ? upper.length : expectedLen;
     for (var i = 0; i < limit; i++) {
@@ -279,11 +281,49 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     return buf.toString();
   }
 
+  // ---------- URL selection by examType ----------
+  /// ✅ You must implement/ensure these Urls methods exist in your Urls class.
+  /// If you already have different endpoints, just map them here.
+  String _finishExamUrl() {
+    switch (examType) {
+      case 'freeExam':
+        return Urls.finishFreeExam(examId);
+      case 'openExam':
+        return Urls.finishOpenExam(examId);
+      case 'courseExam':
+        return Urls.finishCourseExam(admissionId, examId);
+/*      case 'subjectExam':
+        return Urls.finishSubjectExam(admissionId, examId);*/
+      default:
+      // fallback (keep previous behavior)
+        return _isFreeOrOpenExam
+            ? Urls.finishOpenExam(examId)
+            : Urls.finishCourseExam(admissionId, examId);
+    }
+  }
+
+  String _feedbackUrl() {
+    switch (examType) {
+      case 'freeExam':
+        return Urls.freeExamFeedback(examId);
+      case 'openExam':
+        return Urls.openExamFeedback(examId);
+      case 'courseExam':
+        return Urls.courseExamFeedback(admissionId, examId);
+/*      case 'subjectExam':
+        return Urls.subjectExamFeedback(admissionId, examId);*/
+      default:
+        return _isFreeOrOpenExam
+            ? Urls.openExamFeedback(examId)
+            : Urls.courseExamFeedback(admissionId, examId);
+    }
+  }
+
   // ---------- Interactions ----------
   Future<void> _onSelectSBA({
     required int questionId,
     required String examQuestionId,
-    required String optionLetter, // 'A'..'Z'
+    required String optionLetter,
   }) async {
     if (_timeUp) return;
     if (_sbaBusy.contains(questionId)) return;
@@ -296,7 +336,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     });
 
     final resp = await _submitService.submitSingleAnswer(
-      isFreeExam: isFreeExam,
+      examType: examType, // ✅ pass examType instead of isFreeExam
       admissionId: admissionId,
       examId: examId,
       questionId: '$questionId',
@@ -336,12 +376,11 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   Future<void> _onSelectMCQ({
     required int questionId,
     required String examQuestionId,
-    required int index, // 0..N-1
-    required bool value, // true for 'T', false for 'F'
+    required int index,
+    required bool value,
   }) async {
     if (_timeUp) return;
 
-    // Create/access busy list for this question; size must match statements length
     final currentLen = _mcqStates[questionId]?.length ?? 0;
     final busyList = _mcqBusy.putIfAbsent(
       questionId,
@@ -365,7 +404,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     });
 
     final resp = await _submitService.submitSingleAnswer(
-      isFreeExam: isFreeExam,
+      examType: examType, // ✅ pass examType instead of isFreeExam
       admissionId: admissionId,
       examId: examId,
       questionId: '$questionId',
@@ -413,11 +452,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
       if (sure != true) return;
     }
 
-    final url = isFreeExam
-        ? Urls.finishFreeExam(examId)
-        : Urls.finishExam(admissionId, examId);
-
-    final resp = await _finishService.fetchFinishExam(url);
+    final resp = await _finishService.fetchFinishExam(_finishExamUrl());
 
     if (!mounted) return;
 
@@ -427,10 +462,32 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           ? (resp.responseData as Map)['message'].toString()
           : 'Exam finished successfully';
 
-      final bool navigated =
-          await _showFinishFeedbackDialog(successMessage: msg) ?? false;
+      final accent = (AppColor.secondaryGradient is LinearGradient)
+          ? (AppColor.secondaryGradient as LinearGradient).colors.first
+          : Theme.of(context).colorScheme.primary;
 
-      if (!navigated && mounted) {
+      final bool submitted =
+          await ExamFinishFeedbackDialog.show(
+            context,
+            successMessage: msg,
+            feedbackUrl: _feedbackUrl(),
+            admissionId: admissionId,
+            examId: examId,
+            examType: examType,
+            middleWidget: CalculatingRow(accent: accent),
+            //Optional: if you want custom navigation instead of default:
+            onSuccess: () async {
+              Get.offNamed(RouteNames.examResult, arguments: {
+                'admissionId': admissionId,
+                'examId': examId,
+                'examType': examType,
+              });
+            },
+          ) ??
+              false;
+
+      // If user closes somehow without submit (dialog is non-dismissible, but still safe)
+      if (!submitted && mounted) {
         Navigator.of(context).pop(true);
       }
     } else {
@@ -438,243 +495,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     }
   }
 
-  Future<bool?> _showFinishFeedbackDialog(
-      {required String successMessage}) async {
-    final theme = Theme.of(context);
-    final grad = AppColor.secondaryGradient;
-    final Color accent =
-    grad is LinearGradient ? grad.colors.first : theme.colorScheme.primary;
 
-    final TextEditingController _feedbackCtrl = TextEditingController();
-    final service = ExamFeedbackService();
 
-    bool submitting = false;
 
-    return showGeneralDialog<bool>(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.6),
-      barrierDismissible: false,
-      barrierLabel: 'Exam Finished',
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (ctx, animation, secondaryAnimation) {
-        return ScaleTransition(
-          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-          child: FadeTransition(
-            opacity: animation,
-            child: Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.all(20),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: StatefulBuilder(
-                  builder: (context, setState) {
-                    return CustomBlobBackground(
-                      backgroundColor: Colors.white,
-                      blobColor: accent,
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                          Icons.check_circle_rounded,
-                                          color: Colors.green,
-                                          size: 24),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Exam Finished',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColor.primaryTextColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              successMessage,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            CalculatingRow(accent: accent),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Your Feedback',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _feedbackCtrl,
-                              maxLines: 4,
-                              minLines: 3,
-                              textInputAction: TextInputAction.newline,
-                              decoration: const InputDecoration(
-                                hintText: 'Share your thoughts about the exam…',
-                                hintStyle: TextStyle(color: Colors.grey),
-                                border: InputBorder.none,
-                              ),
-                              enabled: !submitting,
-                            ),
-                            const SizedBox(height: 18),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: submitting
-                                      ? null
-                                      : () async {
-                                    setState(() => submitting = true);
-                                    try {
-                                      final fb =
-                                      _feedbackCtrl.text.trim();
-
-                                      final url = isFreeExam
-                                          ? Urls.freeExamFeedback(
-                                        examId,
-                                      )
-                                          : Urls.examFeedback(
-                                        admissionId,
-                                        examId,
-                                      );
-
-                                      final resp = await service
-                                          .submitExamFeedback(
-                                        url: url,
-                                        feedback: fb,
-                                      );
-                                      if (!mounted) return;
-
-                                      if (resp.isSuccess) {
-                                        Get.snackbar(
-                                          'Thanks!',
-                                          'Your feedback has been submitted.',
-                                          snackPosition:
-                                          SnackPosition.BOTTOM,
-                                          backgroundColor: Colors.green,
-                                          colorText: Colors.white,
-                                        );
-                                        Navigator.pop(context, true);
-                                        final data = {
-                                          'admissionId':
-                                          (admissionId).toString() ??
-                                              '',
-                                          'examId': (examId).toString(),
-                                          'isFreeExam': isFreeExam,
-                                        };
-                                        Get.offNamed(
-                                          RouteNames.examResult,
-                                          arguments: data,
-                                        );
-                                      } else {
-                                        Get.snackbar(
-                                          'Error',
-                                          resp.errorMessage ??
-                                              'Failed to submit feedback',
-                                          snackPosition:
-                                          SnackPosition.BOTTOM,
-                                          backgroundColor: Colors.red,
-                                          colorText: Colors.white,
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (!mounted) return;
-                                      Get.snackbar(
-                                        'Error',
-                                        'Failed to submit feedback',
-                                        snackPosition:
-                                        SnackPosition.BOTTOM,
-                                        backgroundColor: Colors.red,
-                                        colorText: Colors.white,
-                                      );
-                                    } finally {
-                                      if (mounted) {
-                                        setState(
-                                                () => submitting = false);
-                                      }
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      gradient: AppColor.secondaryGradient,
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColor.purple
-                                              .withOpacity(0.28),
-                                          blurRadius: 16,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (submitting)
-                                          const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                Colors.white,
-                                              ),
-                                            ),
-                                          )
-                                        else
-                                          const Icon(Icons.send_rounded,
-                                              color: Colors.white, size: 18),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          'Submit Feedback',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 0.2,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   // ---------- UI ----------
   @override
@@ -701,8 +524,11 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
           child: Row(
             children: [
-              Icon(Icons.assignment_outlined,
-                  size: 20, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                Icons.assignment_outlined,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -797,33 +623,78 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
               fontSize: Sizes.verySmallText(context),
             ),
             tabs: [
-              Tab(child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('All', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w500, color: Colors.black),),
-                  Text('(${_allQuestionIds.length})', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w400, color: Colors.black54),),
-                ],
-              ), ),
-              Tab(child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Unanswered', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w500, color: Colors.black),),
-                  Text('(${_unansweredIds.length})', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w400, color: Colors.black54),),
-                ],
-              ), ),
-              Tab(child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Partial', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w500, color: Colors.black),),
-                  Text('(${_partialIds.length})', style: TextStyle(fontSize: Sizes.verySmallText(context), fontWeight: FontWeight.w400, color: Colors.black54),),
-                ],
-              ), ),
+              Tab(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'All',
+                      style: TextStyle(
+                        fontSize: Sizes.verySmallText(context),
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Text(
+                      '(${_allQuestionIds.length})',
+                      style: TextStyle(
+                        fontSize: Sizes.verySmallText(context),
+                        fontWeight: FontWeight.w400,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Tab(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Unanswered',
+                      style: TextStyle(
+                        fontSize: Sizes.verySmallText(context),
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Text(
+                      '(${_unansweredIds.length})',
+                      style: TextStyle(
+                        fontSize: Sizes.verySmallText(context),
+                        fontWeight: FontWeight.w400,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Tab(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Partial',
+                      style: TextStyle(
+                        fontSize: Sizes.verySmallText(context),
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Text(
+                      '(${_partialIds.length})',
+                      style: TextStyle(
+                        fontSize: Sizes.verySmallText(context),
+                        fontWeight: FontWeight.w400,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -890,10 +761,8 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                 ),
               );
             } else {
-              // MCQ: dynamic statement count from question options
               final int len = (q.questionOption?.length ?? 0).clamp(0, 1000);
 
-              // Ensure state length matches `len`
               var states = _mcqStates[qId] ?? List<bool?>.filled(len, null);
               if (states.length != len) {
                 final newStates = List<bool?>.filled(len, null);
@@ -905,7 +774,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                 _mcqStates[qId] = states;
               }
 
-              // Keep busy list in sync as well
               var busy = _mcqBusy[qId] ?? List<bool>.filled(len, false);
               if (busy.length != len) {
                 final newBusy = List<bool>.filled(len, false);
@@ -917,7 +785,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                 _mcqBusy[qId] = busy;
               }
 
-              // No locks (answers can change)
               final locks = List<bool>.filled(len, false);
 
               return Center(
@@ -1050,9 +917,9 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                           children: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(fontWeight: FontWeight.w700),
+                              child: Text(
+                                negative,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -1073,12 +940,12 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
                                     ),
                                   ],
                                 ),
-                                child: const Row(
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      'Finish Exam',
-                                      style: TextStyle(
+                                      positive,
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: 0.2,
@@ -1102,8 +969,11 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     ).then((value) => value);
   }
 
-  Future<void> _showInfo(String title, String message,
-      {String positive = 'OK'}) {
+  Future<void> _showInfo(
+      String title,
+      String message, {
+        String positive = 'OK',
+      }) {
     return showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(

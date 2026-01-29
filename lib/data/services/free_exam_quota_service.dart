@@ -1,15 +1,15 @@
-// lib/data/services/free_exam_list_service.dart
+// lib/data/services/free_exam_quota_service.dart
 import 'package:logger/logger.dart';
-import 'package:medi_exam/data/models/free_exam_list_model.dart';
+import 'package:medi_exam/data/models/free_exam_quota_model.dart';
 import 'package:medi_exam/data/network_caller.dart';
 import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/data/utils/local_storage_service.dart';
 import 'package:medi_exam/data/utils/urls.dart';
 
-class FreeExamListService {
+class FreeExamQuotaService {
   final NetworkCaller _caller = NetworkCaller(logger: Logger());
 
-  Future<NetworkResponse> fetchFreeExamList({String pageNo = "1"}) async {
+  Future<NetworkResponse> fetchFreeExamQuota() async {
     final token = LocalStorageService.getString(LocalStorageService.token);
 
     if (token == null || token.isEmpty) {
@@ -21,7 +21,7 @@ class FreeExamListService {
     }
 
     final response = await _caller.getRequest(
-      Urls.freeExamList(pageNo),
+      Urls.freeExamQuota,
       token: token,
     );
 
@@ -31,14 +31,14 @@ class FreeExamListService {
 
     try {
       // response.responseData can be Map or JSON string; parse handles both
-      final model = FreeExamListModel.parse(response.responseData);
+      final model = FreeExamQuotaModel.parse(response.responseData);
 
       // Optional validation: ok must be true
       if (model.ok != true) {
         return NetworkResponse(
           statusCode: response.statusCode,
           isSuccess: false,
-          errorMessage: "Failed to load free exam list.",
+          errorMessage: "Failed to load free exam quota.",
         );
       }
 
@@ -51,7 +51,7 @@ class FreeExamListService {
       return NetworkResponse(
         statusCode: response.statusCode,
         isSuccess: false,
-        errorMessage: "Failed to parse FreeExamListModel: $e",
+        errorMessage: "Failed to parse FreeExamQuotaModel: $e",
       );
     }
   }

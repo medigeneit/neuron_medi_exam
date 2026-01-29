@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/exam_property_model.dart';
-import 'package:medi_exam/presentation/screens/dashboard_screens/exam_questions_screen.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
@@ -13,7 +12,8 @@ Future<bool?> showExamOverviewDialog(
       required ExamPropertyModel model,
       required String url,
       required String admissionId,
-      required bool isFreeExam,
+      required String examType,
+
     }) {
   return showGeneralDialog<bool>(
     context: context,
@@ -24,7 +24,6 @@ Future<bool?> showExamOverviewDialog(
     pageBuilder: (context, animation, secondaryAnimation) {
       final child = Dialog(
         backgroundColor: Colors.transparent,
-        // Top/bottom margin + horizontal padding
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
@@ -32,7 +31,7 @@ Future<bool?> showExamOverviewDialog(
             model: model,
             url: url,
             admissionId: admissionId,
-            isFreeExam: isFreeExam,
+            examType: examType,
           ),
         ),
       );
@@ -57,19 +56,25 @@ class ExamOverviewDialog extends StatelessWidget {
     required this.model,
     required this.url,
     required this.admissionId,
-    required this.isFreeExam,
+    required this.examType,
+
   });
 
   final ExamPropertyModel model;
   final String url;
   final String admissionId;
-  final bool isFreeExam;
+  final String examType;
+
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final exam = model.exam;
-    final isPublished = exam?.isPublished ?? false;
+
+    // IMPORTANT:
+    // If backend doesn't send is_published, we treat it as "published"
+    // and only consider "unpublished" when it is explicitly false.
+    final canStart = (exam?.isPublished != false);
 
     return CustomBlobBackground(
       backgroundColor: Colors.white,
@@ -92,20 +97,22 @@ class ExamOverviewDialog extends StatelessWidget {
                         color: AppColor.purple.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.assignment_rounded,
-                          color: AppColor.purple, size: 22),
+                      child: Icon(
+                        Icons.assignment_rounded,
+                        color: AppColor.purple,
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        exam?.safeTitle.isNotEmpty == true
+                        (exam?.safeTitle.isNotEmpty == true)
                             ? exam!.safeTitle
                             : 'Exam',
-                        // allow more lines; wrap naturally
                         maxLines: 3,
                         softWrap: true,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge?.copyWith(
+                        style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -125,14 +132,14 @@ class ExamOverviewDialog extends StatelessWidget {
               Flexible(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  child: isPublished
+                  child: canStart
                       ? _PublishedContent(model: model, theme: theme)
                       : _UnpublishedContent(theme: theme),
                 ),
               ),
 
               // Footer actions
-              if (isPublished) ...[
+              if (canStart) ...[
                 const Divider(height: 1),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
@@ -148,7 +155,10 @@ class ExamOverviewDialog extends StatelessWidget {
                             backgroundColor: AppColor.primaryColor,
                             foregroundColor: Colors.white,
                           ),
-                          icon: const Icon(Icons.play_arrow_rounded, color: AppColor.whiteColor,),
+                          icon: const Icon(
+                            Icons.play_arrow_rounded,
+                            color: AppColor.whiteColor,
+                          ),
                           label: const Text(
                             'Start exam',
                             style: TextStyle(fontWeight: FontWeight.w700),
@@ -158,21 +168,20 @@ class ExamOverviewDialog extends StatelessWidget {
 
                             final data = {
                               'url': url,
-                              'examId': (exam!.id ?? '').toString(),
+                              'examId': (exam?.id ?? '').toString(),
                               'admissionId': admissionId,
-                              'isFreeExam': isFreeExam,
+                              'examType': examType,
                             };
+
                             Get.toNamed(
                               RouteNames.examQuestion,
                               arguments: data,
                               preventDuplicates: true,
                             );
-
                           },
                         ),
                       ),
                     ],
-
                   ),
                 ),
               ],
@@ -232,6 +241,110 @@ class _PublishedContent extends StatelessWidget {
     final qp = model.questionProperty;
     final types = model.safeQuestionTypes;
 
+    // Duration: prefer question_property.duration_in_minute if present,
+    // otherwise use exam.duration_minutes
+    final durationMinutes =
+    (qp?.durationInMinute != null && (qp!.durationInMinute ?? 0) > 0)
+        ? (qp.durationInMinute ?? 0)
+        : model.safeExamDurationMinutes;
+
+    // Total questions: prefer question_property.total_question if present,
+    // otherwise use exam.question_count
+    final totalQs =
+    (qp?.totalQuestion != null && (qp!.totalQuestion ?? 0) > 0)
+        ? (qp.totalQuestion ?? 0)
+        : model.safeExamQuestionCount;
+
+    // Total mark:
+    // - show full_mark if provided and > 0
+    // - else compute from (per_question_mark * total_question) if both provided
+    final double? totalMarkProvided =
+    (qp?.fullMark != null && (qp!.fullMark ?? 0) > 0)
+        ? qp.fullMark
+        : null;
+
+    final double? totalMarkComputed = (totalMarkProvided == null &&
+        (qp?.perQuestionMark != null &&
+            (qp!.perQuestionMark ?? 0) > 0) &&
+        (qp?.totalQuestion != null && (qp!.totalQuestion ?? 0) > 0))
+        ? (qp!.perQuestionMark! * qp.totalQuestion!)
+        : null;
+
+    final totalMark = totalMarkProvided ?? totalMarkComputed;
+
+    // Optional fields (only show if meaningful)
+    final passMarkPercent =
+    (qp?.passMarkPercent != null && (qp!.passMarkPercent ?? 0) > 0)
+        ? qp.passMarkPercent
+        : null;
+
+    final perQuestionMark =
+    (qp?.perQuestionMark != null && (qp!.perQuestionMark ?? 0) > 0)
+        ? qp.perQuestionMark
+        : null;
+
+    final negativeMarking =
+    (qp?.negativeMarking != null && (qp!.negativeMarking ?? 0) > 0)
+        ? qp.negativeMarking
+        : null;
+
+    // Build chips conditionally (hide if null/empty/0)
+    final chips = <Widget>[];
+
+    if (durationMinutes > 0) {
+      chips.add(_metricChip(
+        context,
+        icon: Icons.timer_rounded,
+        label: 'Duration',
+        value: _minsText(durationMinutes),
+      ));
+    }
+
+    if (totalQs > 0) {
+      chips.add(_metricChip(
+        context,
+        icon: Icons.format_list_numbered_rounded,
+        label: 'Total Qs',
+        value: totalQs.toString(),
+      ));
+    }
+
+    if (totalMark != null && totalMark > 0) {
+      chips.add(_metricChip(
+        context,
+        icon: Icons.grade_rounded,
+        label: 'Total Mark',
+        value: _formatNumber(totalMark),
+      ));
+    }
+
+    if (perQuestionMark != null && perQuestionMark > 0) {
+      chips.add(_metricChip(
+        context,
+        icon: Icons.exposure_plus_1_rounded,
+        label: 'Per Q Mark',
+        value: _formatNumber(perQuestionMark),
+      ));
+    }
+
+    if (passMarkPercent != null && passMarkPercent > 0) {
+      chips.add(_metricChip(
+        context,
+        icon: Icons.verified_rounded,
+        label: 'Pass Mark',
+        value: '${_formatNumber(passMarkPercent)}%',
+      ));
+    }
+
+    if (negativeMarking != null && negativeMarking > 0) {
+      chips.add(_metricChip(
+        context,
+        icon: Icons.remove_circle_outline,
+        label: 'Negative',
+        value: _formatNumber(negativeMarking),
+      ));
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -240,37 +353,26 @@ class _PublishedContent extends StatelessWidget {
           title: 'Overview',
           leadingIcon: Icons.dashboard_customize_rounded,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _metricChip(
-                  context,
-                  icon: Icons.timer_rounded,
-                  label: 'Duration',
-                  value: _minsText(model.safeExamDurationMinutes),
+            if (chips.isEmpty)
+              Text(
+                'No overview info provided.',
+                softWrap: true,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-                _metricChip(
-                  context,
-                  icon: Icons.format_list_numbered_rounded,
-                  label: 'Total Qs',
-                  value: (qp?.totalQuestion ?? model.safeExamQuestionCount)
-                      .toString(),
-                ),
-                _metricChip(
-                  context,
-                  icon: Icons.checklist_rounded,
-                  label: 'Total Mark',
-                  value: _dashIfNull(qp?.perQuestionMark),
-                ),
-              ],
-            ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: chips,
+              ),
           ],
         ),
 
         const SizedBox(height: 12),
 
-        // Question types (new layout)
+        // Question types
         _SectionCard(
           title: 'Question types',
           leadingIcon: Icons.category_rounded,
@@ -289,14 +391,23 @@ class _PublishedContent extends StatelessWidget {
                   final name = (t.name ?? '').trim().isEmpty
                       ? 'Type'
                       : t.name!.trim();
-                  final count = t.numberOfQuestion ?? 0;
-                  final neg = t.perQuestionNegative;
+
+                  final count = (t.numberOfQuestion != null &&
+                      (t.numberOfQuestion ?? 0) > 0)
+                      ? t.numberOfQuestion
+                      : null;
+
+                  final neg = (t.perQuestionNegative != null &&
+                      (t.perQuestionNegative ?? 0) > 0)
+                      ? t.perQuestionNegative
+                      : null;
 
                   return _QuestionTypeTile(
                     name: name,
-                    questionCountText: '$count questions',
+                    questionCountText:
+                    (count == null) ? null : '$count questions',
                     negativeText:
-                    (neg == null) ? 'Neg —' : 'Neg ${_formatNumber(neg)}',
+                    (neg == null) ? null : 'Neg ${_formatNumber(neg)}',
                   );
                 }).toList(),
               ),
@@ -319,30 +430,45 @@ class _PublishedContent extends StatelessWidget {
                 ),
               )
             else
-              _policyBullets(model.policyParagraphs, theme),
+              _policyBullets(model.policyParagraphs, theme, fallback: model.safePolicyText),
           ],
         ),
       ],
     );
   }
 
-  Widget _policyBullets(List<String> bullets, ThemeData theme) {
+  Widget _policyBullets(
+      List<String> bullets,
+      ThemeData theme, {
+        required String fallback,
+      }) {
     if (bullets.isEmpty) {
       return Text(
-        (model.safePolicyText),
+        fallback,
         softWrap: true,
         style: theme.textTheme.bodyMedium,
       );
     }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: bullets.map((p) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // using Expanded to avoid overflow
+              // small bullet dot
+              Container(
+                margin: const EdgeInsets.only(top: 7),
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   p,
@@ -357,8 +483,12 @@ class _PublishedContent extends StatelessWidget {
     );
   }
 
-  Widget _metricChip(BuildContext context,
-      {required IconData icon, required String label, required String value}) {
+  Widget _metricChip(
+      BuildContext context, {
+        required IconData icon,
+        required String label,
+        required String value,
+      }) {
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -375,15 +505,17 @@ class _PublishedContent extends StatelessWidget {
           Text(
             label,
             softWrap: false,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(width: 6),
           Text(
             value,
             softWrap: false,
-            style:
-            theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -394,17 +526,31 @@ class _PublishedContent extends StatelessWidget {
 class _QuestionTypeTile extends StatelessWidget {
   const _QuestionTypeTile({
     required this.name,
-    required this.questionCountText,
-    required this.negativeText,
+    this.questionCountText,
+    this.negativeText,
   });
 
   final String name;
-  final String questionCountText;
-  final String negativeText;
+  final String? questionCountText;
+  final String? negativeText;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final pills = <Widget>[];
+    if (questionCountText != null && questionCountText!.trim().isNotEmpty) {
+      pills.add(_inlinePill(
+        icon: Icons.format_list_bulleted_rounded,
+        text: questionCountText!,
+      ));
+    }
+    if (negativeText != null && negativeText!.trim().isNotEmpty) {
+      pills.add(_inlinePill(
+        icon: Icons.remove_circle_outline,
+        text: negativeText!,
+      ));
+    }
 
     return Stack(
       children: [
@@ -427,7 +573,7 @@ class _QuestionTypeTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Row 1: Icon + Name (wrap if needed)
+              // Row 1: Icon + Name
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -437,47 +583,41 @@ class _QuestionTypeTile extends StatelessWidget {
                       color: AppColor.indigo.withOpacity(0.08),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.quiz_rounded,
-                        size: 18, color: Color(0xFF5B6CFF)),
+                    child: const Icon(
+                      Icons.quiz_rounded,
+                      size: 18,
+                      color: Color(0xFF5B6CFF),
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  // Wrap long names
                   Expanded(
                     child: Text(
                       name,
                       softWrap: true,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 8),
-
-              // Row 2: Question count + Negative mark (wrap on small widths)
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _inlinePill(
-                    icon: Icons.format_list_bulleted_rounded,
-                    text: questionCountText,
-                  ),
-                  _inlinePill(
-                    icon: Icons.remove_circle_outline,
-                    text: negativeText,
-                  ),
-                ],
-              ),
+              if (pills.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: pills,
+                ),
+              ],
             ],
           ),
         ),
 
-        // Left accent stripe (gradient) for an eye-catchy touch
+        // Left accent stripe
         Positioned(
           top: 0,
-          bottom: 10, // align with card's bottom margin
+          bottom: 10,
           left: 0,
           child: Container(
             width: 4,
@@ -529,8 +669,9 @@ class _SectionCard extends StatelessWidget {
                   child: Text(
                     title,
                     softWrap: true,
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
@@ -557,13 +698,12 @@ Widget _inlinePill({required IconData icon, required String text}) {
       children: [
         Icon(icon, size: 14, color: const Color(0xFF5B6CFF)),
         const SizedBox(width: 6),
-        // Let pill text wrap if absolutely necessary across lines in tiny widths
         Flexible(
           child: Text(
             text,
             softWrap: true,
             overflow: TextOverflow.visible,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
           ),
         ),
       ],

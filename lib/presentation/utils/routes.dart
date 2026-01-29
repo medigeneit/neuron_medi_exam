@@ -10,8 +10,9 @@ import 'package:medi_exam/presentation/screens/dashboard_screens/enrolled_course
 import 'package:medi_exam/presentation/screens/dashboard_screens/exam_answers_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/exam_questions_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/exam_result_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/free_exam_list_screen.dart';
 import 'package:medi_exam/presentation/screens/edit_profile_screen.dart';
-import 'package:medi_exam/presentation/screens/free_exam_list_screen.dart';
+import 'package:medi_exam/presentation/screens/open_exam_list_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
 import 'package:medi_exam/presentation/screens/make_customize_question_screen.dart';
 import 'package:medi_exam/presentation/screens/manual_payment_screen.dart';
@@ -76,6 +77,7 @@ class RouteNames {
   static const String subjectWisePreparation = '/subjectWisePreparation';
   static const String subjectWiseChapterTopics = '/subjectWiseChapterTopics';
   static const String makeCustomizeQuestion = '/makeCustomizeQuestion';
+  static const String freeExamList = '/freeExamList';
 }
 
 // Define routes
@@ -189,7 +191,7 @@ final List<GetPage> appRoutes = [
 
   GetPage(
     name: RouteNames.freeExams,
-    page: () => const FreeExamListScreen(),
+    page: () => const OpenExamListScreen(),
   ),
   GetPage(
     name: RouteNames.pdfScreen,
@@ -208,6 +210,9 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.makeCustomizeQuestion,
     page: () => const MakeCustomizeQuestionScreen(),
+  ),  GetPage(
+    name: RouteNames.freeExamList,
+    page: () => const FreeExamListScreen(),
   ),
 
 ];

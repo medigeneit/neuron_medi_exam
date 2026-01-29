@@ -1,5 +1,6 @@
 // exam_property_model.dart
 import 'dart:convert';
+
 class ExamPropertyModel {
   final ExamInfo? exam;
   final QuestionProperty? questionProperty;
@@ -43,10 +44,18 @@ class ExamPropertyModel {
 
   // Question property
   int get safeTotalQuestion => questionProperty?.totalQuestion ?? 0;
-  double get safePerQuestionMark => questionProperty?.perQuestionMark ?? 0.0;
+
+  /// Uses per_question_mark if present, otherwise falls back to full_mark / total_question
+  double get safePerQuestionMark => questionProperty?.effectivePerQuestionMark ?? 0.0;
+
   double get safeNegativeMarking => questionProperty?.negativeMarking ?? 0.0;
-  List<QuestionType> get safeQuestionTypes =>
-      questionProperty?.questionTypes ?? const [];
+  List<QuestionType> get safeQuestionTypes => questionProperty?.questionTypes ?? const [];
+
+  // Newly added safe getters (from your response fields)
+  double get safePassMarkPercent => questionProperty?.passMarkPercent ?? 0.0;
+  double get safeFullMark => questionProperty?.fullMark ?? 0.0;
+  int get safeQuestionDurationInMinute => questionProperty?.durationInMinute ?? 0;
+  int get safeStatus => questionProperty?.status ?? 0;
 
   // Policy (HTML string from backend)
   /// Raw HTML as string (or empty if not present / not a string)
@@ -66,7 +75,11 @@ class ExamPropertyModel {
     if (paras.isNotEmpty) return paras;
     // Fallback: split by lines if no <p> tags present
     final text = safePolicyText;
-    return text.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    return text
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
   }
 
   ExamPropertyModel copyWith({
@@ -103,7 +116,8 @@ class ExamInfo {
     return ExamInfo(
       id: _asInt(json['id']),
       title: _asString(json['title']),
-      durationMinutes: _asInt(json['duration_minutes']),
+      // keep your existing key + add a safe fallback key
+      durationMinutes: _asInt(json['duration_minutes'] ?? json['duration_in_minute']),
       isPublished: _asBool(json['is_published']),
       questionCount: _asInt(json['question_count']),
     );
@@ -130,10 +144,18 @@ class ExamInfo {
 /// QuestionProperty sub-object
 class QuestionProperty {
   final int? id;
+
+  // Existing fields you already had
   final int? totalQuestion;
   final double? perQuestionMark;
   final double? negativeMarking;
   final List<QuestionType>? questionTypes;
+
+  // ✅ Added fields from your response
+  final double? passMarkPercent;
+  final double? fullMark;
+  final int? durationInMinute;
+  final int? status;
 
   const QuestionProperty({
     this.id,
@@ -141,6 +163,10 @@ class QuestionProperty {
     this.perQuestionMark,
     this.negativeMarking,
     this.questionTypes,
+    this.passMarkPercent,
+    this.fullMark,
+    this.durationInMinute,
+    this.status,
   });
 
   factory QuestionProperty.fromJson(Map<String, dynamic>? json) {
@@ -151,6 +177,11 @@ class QuestionProperty {
       totalQuestion: _asInt(json['total_question']),
       perQuestionMark: _asDouble(json['per_question_mark']),
       negativeMarking: _asDouble(json['negative_marking']),
+      // added
+      passMarkPercent: _asDouble(json['pass_mark_percent']),
+      fullMark: _asDouble(json['full_mark']),
+      durationInMinute: _asInt(json['duration_in_minute']),
+      status: _asInt(json['status']),
       questionTypes: list
           .map((e) => QuestionType.fromJson(_asMap(e)))
           .whereType<QuestionType>()
@@ -158,11 +189,24 @@ class QuestionProperty {
     );
   }
 
+  /// If backend doesn't send per_question_mark, compute from full_mark / total_question
+  double get effectivePerQuestionMark {
+    if (perQuestionMark != null) return perQuestionMark!;
+    final fm = fullMark;
+    final tq = totalQuestion;
+    if (fm != null && tq != null && tq > 0) return fm / tq;
+    return 0.0;
+  }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'total_question': totalQuestion,
     'per_question_mark': perQuestionMark,
     'negative_marking': negativeMarking,
+    'pass_mark_percent': passMarkPercent,
+    'full_mark': fullMark,
+    'duration_in_minute': durationInMinute,
+    'status': status,
     'question_types': questionTypes?.map((e) => e.toJson()).toList(),
   };
 
@@ -171,6 +215,10 @@ class QuestionProperty {
           totalQuestion == null &&
           perQuestionMark == null &&
           negativeMarking == null &&
+          passMarkPercent == null &&
+          fullMark == null &&
+          durationInMinute == null &&
+          status == null &&
           (questionTypes == null || questionTypes!.isEmpty);
 }
 
@@ -279,7 +327,13 @@ String? _asString(dynamic v) {
 }
 
 Map<String, dynamic>? _asMap(dynamic v) {
+  if (v == null) return null;
   if (v is Map<String, dynamic>) return v;
+
+  // Small robustness improvement (handles Map<dynamic, dynamic>)
+  if (v is Map) {
+    return v.map((k, val) => MapEntry(k.toString(), val));
+  }
   return null;
 }
 

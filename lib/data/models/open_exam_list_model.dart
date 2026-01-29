@@ -1,21 +1,19 @@
-// free_exam_list_public_model.dart
+class OpenExamListModel {
+  final List<OpenExamModel> items;
 
-class FreeExamListPublicModel {
-  final List<FreeExamPublicModel> items;
-
-  FreeExamListPublicModel({required this.items});
+  OpenExamListModel({required this.items});
 
   /// Build from a top-level JSON array (or a wrapped `data` array).
-  factory FreeExamListPublicModel.fromJsonList(dynamic json) {
+  factory OpenExamListModel.fromJsonList(dynamic json) {
     if (json is List) {
-      return FreeExamListPublicModel(
-        items: json.map((e) => FreeExamPublicModel.fromJson(_asMap(e))).toList(),
+      return OpenExamListModel(
+        items: json.map((e) => OpenExamModel.fromJson(_asMap(e))).toList(),
       );
     }
     if (json is Map && json['data'] is List) {
-      return FreeExamListPublicModel.fromJsonList(json['data']);
+      return OpenExamListModel.fromJsonList(json['data']);
     }
-    return FreeExamListPublicModel(items: const []);
+    return OpenExamListModel(items: const []);
   }
 
   /// Convert back to a JSON array.
@@ -27,24 +25,31 @@ class FreeExamListPublicModel {
   bool get isNotEmpty => items.isNotEmpty;
 }
 
-class FreeExamPublicModel {
+class OpenExamModel {
   final int? examId;
   final String? title;
   final CourseModel? course;
+  /// May be null (server can send `null`) or a list.
+  final List<DoctorOpenExamModel>? doctorOpenExam;
 
-  FreeExamPublicModel({
+  OpenExamModel({
     this.examId,
     this.title,
     this.course,
+    this.doctorOpenExam,
   });
 
-  factory FreeExamPublicModel.fromJson(Map<String, dynamic> json) {
-    return FreeExamPublicModel(
+  factory OpenExamModel.fromJson(Map<String, dynamic> json) {
+    return OpenExamModel(
       examId: _parseInt(json['exam_id']),
       title: _parseString(json['title']),
       course: json['course'] == null
           ? null
           : CourseModel.fromJson(_asMap(json['course'])),
+      doctorOpenExam: _parseList<DoctorOpenExamModel>(
+        json['doctor_open_exam'],
+            (e) => DoctorOpenExamModel.fromJson(_asMap(e)),
+      ),
     );
   }
 
@@ -53,17 +58,22 @@ class FreeExamPublicModel {
       'exam_id': examId,
       'title': title,
       'course': course?.toJson(),
+      'doctor_open_exam': doctorOpenExam?.map((e) => e.toJson()).toList(),
     };
   }
 
   // -------- Convenience: has* checks --------
   bool get hasTitle => title != null && title!.isNotEmpty;
   bool get hasCourse => course != null;
+  bool get hasDoctorOpenExam =>
+      doctorOpenExam != null && doctorOpenExam!.isNotEmpty;
 
   // -------- Convenience: safe getters --------
   int get safeExamId => examId ?? 0;
   String get safeTitle => title ?? '';
   CourseModel get safeCourse => course ?? CourseModel();
+  List<DoctorOpenExamModel> get safeDoctorOpenExam =>
+      doctorOpenExam ?? const [];
 }
 
 class CourseModel {
@@ -92,6 +102,45 @@ class CourseModel {
   String get safeName => name ?? '';
 }
 
+class DoctorOpenExamModel {
+  final int? id;
+  final int? examId;
+  final int? doctorId;
+  final String? status;
+
+  DoctorOpenExamModel({
+    this.id,
+    this.examId,
+    this.doctorId,
+    this.status,
+  });
+
+  factory DoctorOpenExamModel.fromJson(Map<String, dynamic> json) {
+    return DoctorOpenExamModel(
+      id: _parseInt(json['id']),
+      examId: _parseInt(json['exam_id']),
+      doctorId: _parseInt(json['doctor_id']),
+      status: _parseString(json['status']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'exam_id': examId,
+      'doctor_id': doctorId,
+      'status': status,
+    };
+  }
+
+  // Convenience
+  bool get hasStatus => status != null && status!.isNotEmpty;
+  int get safeId => id ?? 0;
+  int get safeExamId => examId ?? 0;
+  int get safeDoctorId => doctorId ?? 0;
+  String get safeStatus => status ?? '';
+}
+
 // ----------------- Shared helpers (same pattern as your previous model) -----------------
 
 // Parse integers with null/empty handling
@@ -115,6 +164,15 @@ String? _parseString(dynamic value) {
     return trimmed.isEmpty ? null : trimmed;
   }
   return value.toString();
+}
+
+// Safely parse lists (returns null if source is null or not a List)
+List<T>? _parseList<T>(dynamic value, T Function(dynamic) mapper) {
+  if (value == null) return null;
+  if (value is List) {
+    return value.map(mapper).toList();
+  }
+  return null;
 }
 
 // Ensure dynamic is a Map<String, dynamic>

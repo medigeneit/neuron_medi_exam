@@ -35,6 +35,7 @@ class ErrorCardExam extends StatelessWidget {
   }
 }
 
+
 /// Public version of the previous _CalculatingRow (same design/logic).
 class CalculatingRow extends StatefulWidget {
   final Color accent;

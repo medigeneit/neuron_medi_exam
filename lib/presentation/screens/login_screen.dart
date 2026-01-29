@@ -16,6 +16,8 @@ import 'package:medi_exam/presentation/widgets/custom_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/helpers/login_screen_helpers.dart';
 
+import '../widgets/free_exam_notify_dialog.dart';
+
 enum _AuthStep {
   enterPhone,
   login,
@@ -511,11 +513,17 @@ class _LoginScreenState extends State<LoginScreen> {
     await LocalStorageService.setObject(LocalStorageService.lastAuthSnapshot, data);
 
     // Mark logged in + timestamp
+// Mark logged in + timestamp
     await LocalStorageService.setString(LocalStorageService.isLoggedIn, 'true');
     await LocalStorageService.setString(
       LocalStorageService.loggedInAt,
       DateTime.now().toIso8601String(),
     );
+
+// ✅ Show Free Exam Quota dialog immediately after login (if allowed)
+    try {
+      await FreeExamNotifyDialogManager.maybeShow(context: Get.overlayContext);
+    } catch (_) {}
 
     // Clear OTP artifacts now that we're authenticated
     await LocalStorageService.setString(LocalStorageService.lastOtpCode, '');
@@ -530,9 +538,9 @@ class _LoginScreenState extends State<LoginScreen> {
       Get.back(result: true, closeOverlays: true);
       return;
     } else if (_returnRoute != null) {
-      Get.offAllNamed(_returnRoute!, arguments: _returnArguments);
+      Get.offNamed(_returnRoute!, arguments: _returnArguments);
     } else {
-      Get.offAllNamed(RouteNames.navBar, arguments: 0);
+      Get.offNamed(RouteNames.navBar, arguments: 0);
     }
   }
 

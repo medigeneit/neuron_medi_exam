@@ -1,33 +1,31 @@
-// lib/presentation/widgets/free_exam_item_widget.dart
+// open_exam_item_widget.dart
 import 'package:flutter/material.dart';
-import 'package:medi_exam/data/models/free_exam_list_model.dart';
+import 'package:medi_exam/data/models/open_exam_list_model.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 
 /// High-level status the UI needs to show.
-enum FreeExamStatus {
-  created,
-  running,
-  completed,
-  unknown,
+enum OpenExamStatus {
+  available, // doctor_open_exam == null
+  continueExam, // doctor_open_exam.status == "Running"
+  checkResult, // doctor_open_exam.status == "Finish"
 }
 
-class FreeExamItemWidget extends StatelessWidget {
-  final FreeExamListItem exam;
-  final void Function(FreeExamListItem exam, FreeExamStatus status)? onTap;
+class OpenExamItemWidget extends StatelessWidget {
+  final OpenExamModel exam;
+  final void Function(OpenExamModel exam, OpenExamStatus status)? onTap;
 
-  const FreeExamItemWidget({
-    super.key,
+  const OpenExamItemWidget({
+    Key? key,
     required this.exam,
     this.onTap,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final status = _deriveStatus(exam);
     final statusMeta = _statusUi(status);
-    final hint = _statusHint(status);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -50,7 +48,7 @@ class FreeExamItemWidget extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(15),
               onTap: onTap == null ? null : () => onTap!(exam, status),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -85,6 +83,7 @@ class FreeExamItemWidget extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
+
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,61 +102,32 @@ class FreeExamItemWidget extends StatelessWidget {
                             ),
                           ),
 
-
-
-                          // status hint text
-                          if (hint != null) ...[
-                            const SizedBox(height: 10),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.info_outline_rounded,
-                                  size: Sizes.verySmallIcon(context),
-                                  color: statusMeta.accent,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    hint,
-                                    style: TextStyle(
-                                      fontSize: Sizes.verySmallText(context),
-                                      color: Theme.of(context).brightness == Brightness.dark
-                                          ? Colors.white70
-                                          : statusMeta.accent.darken(0.1),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                          // ✅ NEW: Course name under title
+                          if (exam.course?.hasName == true) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              exam.course!.safeName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: Sizes.verySmallText(context),
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white70
+                                    : Colors.black54,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
 
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 12),
 
                           Row(
                             children: [
-                          /*    _StatusPill(
+                              _StatusPill(
                                 label: statusMeta.label,
                                 color: statusMeta.accent,
                                 foregroundOnLight: statusMeta.foregroundOnLight,
-                              ),*/
-                              // total questions
-                              if (exam.totalQuestions != null) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  '${exam.totalQuestions} questions',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: Sizes.verySmallText(context),
-                                    color: Theme.of(context).brightness == Brightness.dark
-                                        ? Colors.white70
-                                        : Colors.black54,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                              ),
                               const Spacer(),
                               Row(
                                 children: [
@@ -192,40 +162,30 @@ class FreeExamItemWidget extends StatelessWidget {
     );
   }
 
-  FreeExamStatus _deriveStatus(FreeExamListItem e) {
-    final s = (e.status ?? '').toLowerCase().trim();
-    if (s == 'created') return FreeExamStatus.created;
-    if (s == 'running') return FreeExamStatus.running;
-    if (s == 'completed' || s == 'finish' || s == 'finished') {
-      return FreeExamStatus.completed;
+  OpenExamStatus _deriveStatus(OpenExamModel e) {
+    if (e.doctorOpenExam == null) return OpenExamStatus.available;
+
+    final item = e.doctorOpenExam!.isNotEmpty ? e.doctorOpenExam!.first : null;
+    final s = item?.status?.toLowerCase().trim();
+
+    if (s == 'running') return OpenExamStatus.continueExam;
+    if (s == 'finish' || s == 'finished' || s == 'completed') {
+      return OpenExamStatus.checkResult;
     }
-    return FreeExamStatus.unknown;
+    return OpenExamStatus.available;
   }
 
-  String? _statusHint(FreeExamStatus status) {
+  _StatusUi _statusUi(OpenExamStatus status) {
     switch (status) {
-      case FreeExamStatus.created:
-        return 'Available today — don’t miss it!';
-      case FreeExamStatus.running:
-        return 'You have an ongoing exam — tap to continue.';
-      case FreeExamStatus.completed:
-        return 'Completed — view your result.';
-      case FreeExamStatus.unknown:
-        return null;
-    }
-  }
-
-  _StatusUi _statusUi(FreeExamStatus status) {
-    switch (status) {
-      case FreeExamStatus.created:
+      case OpenExamStatus.available:
         return _StatusUi(
-          label: 'Created',
+          label: 'Available',
           action: 'Start now',
           icon: Icons.bolt_rounded,
           accent: AppColor.primaryColor,
           foregroundOnLight: Colors.white,
         );
-      case FreeExamStatus.running:
+      case OpenExamStatus.continueExam:
         return _StatusUi(
           label: 'Running',
           action: 'Continue',
@@ -233,26 +193,75 @@ class FreeExamItemWidget extends StatelessWidget {
           accent: AppColor.orange,
           foregroundOnLight: Colors.white,
         );
-      case FreeExamStatus.completed:
+      case OpenExamStatus.checkResult:
         return _StatusUi(
-          label: 'Completed',
-          action: 'Check result',
+          label: 'Finished',
+          action: 'View result',
           icon: Icons.verified_rounded,
           accent: AppColor.green,
-          foregroundOnLight: Colors.white,
-        );
-      case FreeExamStatus.unknown:
-        return _StatusUi(
-          label: 'Unknown',
-          action: 'Open',
-          icon: Icons.quiz_rounded,
-          accent: AppColor.purple,
           foregroundOnLight: Colors.white,
         );
     }
   }
 }
 
+class _StatusPill extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color foregroundOnLight;
+
+  const _StatusPill({
+    Key? key,
+    required this.label,
+    required this.color,
+    required this.foregroundOnLight,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? color.withOpacity(0.2) : color.withOpacity(0.12);
+    final textColor = isDark ? color : color.darken(0.15);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withOpacity(0.25), width: 0.75),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.5),
+                  blurRadius: 6,
+                  spreadRadius: 0.5,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: Sizes.verySmallText(context),
+              fontWeight: FontWeight.w800,
+              color: textColor,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _StatusUi {
   final String label;
@@ -276,12 +285,5 @@ extension _ColorX on Color {
     final hsl = HSLColor.fromColor(this);
     final h = hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0));
     return h.toColor();
-  }
-}
-
-extension FreeExamListItemX on FreeExamListItem {
-  String get safeTitle {
-    final t = (title ?? '').trim();
-    return t.isEmpty ? 'Free Exam' : t;
   }
 }

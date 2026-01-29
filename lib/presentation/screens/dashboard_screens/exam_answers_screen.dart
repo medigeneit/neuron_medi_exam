@@ -27,12 +27,13 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
   late final Map<String, dynamic> _args;
   late final String admissionId;
   late final String examId;
-  late final bool isFreeExam;
+
+  /// ✅ 'freeExam', 'openExam', 'courseExam', 'subjectExam'
+  late final String examType;
 
   // Optional extras coming from the Result screen:
   dynamic _examInfo; // title, totalQuestion, fullMark
-  dynamic
-      _result; // obtainedMarkPercent, obtainedMark, correctMark, negativeMark, wrongAnswers, overallPosition, batchPosition
+  dynamic _result; // obtainedMarkPercent, obtainedMark, correctMark, negativeMark, wrongAnswers...
 
   final _service = ExamAnswersService();
 
@@ -46,9 +47,8 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     _args = Get.arguments ?? {};
     admissionId = (_args['admissionId'] ?? '').toString();
     examId = (_args['examId'] ?? '').toString();
-    isFreeExam = (_args['isFreeExam'] ?? false) as bool;
+    examType = (_args['examType'] ?? '').toString(); // ✅ required now
 
-    // These may be typed objects (from your models) OR Map<String, dynamic>.
     _examInfo = _args['examInfo'];
     _result = _args['result'];
 
@@ -61,9 +61,7 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
       _error = null;
     });
 
-    final url = isFreeExam
-        ? Urls.freeExamAnswers(examId)
-        : Urls.examAnswers(admissionId, examId);
+    final url = _answersUrlByExamType();
 
     final NetworkResponse resp = await _service.fetchExamAnswers(url);
 
@@ -103,6 +101,22 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     }
   }
 
+  // ✅ Pick answers URL based on examType
+  String _answersUrlByExamType() {
+    switch (examType) {
+      case 'freeExam':
+        return Urls.freeExamAnswers(examId);
+      case 'openExam':
+        return Urls.openExamAnswers(examId);
+      case 'courseExam':
+        return Urls.courseExamAnswers(admissionId, examId);
+/*      case 'subjectExam':
+        return Urls.subjectExamAnswers(admissionId, examId);*/
+      default:
+        return Urls.openExamAnswers(examId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return CommonScaffold(
@@ -110,8 +124,8 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
       body: _loading
           ? const Center(child: LoadingWidget())
           : _error != null
-              ? ErrorCardExam(message: _error!, onRetry: _load)
-              : _buildContent(context),
+          ? ErrorCardExam(message: _error!, onRetry: _load)
+          : _buildContent(context),
     );
   }
 
@@ -119,7 +133,7 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth =
-            constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
+        constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
 
         return CustomScrollView(
           slivers: [
@@ -128,7 +142,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Column(
                   children: [
-                    // Title row
                     Row(
                       children: [
                         Icon(Icons.analytics_outlined,
@@ -148,7 +161,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Overview block (pretty, compact)
                     Center(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: maxWidth),
@@ -156,6 +168,7 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
+
                     Row(
                       children: [
                         Icon(Icons.fact_check_outlined,
@@ -182,7 +195,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
               ),
             ),
 
-            // Answers list
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               sliver: SliverList.separated(
@@ -201,7 +213,7 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                         options: item.questionOption ?? const [],
                         doctorStates: item.doctorStates,
                         correctStates: item.correctStates,
-                        questionId: item.questionId, // ✅ NEW
+                        questionId: item.questionId,
                       )
                           : SBAAnswerReviewTile(
                         indexLabel: idxLabel,
@@ -209,7 +221,7 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                         options: item.questionOption ?? const [],
                         doctorIndex: item.doctorSbaIndex,
                         correctIndex: item.correctSbaIndex,
-                        questionId: item.questionId, // ✅ NEW
+                        questionId: item.questionId,
                       ),
                     ),
                   );
@@ -226,38 +238,27 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
   // ---------- Overview (pretty + compact) ----------
   Widget _buildOverview(BuildContext context) {
     final percent = _toDouble(_readDyn(
-            _result,
+        _result,
             (d) => (d as dynamic).obtainedMarkPercent,
-            ['obtainedMarkPercent', 'obtained_mark_percent'])) ??
+        ['obtainedMarkPercent', 'obtained_mark_percent'])) ??
         0.0;
 
-    final totalQ = _toInt(_readDyn(
-        _examInfo,
-        (d) => (d as dynamic).totalQuestion,
-        ['totalQuestion', 'total_question']));
+    final totalQ = _toInt(_readDyn(_examInfo,
+            (d) => (d as dynamic).totalQuestion, ['totalQuestion', 'total_question']));
     final fullMark = _toInt(_readDyn(
         _examInfo, (d) => (d as dynamic).fullMark, ['fullMark', 'full_mark']));
 
     final obtained = _toDouble(_readDyn(_result,
-        (d) => (d as dynamic).obtainedMark, ['obtainedMark', 'obtained_mark']));
+            (d) => (d as dynamic).obtainedMark, ['obtainedMark', 'obtained_mark']));
     final correct = _toDouble(_readDyn(_result,
-        (d) => (d as dynamic).correctMark, ['correctMark', 'correct_mark']));
+            (d) => (d as dynamic).correctMark, ['correctMark', 'correct_mark']));
     final negative = _toDouble(_readDyn(_result,
-        (d) => (d as dynamic).negativeMark, ['negativeMark', 'negative_mark']));
+            (d) => (d as dynamic).negativeMark, ['negativeMark', 'negative_mark']));
     final wrong = _toInt(_readDyn(_result, (d) => (d as dynamic).wrongAnswers,
         ['wrongAnswers', 'wrong_answers']));
 
-    final overallPos = _toInt(_readDyn(
-        _result,
-        (d) => (d as dynamic).overallPosition,
-        ['overallPosition', 'overall_position']));
-    final batchPos = _toInt(_readDyn(
-        _result,
-        (d) => (d as dynamic).batchPosition,
-        ['batchPosition', 'batch_position']));
-
     final title = _toString(
-            _readDyn(_examInfo, (d) => (d as dynamic).title, ['title'])) ??
+        _readDyn(_examInfo, (d) => (d as dynamic).title, ['title'])) ??
         '—';
 
     return CustomBlobBackground(
@@ -268,11 +269,9 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title + ring
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Title & two compact metrics (obtained / full)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,7 +312,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Grid-ish metrics (responsive wrap)
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -340,16 +338,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                   label: 'Wrong',
                   value: _fmtInt(wrong),
                 ),
-/*                _metricCard(
-                  icon: Icons.leaderboard_rounded,
-                  label: 'Overall Pos',
-                  value: _fmtInt(overallPos),
-                ),
-                _metricCard(
-                  icon: Icons.groups_rounded,
-                  label: 'Batch Pos',
-                  value: _fmtInt(batchPos),
-                ),*/
               ],
             ),
           ],
@@ -442,7 +430,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     );
   }
 
-  // Small legend to explain colors
   Widget _legend(BuildContext context) {
     return Wrap(
       spacing: 8,
@@ -491,17 +478,15 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
 
   // ---------- Safe readers / formatters ----------
   dynamic _readDyn(
-    dynamic obj,
-    dynamic Function(dynamic d) dynGet,
-    List<String> mapKeys,
-  ) {
+      dynamic obj,
+      dynamic Function(dynamic d) dynGet,
+      List<String> mapKeys,
+      ) {
     if (obj == null) return null;
-    // Try dynamic property access (works if a typed model was passed).
     try {
       final v = dynGet(obj);
       if (v != null) return v;
     } catch (_) {}
-    // Fallback to Map
     if (obj is Map) {
       for (final k in mapKeys) {
         if (obj.containsKey(k) && obj[k] != null) return obj[k];
@@ -533,11 +518,4 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
   String _fmtDouble(double? v) => v == null
       ? '—'
       : v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
-
-  Color _getProgressColor(double percent) {
-    if (percent >= 80) return Colors.green;
-    if (percent >= 60) return Colors.yellow;
-    if (percent >= 40) return Colors.orange;
-    return Colors.red;
-  }
 }

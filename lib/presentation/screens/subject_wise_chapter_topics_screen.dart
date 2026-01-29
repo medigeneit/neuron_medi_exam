@@ -14,7 +14,7 @@ import 'package:medi_exam/presentation/widgets/helpers/subject_wise_chapter_topi
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
 class SubjectWiseChapterTopicsScreen extends StatefulWidget {
-  const SubjectWiseChapterTopicsScreen({Key? key}) : super(key: key);
+  const SubjectWiseChapterTopicsScreen({super.key});
 
   @override
   State<SubjectWiseChapterTopicsScreen> createState() =>
@@ -63,20 +63,7 @@ class _SubjectWiseChapterTopicsScreenState
     final args = (Get.arguments as Map<String, dynamic>?) ?? {};
 
     courseTitle = (args['courseTitle'] ?? 'Subject Wise Topics').toString();
-
-    // icon support (if not passed, fallback)
-    if (args['icon'] is IconData) {
-      icon = args['icon'];
-    } else if (args['iconCodePoint'] is int) {
-      icon = IconData(
-        args['iconCodePoint'] as int,
-        fontFamily: (args['iconFontFamily'] as String?) ?? 'MaterialIcons',
-        fontPackage: args['iconFontPackage'] as String?,
-        matchTextDirection: args['iconMatchTextDirection'] == true,
-      );
-    } else {
       icon = Icons.menu_book_rounded;
-    }
 
     specialtyId = _asInt(args['specialtyId']) ?? 0;
     specialtyName = (args['specialtyName'] ?? '').toString();

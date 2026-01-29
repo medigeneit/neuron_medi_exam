@@ -1,30 +1,29 @@
-// free_exam_list_screen.dart
+// lib/presentation/screens/free_exam_list_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:logger/logger.dart';
 
 import 'package:medi_exam/data/models/free_exam_list_model.dart';
-import 'package:medi_exam/data/services/free_exam_list_service.dart';
 import 'package:medi_exam/data/network_response.dart';
+import 'package:medi_exam/data/services/free_exam_list_service.dart';
+
 import 'package:medi_exam/presentation/utils/routes.dart';
-
+import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
+import 'package:medi_exam/presentation/widgets/free_exam_item_widget.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
+import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 
-// ▼ Reuse the SAME dialog + model + colors you already have
+// Reuse the SAME dialog + model + services you already have
 import 'package:medi_exam/data/models/exam_property_model.dart';
 import 'package:medi_exam/data/services/exam_property_service.dart';
 import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/widgets/exam_overview_dialog.dart';
 
-import 'package:medi_exam/presentation/utils/app_colors.dart';
-import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
-
-// <<< IMPORTANT: bring in routeObserver just like your DoctorScheduleScreen >>>
+// <<< IMPORTANT: bring in routeObserver just like your other screen >>>
 import 'package:medi_exam/main.dart';
 
-// item widget
-import 'package:medi_exam/presentation/widgets/free_exam_item_widget.dart';
+
 
 class FreeExamListScreen extends StatefulWidget {
   const FreeExamListScreen({Key? key}) : super(key: key);
@@ -37,22 +36,26 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
     with WidgetsBindingObserver, RouteAware {
   final _logger = Logger();
   final _service = FreeExamListService();
-
-  // Reuse the same service to fetch the free exam property via URL
   final ExamPropertyService _examPropertyService = ExamPropertyService();
 
-  String url = '';
+  final ScrollController _scrollController = ScrollController();
 
   bool _loading = true;
-  bool _refreshing = false; // background (silent) refresh flag
+  bool _refreshing = false;
+  bool _loadingMore = false;
+
   String _error = '';
-  FreeExamListModel _model = FreeExamListModel(items: const []);
+
+  int _currentPage = 1;
+  int _lastPage = 1;
+
+  final List<FreeExamListItem> _items = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _readArgs();
+    _scrollController.addListener(_onScroll);
     _initialLoad();
   }
 
@@ -69,6 +72,8 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
   void dispose() {
     routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -86,52 +91,26 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
     }
   }
 
-  void _readArgs() {
-    final args = Get.arguments ?? {};
-    url = (args['url'] ?? '').toString();
-  }
-
-  // initial load (shows loading)
   Future<void> _initialLoad() async {
     setState(() {
       _loading = true;
       _error = '';
     });
-    await _callApi();
+    await _loadPage(
+      page: 1,
+      replace: true,
+      showLoading: true,
+    );
   }
 
-  // background refresh helper
   Future<void> _refreshData({bool silent = false}) async {
     if (silent) {
-      setState(() {
-        _refreshing = true;
-      });
-      await _callApi();
+      setState(() => _refreshing = true);
+      await _loadPage(page: 1, replace: true, showLoading: false);
       if (!mounted) return;
-      setState(() {
-        _refreshing = false;
-      });
+      setState(() => _refreshing = false);
     } else {
-      await _callApi();
-    }
-  }
-
-  // Pure API call
-  Future<void> _callApi() async {
-    final NetworkResponse res = await _service.fetchFreeExamList(url);
-    if (!mounted) return;
-
-    if (res.isSuccess && res.responseData is FreeExamListModel) {
-      setState(() {
-        _model = res.responseData as FreeExamListModel;
-        _loading = false;
-        _error = '';
-      });
-    } else {
-      setState(() {
-        _loading = false;
-        _error = res.errorMessage ?? 'Failed to load exams';
-      });
+      await _loadPage(page: 1, replace: true, showLoading: false);
     }
   }
 
@@ -139,33 +118,132 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
     await _refreshData(silent: false);
   }
 
-  void _handleItemTap(FreeExamModel exam, FreeExamStatus status) async {
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_loading || _loadingMore) return;
+    if (_currentPage >= _lastPage) return;
+
+    final pos = _scrollController.position;
+    const threshold = 260.0;
+    if (pos.pixels >= (pos.maxScrollExtent - threshold)) {
+      _loadNextPage();
+    }
+  }
+
+  Future<void> _loadNextPage() async {
+    if (_loadingMore || _loading) return;
+    if (_currentPage >= _lastPage) return;
+
+    setState(() => _loadingMore = true);
+
+    final nextPage = _currentPage + 1;
+    await _loadPage(page: nextPage, replace: false, showLoading: false);
+
+    if (!mounted) return;
+    setState(() => _loadingMore = false);
+  }
+
+  Future<void> _loadPage({
+    required int page,
+    required bool replace,
+    required bool showLoading,
+  }) async {
+    if (showLoading) {
+      setState(() {
+        _loading = true;
+        _error = '';
+      });
+    }
+
+    final NetworkResponse res =
+    await _service.fetchFreeExamList(pageNo: page.toString());
+
+    if (!mounted) return;
+
+    if (res.isSuccess && res.responseData is FreeExamListModel) {
+      final model = res.responseData as FreeExamListModel;
+      final newItems = model.items ?? const <FreeExamListItem>[];
+
+      final newCurrent = model.pagination?.currentPage ?? page;
+      final newLast = model.pagination?.lastPage ?? _lastPage;
+
+      setState(() {
+        _currentPage = newCurrent;
+        _lastPage = newLast;
+
+        if (replace) {
+          _items
+            ..clear()
+            ..addAll(newItems);
+        } else {
+          // de-dup by exam_id
+          final existingIds = _items
+              .map((e) => e.examId)
+              .whereType<int>()
+              .toSet();
+          for (final it in newItems) {
+            final id = it.examId;
+            if (id == null || !existingIds.contains(id)) {
+              _items.add(it);
+              if (id != null) existingIds.add(id);
+            }
+          }
+        }
+
+        _loading = false;
+        _error = '';
+      });
+    } else {
+      // If first page failed -> show full-screen error.
+      // If next page failed -> keep current list and show snackbar.
+      if (replace) {
+        setState(() {
+          _loading = false;
+          _error = res.errorMessage ?? 'Failed to load free exams';
+        });
+      } else {
+        Get.snackbar(
+          'Failed',
+          res.errorMessage ?? 'Failed to load next page',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black,
+        );
+        _logger.e('Pagination error: ${res.errorMessage}');
+      }
+    }
+  }
+
+  void _handleItemTap(FreeExamListItem exam, FreeExamStatus status) async {
     switch (status) {
-      case FreeExamStatus.available:
-      case FreeExamStatus.continueExam:
-        await _openFreeExamOverview(exam);
+      case FreeExamStatus.created:
+      case FreeExamStatus.running:
+        await _freeExamOverview(exam);
         break;
 
-      case FreeExamStatus.checkResult:
+      case FreeExamStatus.completed:
         final examId = exam.examId;
         if (examId != null && examId.toString().isNotEmpty) {
           final data = {
             'admissionId': '',
             'examId': examId.toString(),
-            'isFreeExam': true,
+            'examType': 'freeExam',
           };
           Get.toNamed(
             RouteNames.examResult,
             arguments: data,
             preventDuplicates: true,
           );
-          return;
         }
+        break;
+
+      case FreeExamStatus.unknown:
+      // no-op
         break;
     }
   }
 
-  Future<void> _openFreeExamOverview(FreeExamModel exam) async {
+  Future<void> _freeExamOverview(FreeExamListItem exam) async {
     Get.dialog(
       const Center(
         child: CustomBlobBackground(
@@ -187,8 +265,9 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
       }
 
       final String url = Urls.freeExamProperty(examId);
-      final NetworkResponse res =
-      await _examPropertyService.fetchExamProperty(url);
+      final NetworkResponse res = await _examPropertyService.fetchExamProperty(
+        url,
+      );
 
       if (!res.isSuccess) {
         throw Exception(res.errorMessage ?? 'Failed to load exam property.');
@@ -198,26 +277,20 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
       if (res.responseData is ExamPropertyModel) {
         model = res.responseData as ExamPropertyModel;
       } else if (res.responseData is Map<String, dynamic>) {
-        model = ExamPropertyModel.fromJson(
-            res.responseData as Map<String, dynamic>);
+        model = ExamPropertyModel.fromJson(res.responseData as Map<String, dynamic>);
       } else {
-        throw Exception(
-            'Unexpected response data type: ${res.responseData.runtimeType}');
+        throw Exception('Unexpected response data type: ${res.responseData.runtimeType}');
       }
 
       if (Get.isDialogOpen == true) Get.back();
 
-      final bool? started = await showExamOverviewDialog(
+      await showExamOverviewDialog(
         context,
         model: model,
-        url: Urls.freeExamQuestion(exam.examId?.toString() ?? ''),
-        isFreeExam: true,
+        url: Urls.freeExamQuestion(examId),
+        examType: "freeExam",
         admissionId: '',
       );
-
-      if (started == true) {
-        // no-op
-      }
     } catch (e) {
       if (Get.isDialogOpen == true) Get.back();
       Get.snackbar(
@@ -234,7 +307,7 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
   @override
   Widget build(BuildContext context) {
     return CommonScaffold(
-      title: 'Free Exams',
+      title: 'Customized Exams',
       body: _buildBody(),
     );
   }
@@ -251,18 +324,20 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline_rounded,
+              const Icon(Icons.error_outline_rounded,
                   color: Colors.redAccent, size: 42),
               const SizedBox(height: 12),
               Text(
                 _error,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: Colors.redAccent, fontWeight: FontWeight.w600),
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: _fetch,
+                onPressed: _initialLoad,
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Retry'),
               ),
@@ -272,23 +347,29 @@ class _FreeExamListScreenState extends State<FreeExamListScreen>
       );
     }
 
-    if (_model.isEmpty) {
+    if (_items.isEmpty) {
       return _EmptyState(onRetry: _fetch);
     }
 
     return RefreshIndicator(
       onRefresh: _fetch,
       child: CustomScrollView(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // ✅ REMOVED: Top courseName glass card section بالكامل
-
           SliverPadding(
             padding: const EdgeInsets.only(top: 8, bottom: 24),
             sliver: SliverList.builder(
-              itemCount: _model.items.length,
+              itemCount: _items.length + (_loadingMore ? 1 : 0),
               itemBuilder: (context, index) {
-                final exam = _model.items[index];
+                if (index >= _items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Center(child: LoadingWidget()),
+                  );
+                }
+
+                final exam = _items[index];
                 return FreeExamItemWidget(
                   exam: exam,
                   onTap: _handleItemTap,

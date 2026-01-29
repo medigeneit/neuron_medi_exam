@@ -19,6 +19,7 @@ import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
 import 'package:medi_exam/presentation/widgets/floating_customer_care.dart';
 import 'package:medi_exam/presentation/widgets/free_exam_card.dart';
+import 'package:medi_exam/presentation/widgets/free_exam_notify_dialog.dart';
 import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/helpers/home_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/image_slider_banner.dart';
@@ -64,10 +65,16 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _slidingErrorMessage;
   String? _helplineError;
 
+
   @override
   void initState() {
     super.initState();
     _fetchData();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      FreeExamNotifyDialogManager.maybeShow(context: context);
+    });
+
   }
 
   Future<void> _fetchData() async {
@@ -349,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Future<void> goNow() async {
       Get.toNamed(
         RouteNames.freeExams,
-        arguments: {'url': Urls.freeExamList},
+        arguments: {'url': Urls.openExamList},
         preventDuplicates: true,
       );
     }
@@ -453,6 +460,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     isLoading: _isLoading,
                     errorMessage: _errorMessage,
                     model: _batchCourses,
+                    showFreeExamRibbon: true,
                     title: "Batch Wise Preparation",
                     subtitle:
                     "Choose a batch and try free exams to check your level",
@@ -461,7 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // Free exam card
+/*              // Free exam card
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -472,7 +480,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: _onFreeExamPressed,
                   ),
                 ),
-              ),
+              ),*/
 
               // ✅ Subject Wise Preparation uses active-course-specialties-subjects
               SliverToBoxAdapter(
@@ -485,8 +493,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     isLoading: _isSubjectLoading,
                     errorMessage: _subjectErrorMessage,
                     model: _subjectCourses,
+                    showFreeExamRibbon: true,
                     title: "Subject Wise Preparation",
-                    subtitle: "Explore any subject with one free exam every day",
+                    subtitle: "Explore any subject with free exam every day",
                     isBatch: false,
                   ),
                 ),
@@ -543,6 +552,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required CoursesModel? model,
     required String title,
     required String subtitle,
+    required bool showFreeExamRibbon,
     required bool isBatch,
   }) {
     if (isLoading) {
@@ -565,6 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
         subtitle: subtitle,
         batchCourses: model!,
         isBatch: isBatch,
+        showFreeExamRibbon: showFreeExamRibbon,
         onPackagePicked: ({
           required bool isBatch,
           required String courseTitle,

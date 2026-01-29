@@ -1,185 +1,192 @@
+// lib/data/models/free_exam_list_model.dart
+import 'dart:convert';
+
 class FreeExamListModel {
-  final List<FreeExamModel> items;
+  final bool? ok;
+  final FreeExamListPagination? pagination;
+  final List<FreeExamListItem>? items;
 
-  FreeExamListModel({required this.items});
+  const FreeExamListModel({
+    this.ok,
+    this.pagination,
+    this.items,
+  });
 
-  /// Build from a top-level JSON array (or a wrapped `data` array).
-  factory FreeExamListModel.fromJsonList(dynamic json) {
-    if (json is List) {
-      return FreeExamListModel(
-        items: json.map((e) => FreeExamModel.fromJson(_asMap(e))).toList(),
+  factory FreeExamListModel.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const FreeExamListModel();
+    return FreeExamListModel(
+      ok: _toBool(json['ok']),
+      pagination: json['pagination'] is Map<String, dynamic>
+          ? FreeExamListPagination.fromJson(json['pagination'] as Map<String, dynamic>)
+          : null,
+      items: _toList(json['items'])
+          ?.map((e) => e is Map<String, dynamic> ? FreeExamListItem.fromJson(e) : const FreeExamListItem())
+          .toList(),
+    );
+  }
+
+  /// Accepts either a Map or a JSON string.
+  factory FreeExamListModel.parse(dynamic source) {
+    if (source == null) return const FreeExamListModel();
+
+    if (source is Map<String, dynamic>) {
+      return FreeExamListModel.fromJson(source);
+    }
+
+    if (source is String && source.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(source);
+        if (decoded is Map<String, dynamic>) {
+          return FreeExamListModel.fromJson(decoded);
+        }
+      } catch (_) {}
+    }
+
+    return const FreeExamListModel();
+  }
+
+  Map<String, dynamic> toJson() => {
+    'ok': ok,
+    'pagination': pagination?.toJson(),
+    'items': items?.map((e) => e.toJson()).toList(),
+  };
+
+  FreeExamListModel copyWith({
+    bool? ok,
+    FreeExamListPagination? pagination,
+    List<FreeExamListItem>? items,
+  }) =>
+      FreeExamListModel(
+        ok: ok ?? this.ok,
+        pagination: pagination ?? this.pagination,
+        items: items ?? this.items,
       );
-    }
-    if (json is Map && json['data'] is List) {
-      return FreeExamListModel.fromJsonList(json['data']);
-    }
-    return FreeExamListModel(items: const []);
-  }
-
-  /// Convert back to a JSON array.
-  List<Map<String, dynamic>> toJsonList() {
-    return items.map((e) => e.toJson()).toList();
-  }
-
-  bool get isEmpty => items.isEmpty;
-  bool get isNotEmpty => items.isNotEmpty;
 }
 
-class FreeExamModel {
-  final int? examId;
-  final String? title;
-  final CourseModel? course;
-  /// May be null (server can send `null`) or a list.
-  final List<DoctorOpenExamModel>? doctorOpenExam;
+class FreeExamListPagination {
+  final int? currentPage;
+  final int? lastPage;
+  final int? perPage;
+  final int? total;
 
-  FreeExamModel({
-    this.examId,
-    this.title,
-    this.course,
-    this.doctorOpenExam,
+  const FreeExamListPagination({
+    this.currentPage,
+    this.lastPage,
+    this.perPage,
+    this.total,
   });
 
-  factory FreeExamModel.fromJson(Map<String, dynamic> json) {
-    return FreeExamModel(
-      examId: _parseInt(json['exam_id']),
-      title: _parseString(json['title']),
-      course: json['course'] == null
-          ? null
-          : CourseModel.fromJson(_asMap(json['course'])),
-      doctorOpenExam: _parseList<DoctorOpenExamModel>(
-        json['doctor_open_exam'],
-            (e) => DoctorOpenExamModel.fromJson(_asMap(e)),
-      ),
+  factory FreeExamListPagination.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const FreeExamListPagination();
+    return FreeExamListPagination(
+      currentPage: _toInt(json['current_page']),
+      lastPage: _toInt(json['last_page']),
+      perPage: _toInt(json['per_page']),
+      total: _toInt(json['total']),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'exam_id': examId,
-      'title': title,
-      'course': course?.toJson(),
-      'doctor_open_exam': doctorOpenExam?.map((e) => e.toJson()).toList(),
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'current_page': currentPage,
+    'last_page': lastPage,
+    'per_page': perPage,
+    'total': total,
+  };
 
-  // -------- Convenience: has* checks --------
-  bool get hasTitle => title != null && title!.isNotEmpty;
-  bool get hasCourse => course != null;
-  bool get hasDoctorOpenExam =>
-      doctorOpenExam != null && doctorOpenExam!.isNotEmpty;
-
-  // -------- Convenience: safe getters --------
-  int get safeExamId => examId ?? 0;
-  String get safeTitle => title ?? '';
-  CourseModel get safeCourse => course ?? CourseModel();
-  List<DoctorOpenExamModel> get safeDoctorOpenExam =>
-      doctorOpenExam ?? const [];
+  FreeExamListPagination copyWith({
+    int? currentPage,
+    int? lastPage,
+    int? perPage,
+    int? total,
+  }) =>
+      FreeExamListPagination(
+        currentPage: currentPage ?? this.currentPage,
+        lastPage: lastPage ?? this.lastPage,
+        perPage: perPage ?? this.perPage,
+        total: total ?? this.total,
+      );
 }
 
-class CourseModel {
-  final int? id;
-  final String? name;
-
-  CourseModel({this.id, this.name});
-
-  factory CourseModel.fromJson(Map<String, dynamic> json) {
-    return CourseModel(
-      id: _parseInt(json['id']),
-      name: _parseString(json['name']),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-    };
-  }
-
-  // Convenience
-  bool get hasName => name != null && name!.isNotEmpty;
-  int get safeId => id ?? 0;
-  String get safeName => name ?? '';
-}
-
-class DoctorOpenExamModel {
-  final int? id;
+class FreeExamListItem {
   final int? examId;
-  final int? doctorId;
   final String? status;
+  final String? title;
+  final int? totalQuestions;
 
-  DoctorOpenExamModel({
-    this.id,
+  const FreeExamListItem({
     this.examId,
-    this.doctorId,
     this.status,
+    this.title,
+    this.totalQuestions,
   });
 
-  factory DoctorOpenExamModel.fromJson(Map<String, dynamic> json) {
-    return DoctorOpenExamModel(
-      id: _parseInt(json['id']),
-      examId: _parseInt(json['exam_id']),
-      doctorId: _parseInt(json['doctor_id']),
-      status: _parseString(json['status']),
+  factory FreeExamListItem.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const FreeExamListItem();
+    return FreeExamListItem(
+      examId: _toInt(json['exam_id']),
+      status: _toStringOrNull(json['status']),
+      title: _toStringOrNull(json['title']),
+      totalQuestions: _toInt(json['total_questions']),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'exam_id': examId,
-      'doctor_id': doctorId,
-      'status': status,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'exam_id': examId,
+    'status': status,
+    'title': title,
+    'total_questions': totalQuestions,
+  };
 
-  // Convenience
-  bool get hasStatus => status != null && status!.isNotEmpty;
-  int get safeId => id ?? 0;
-  int get safeExamId => examId ?? 0;
-  int get safeDoctorId => doctorId ?? 0;
-  String get safeStatus => status ?? '';
+  FreeExamListItem copyWith({
+    int? examId,
+    String? status,
+    String? title,
+    int? totalQuestions,
+  }) =>
+      FreeExamListItem(
+        examId: examId ?? this.examId,
+        status: status ?? this.status,
+        title: title ?? this.title,
+        totalQuestions: totalQuestions ?? this.totalQuestions,
+      );
 }
 
-// ----------------- Shared helpers (same pattern as your previous model) -----------------
+/* -------------------------- Safe parsing helpers -------------------------- */
 
-// Parse integers with null/empty handling
-int? _parseInt(dynamic value) {
-  if (value == null) return null;
-  if (value is int) return value;
-  if (value is String) {
-    final v = value.trim();
-    if (v.isEmpty) return null;
-    return int.tryParse(v);
-  }
-  if (value is double) return value.toInt();
-  return null;
-}
-
-// Parse strings with null/empty handling
-String? _parseString(dynamic value) {
-  if (value == null) return null;
-  if (value is String) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-  return value.toString();
-}
-
-// Safely parse lists (returns null if source is null or not a List)
-List<T>? _parseList<T>(dynamic value, T Function(dynamic) mapper) {
-  if (value == null) return null;
-  if (value is List) {
-    return value.map(mapper).toList();
+int? _toInt(dynamic v) {
+  if (v == null) return null;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is num) return v.toInt();
+  if (v is String) {
+    final s = v.trim();
+    if (s.isEmpty) return null;
+    return int.tryParse(s);
   }
   return null;
 }
 
-// Ensure dynamic is a Map<String, dynamic>
-Map<String, dynamic> _asMap(dynamic v) {
-  if (v is Map<String, dynamic>) return v;
-  if (v is Map) {
-    return v.map((key, value) => MapEntry(key.toString(), value));
+bool? _toBool(dynamic v) {
+  if (v == null) return null;
+  if (v is bool) return v;
+  if (v is num) return v != 0;
+  if (v is String) {
+    final s = v.trim().toLowerCase();
+    if (s.isEmpty) return null;
+    if (['true', '1', 'yes', 'y'].contains(s)) return true;
+    if (['false', '0', 'no', 'n'].contains(s)) return false;
   }
-  return <String, dynamic>{};
+  return null;
+}
+
+String? _toStringOrNull(dynamic v) {
+  if (v == null) return null;
+  final s = v.toString().trim();
+  return s.isEmpty ? null : s;
+}
+
+List<dynamic>? _toList(dynamic v) {
+  if (v == null) return null;
+  if (v is List) return v;
+  return null;
 }

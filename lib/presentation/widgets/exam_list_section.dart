@@ -122,7 +122,7 @@ class _ExamCard extends StatelessWidget {
                 final data = {
                   'admissionId': admissionId.toString(),
                   'examId': examId.toString(),
-                  'isFreeExam': false,
+                  'examType': 'courseExam',
                 };
                 Get.toNamed(
                   RouteNames.examResult,
@@ -258,7 +258,7 @@ class _ExamCard extends StatelessWidget {
         context,
         model: model,
         url: Urls.examQuestion(admissionId, content.examId.toString()),
-        isFreeExam: false,
+        examType: 'courseExam',
         admissionId: admissionId.toString(),
       );
     } catch (e) {

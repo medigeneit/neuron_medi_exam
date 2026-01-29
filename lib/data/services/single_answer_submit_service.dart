@@ -12,26 +12,25 @@ class SingleAnswerSubmitService {
   final NetworkCaller _caller = NetworkCaller(logger: Logger());
 
   Future<NetworkResponse> submitSingleAnswer({
-    bool? isFreeExam,
+    /// 'freeExam', 'openExam', 'courseExam', 'subjectExam'
+    required String examType,
+
     String? admissionId,
     String? examId,
     String? questionId,
+
+    /// NOTE:
+    /// - freeExam: DO NOT send exam_question_id
+    /// - other types: send it normally
     String? examQuestionId,
+
     String? questionTypeId,
     String? answer,
     String? endDuration,
   }) async {
-    final bool free = isFreeExam == true;
-
-    // Pick URL based on free/paid
-    final String url =
-    free ? Urls.freeExamSingleAnswerSubmit : Urls.singleAnswerSubmit;
-
-    // Get token from local storage if not provided
+    // Token
     final rawToken = LocalStorageService.getString(LocalStorageService.token);
-
     if (rawToken == null || rawToken.isEmpty) {
-      // Keep parity with other services: fail fast when no token is present.
       return NetworkResponse(
         statusCode: 401,
         isSuccess: false,
@@ -39,38 +38,47 @@ class SingleAnswerSubmitService {
       );
     }
 
-    // Helper: trim string, convert null -> ''
     String _s(String? v) => v?.trim() ?? '';
 
-    // Build body. For FREE exam we must NOT include 'admission_id' at all.
+    // ✅ Only courseExam needs admission_id
+    final bool needsAdmissionId = examType == 'courseExam';
+
+    // ✅ Pick URL based on examType
+    final String url = _singleAnswerUrlByExamType(examType);
+
+    // Build request body
     final Map<String, dynamic> body = {
       'token': _s(rawToken),
       'exam_id': _s(examId),
       'question_id': _s(questionId),
-      'exam_question_id': _s(examQuestionId),
       'question_type_id': _s(questionTypeId),
       'answer': _s(answer),
       'end_duration': _s(endDuration),
     };
 
-    if (!free) {
-      // Only attach admission_id for paid/admission exams
+    // ✅ freeExam: do NOT include exam_question_id at all
+    if (examType != 'freeExam') {
+      body['exam_question_id'] = _s(examQuestionId);
+    }
+
+    // ✅ only courseExam: include admission_id
+    if (needsAdmissionId) {
       body['admission_id'] = _s(admissionId);
     }
 
-    // Fire the POST request (pass token as header too, for consistency)
+    // POST
     final resp = await _caller.postRequest(
       url,
       token: rawToken,
       body: body,
     );
 
-    // If HTTP failed, bubble up the original response
     if (!resp.isSuccess) return resp;
 
-    // Normalize payload to Map<String, dynamic>
+    // Normalize responseData to Map<String, dynamic>
     final raw = resp.responseData;
     Map<String, dynamic>? map;
+
     if (raw is Map<String, dynamic>) {
       map = raw;
     } else if (raw is String) {
@@ -79,7 +87,7 @@ class SingleAnswerSubmitService {
         if (decoded is Map<String, dynamic>) {
           map = decoded;
         }
-      } catch (_) {/* swallow and handle below */}
+      } catch (_) {/* ignore */}
     }
 
     if (map == null) {
@@ -91,10 +99,15 @@ class SingleAnswerSubmitService {
       );
     }
 
-    // Try to parse into the model for a clean success/message read
+    // Parse model
     try {
       final model = SingleAnswerSubmitModel.fromJson(map);
       final ok = model.success == true;
+
+      final String? serverMsg = (model.message is String &&
+          (model.message as String).trim().isNotEmpty)
+          ? (model.message as String).trim()
+          : null;
 
       return NetworkResponse(
         statusCode: resp.statusCode,
@@ -103,13 +116,29 @@ class SingleAnswerSubmitService {
         responseData: map,
       );
     } catch (e) {
-      // Model parsing failed: still return the raw map, but flag as error
       return NetworkResponse(
         statusCode: resp.statusCode,
         isSuccess: false,
         errorMessage: "Failed to parse SingleAnswerSubmitModel: $e",
         responseData: map,
       );
+    }
+  }
+
+  /// Map examType -> endpoint
+  /// Ensure these exist in Urls (or rename here to match your Urls).
+  String _singleAnswerUrlByExamType(String examType) {
+    switch (examType) {
+      case 'freeExam':
+        return Urls.freeExamSingleAnswerSubmit;
+      case 'openExam':
+        return Urls.openExamSingleAnswerSubmit;
+      case 'courseExam':
+        return Urls.courseExamSingleAnswerSubmit;
+/*      case 'subjectExam':
+        return Urls.subjectExamSingleAnswerSubmit;*/
+      default:
+        return Urls.openExamSingleAnswerSubmit;
     }
   }
 }

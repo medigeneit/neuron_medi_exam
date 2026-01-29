@@ -18,16 +18,19 @@ class Urls {
   static const String slider = "${_baseUrl}hero-slider";
   static const String noticeList = "${_baseUrl}notices";
   static const String allEnrolledBatches = "${_baseUrl}doctor/admission-batches";
-  static const String singleAnswerSubmit = "${_baseUrl}doctor/submit-answer";
+  static const String courseExamSingleAnswerSubmit = "${_baseUrl}doctor/submit-answer";
   static const String helpLine = "${_baseUrl}public-settings";
   static const String changePassword = "${_baseUrl}doctor/profile/change-password";
   static const String doctorProfile = "${_baseUrl}doctor/profile";
   static const String doctorProfileUpdate = "${_baseUrl}doctor/profile/update";
   static const String paymentHistory = "${_baseUrl}doctor/admission-payments";
   static const String manualPayments = "${_baseUrl}doctor/admission-manual-payments";
-  static const String freeExamSingleAnswerSubmit = "${_baseUrl}doctor/open-exam-submit-answer";
-  static const String freeExamPublicList = "${_baseUrl}open-exams/free";
-  static const String freeExamList = "${_baseUrl}doctor/open-exam-list";
+  static const String openExamSingleAnswerSubmit = "${_baseUrl}doctor/open-exam-submit-answer";
+  static const String openExamPublicList = "${_baseUrl}open-exams/free";
+  static const String openExamList = "${_baseUrl}doctor/open-exam-list";
+  static const String freeExamQuota = "${_baseUrl}doctor/free-exams/quota";
+  static const String freeExamCreate = "${_baseUrl}doctor/free-exams/create";
+  static const String freeExamSingleAnswerSubmit = "${_baseUrl}doctor/free-exams/submit-answer";
 
 
   static String noticeDetails(String noticeId) {
@@ -62,30 +65,30 @@ class Urls {
     return "${_baseUrl}payment-details-pdf/$admissionId";
   }
 
-  static String freeExamListCourseWise(String courseId) {
+  static String openExamListCourseWise(String courseId) {
     return "${_baseUrl}doctor/open-exam-list/$courseId";
   }
 
-  static String freeExamProperty(String examId) {
+  static String openExamProperty(String examId) {
     return "${_baseUrl}doctor/open-exam-questions-property/$examId";
   }
-  static String freeExamQuestion(String examId) {
+  static String openExamQuestion(String examId) {
     return "${_baseUrl}doctor/open-exam-questions/$examId";
   }
 
-  static String freeExamFeedback(String examId) {
+  static String openExamFeedback(String examId) {
     return "${_baseUrl}doctor/submit-open-exam-feedback/$examId";
   }
 
-  static String finishFreeExam(String examId) {
+  static String finishOpenExam(String examId) {
     return "${_baseUrl}doctor/open-exam-finish/$examId";
   }
 
-  static String freeExamResult(String examId) {
+  static String openExamResult(String examId) {
     return "${_baseUrl}doctor/open-exam-result/$examId";
   }
 
-  static String freeExamAnswers(String examId) {
+  static String openExamAnswers(String examId) {
     return "${_baseUrl}doctor/open-exam-question-result/$examId";
   }
 
@@ -102,21 +105,21 @@ class Urls {
   }
 
 
-  static String finishExam(String admissionId, String examId) {
+  static String finishCourseExam(String admissionId, String examId) {
     return "${_baseUrl}doctor/exam-finish/$admissionId/$examId";
   }
 
 
-  static String examFeedback(String admissionId, String examId) {
+  static String courseExamFeedback(String admissionId, String examId) {
     return "${_baseUrl}doctor/submit-exam-feedback/$admissionId/$examId";
   }
 
-  static String examResult(String admissionId, String examId) {
+  static String courseExamResult(String admissionId, String examId) {
     return "${_baseUrl}doctor/result/$admissionId/$examId";
   }
 
 
-  static String examAnswers(String admissionId, String examId) {
+  static String courseExamAnswers(String admissionId, String examId) {
     return "${_baseUrl}doctor/exam-question-result/$admissionId/$examId";
   }
 
@@ -132,6 +135,33 @@ class Urls {
 
   static String subjectWiseChapterTopics(String specialtyId, String subjectId) {
     return "${_baseUrl}specialty/$specialtyId/question-subjects/$subjectId";
+  }
+
+  static String freeExamList(String pageNo) {
+    return "${_baseUrl}doctor/free-exams?page=$pageNo";
+  }
+
+  static String freeExamProperty(String examId) {
+    return "${_baseUrl}doctor/free-exams/$examId/property";
+  }
+
+  static String freeExamQuestion(String examId) {
+    return "${_baseUrl}doctor/free-exams/$examId/questions";
+  }
+
+  static String freeExamFeedback(String examId) {
+    return "${_baseUrl}doctor/free-exams/$examId/feedback";
+  }
+
+  static String finishFreeExam(String examId) {
+    return "${_baseUrl}doctor/free-exams/$examId/result-submit";
+  }
+  static String freeExamResult(String examId) {
+    return "${_baseUrl}doctor/free-exams/$examId/result";
+  }
+
+  static String freeExamAnswers(String examId) {
+    return "${_baseUrl}doctor/free-exam/$examId/question-result";
   }
 
 
