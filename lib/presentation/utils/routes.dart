@@ -11,7 +11,10 @@ import 'package:medi_exam/presentation/screens/dashboard_screens/exam_answers_sc
 import 'package:medi_exam/presentation/screens/dashboard_screens/exam_questions_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/exam_result_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/free_exam_list_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/wrong_skipped_questions_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/wrong_skipped_qus_details_screen.dart';
 import 'package:medi_exam/presentation/screens/edit_profile_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/favourites_question_list_screen.dart';
 import 'package:medi_exam/presentation/screens/open_exam_list_screen.dart';
 import 'package:medi_exam/presentation/screens/login_screen.dart';
 import 'package:medi_exam/presentation/screens/make_customize_question_screen.dart';
@@ -78,6 +81,9 @@ class RouteNames {
   static const String subjectWiseChapterTopics = '/subjectWiseChapterTopics';
   static const String makeCustomizeQuestion = '/makeCustomizeQuestion';
   static const String freeExamList = '/freeExamList';
+  static const String wrongSkippedQusDetails = '/wrongSkippedQusDetails';
+  static const String wrongSkippedQuestions = '/wrongSkippedQuestions';
+  static const String favouriteQuestionsList = '/favouriteQuestionsList';
 }
 
 // Define routes
@@ -210,9 +216,26 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.makeCustomizeQuestion,
     page: () => const MakeCustomizeQuestionScreen(),
-  ),  GetPage(
+  ),
+
+  GetPage(
     name: RouteNames.freeExamList,
     page: () => const FreeExamListScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.wrongSkippedQusDetails,
+    page: () => const WrongSkippedQusDetailsScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.wrongSkippedQuestions,
+    page: () => const WrongSkippedQuestionsScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.favouriteQuestionsList,
+    page: () => const FavouriteQuestionsListScreen(),
   ),
 
 ];

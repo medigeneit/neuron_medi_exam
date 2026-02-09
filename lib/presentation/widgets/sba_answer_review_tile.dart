@@ -8,7 +8,6 @@ import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/labeled_radio.dart';
 import 'package:medi_exam/presentation/widgets/question_action_row.dart';
-import 'package:medi_exam/presentation/widgets/question_explaination_button.dart';
 
 class SBAAnswerReviewTile extends StatelessWidget {
   final String indexLabel;
@@ -17,7 +16,6 @@ class SBAAnswerReviewTile extends StatelessWidget {
   final int? doctorIndex;
   final int? correctIndex;
 
-  /// NEW
   final int? questionId;
 
   const SBAAnswerReviewTile({
@@ -42,8 +40,6 @@ class SBAAnswerReviewTile extends StatelessWidget {
     final bool? docIsCorrect =
     (inRangeDoc && inRangeCor) ? (doctorIndex == correctIndex) : null;
 
-
-
     return CustomBlobBackground(
       backgroundColor: Colors.white,
       blobColor: AppColor.indigo,
@@ -57,8 +53,7 @@ class SBAAnswerReviewTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColor.secondaryGradient,
@@ -96,6 +91,22 @@ class SBAAnswerReviewTile extends StatelessWidget {
                 ),
               ],
             ),
+
+            const SizedBox(height: 8),
+
+            // ✅ Column headers (You / Correct)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _colHeader(context, "You"),
+                  const SizedBox(width: 10 + 1 + 10),
+                  _colHeader(context, "Answer"),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 8),
 
             // Options
@@ -113,7 +124,7 @@ class SBAAnswerReviewTile extends StatelessWidget {
                   ? Colors.grey
                   : (docIsCorrect ? Colors.green : Colors.red);
 
-              const double radioSize = 24;
+              const double radioSize = 22;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -123,64 +134,72 @@ class SBAAnswerReviewTile extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                    Expanded(
-                    child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Option serial (a), b), c))
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2, right: 6),
-                          child: Text(
-                            serial,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: AppColor.blackColor,
-                              fontSize: Sizes.smallText(context),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2, right: 6),
+                                child: Text(
+                                  serial,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColor.blackColor,
+                                    fontSize: Sizes.smallText(context),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Html(
+                                  data: opt.title ?? '',
+                                  style: {
+                                    "body": Style(
+                                      margin: Margins.zero,
+                                      padding: HtmlPaddings.zero,
+                                    ),
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // YOU
+                        SizedBox(
+                          width: 42,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: LabeledRadio(
+                              label: letter,
+                              selected: youSelected,
+                              disabled: true,
+                              selectedColor: youSelected ? youColor : Colors.grey,
+                              size: radioSize,
                             ),
                           ),
                         ),
 
-                        // Option text
-                        Expanded(
-                          child: Html(
-                            data: opt.title ?? '',
-                            style: {
-                              "body": Style(
-                                margin: Margins.zero,
-                                padding: HtmlPaddings.zero,
-                              ),
-                            },
-                          ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 1,
+                          height: radioSize + 6,
+                          color: Colors.black12,
                         ),
-                      ],
-                    ),
-                  ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            LabeledRadio(
-                              label: letter,
-                              selected: youSelected,
-                              disabled: true,
-                              selectedColor:
-                              youSelected ? youColor : Colors.grey,
-                              size: radioSize,
-                            ),
-                            const SizedBox(width: 10),
-                            Container(
-                              width: 1,
-                              height: radioSize + 6,
-                              color: Colors.black12,
-                            ),
-                            const SizedBox(width: 10),
-                            LabeledRadio(
+
+
+                        // CORRECT
+                        SizedBox(
+                          width: 42,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: LabeledRadio(
                               label: letter,
                               selected: correctSelected,
                               disabled: true,
                               selectedColor: correctColor,
                               size: radioSize,
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -193,6 +212,22 @@ class SBAAnswerReviewTile extends StatelessWidget {
 
             QuestionActionRow(questionId: questionId),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _colHeader(BuildContext context, String text) {
+    return SizedBox(
+      width: 42,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: Sizes.verySmallText(context) - 1,
+          fontWeight: FontWeight.w700,
+          color: Colors.grey.shade600,
+          letterSpacing: 0.4,
         ),
       ),
     );

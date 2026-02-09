@@ -1,7 +1,7 @@
 class AssetsPath {
 
   static const String appName = 'PGEasy';
-  static const String appTagline = 'Simulated tests, real confidence';
+  static const String appTagline = 'Simulated Tests, Real Confidence';
 
 
   static const String _images = 'assets/images';

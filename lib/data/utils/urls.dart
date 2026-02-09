@@ -31,6 +31,12 @@ class Urls {
   static const String freeExamQuota = "${_baseUrl}doctor/free-exams/quota";
   static const String freeExamCreate = "${_baseUrl}doctor/free-exams/create";
   static const String freeExamSingleAnswerSubmit = "${_baseUrl}doctor/free-exams/submit-answer";
+  static const String wrongSkippedQus = "${_baseUrl}doctor/dashboard/exams/summary";
+  static const String favourites = "${_baseUrl}doctor/favourites";
+  static const String favouritesToggleAddRemove = "${_baseUrl}doctor/favourites/add";
+
+
+
 
 
   static String noticeDetails(String noticeId) {
@@ -162,6 +168,10 @@ class Urls {
 
   static String freeExamAnswers(String examId) {
     return "${_baseUrl}doctor/free-exam/$examId/question-result";
+  }
+
+  static String wrongSkippedQuestion(String type, String examId) {
+    return "${_baseUrl}doctor/dashboard/exams/wrong-and-unanswered?type=$type&id=$examId";
   }
 
 

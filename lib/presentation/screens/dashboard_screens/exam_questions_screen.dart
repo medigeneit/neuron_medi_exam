@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/exam_question_model.dart';
-import 'package:medi_exam/data/services/exam_feedback_service.dart';
 import 'package:medi_exam/data/services/exam_questions_service.dart';
 import 'package:medi_exam/data/services/finish_exam_service.dart';
 import 'package:medi_exam/data/services/single_answer_submit_service.dart';
@@ -17,7 +16,6 @@ import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/exam_timer.dart';
 import 'package:medi_exam/presentation/widgets/helpers/exam_questions_screen_helpers.dart';
-import 'package:medi_exam/presentation/widgets/helpers/payment_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/mcq_question_tile.dart';
 import 'package:medi_exam/presentation/widgets/sba_question_tile.dart';
@@ -75,6 +73,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     return ids;
   }
 
+  /// ✅ FIX: Answered ids should not depend on mutating a nullable map.
   Set<int> get _answeredIds {
     final m = _model?.submittedAnswers;
     if (m == null || m.isEmpty) return {};
@@ -107,8 +106,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   }
 
   List<int> get _partialIds {
-    final filteredServer =
-    _partialIdsFromServer.where(_isStillPartialNow).toSet();
+    final filteredServer = _partialIdsFromServer.where(_isStillPartialNow).toSet();
     final computed = _partialIdsComputed;
     final list = (filteredServer..addAll(computed)).toList()..sort();
     return list;
@@ -220,8 +218,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         _mcqBusy[qId] = List<bool>.filled(len, false);
       } else if (q.isSBA) {
         final ans = submitted[qId]?.answer;
-        final letter =
-        (ans ?? '').trim().isEmpty ? null : ans!.trim().toUpperCase();
+        final letter = (ans ?? '').trim().isEmpty ? null : ans!.trim().toUpperCase();
         _sbaSelected[qId] = letter;
       }
     }
@@ -282,8 +279,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
   }
 
   // ---------- URL selection by examType ----------
-  /// ✅ You must implement/ensure these Urls methods exist in your Urls class.
-  /// If you already have different endpoints, just map them here.
   String _finishExamUrl() {
     switch (examType) {
       case 'freeExam':
@@ -292,10 +287,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         return Urls.finishOpenExam(examId);
       case 'courseExam':
         return Urls.finishCourseExam(admissionId, examId);
-/*      case 'subjectExam':
-        return Urls.finishSubjectExam(admissionId, examId);*/
       default:
-      // fallback (keep previous behavior)
         return _isFreeOrOpenExam
             ? Urls.finishOpenExam(examId)
             : Urls.finishCourseExam(admissionId, examId);
@@ -310,8 +302,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         return Urls.openExamFeedback(examId);
       case 'courseExam':
         return Urls.courseExamFeedback(admissionId, examId);
-/*      case 'subjectExam':
-        return Urls.subjectExamFeedback(admissionId, examId);*/
       default:
         return _isFreeOrOpenExam
             ? Urls.openExamFeedback(examId)
@@ -336,7 +326,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     });
 
     final resp = await _submitService.submitSingleAnswer(
-      examType: examType, // ✅ pass examType instead of isFreeExam
+      examType: examType,
       admissionId: admissionId,
       examId: examId,
       questionId: '$questionId',
@@ -349,18 +339,24 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     if (!mounted) return;
 
     if (resp.isSuccess) {
-      setState(() {
-        _model?.submittedAnswers?.putIfAbsent(
-          questionId,
-              () => SubmittedAnswer(
+      // ✅ FIX: always create a new submittedAnswers map and replace _model
+      final current = Map<int, SubmittedAnswer>.from(_model?.submittedAnswers ?? {});
+      final existing = current[questionId];
+
+      current[questionId] = (existing ??
+          SubmittedAnswer(
             examQuestionId: int.tryParse(examQuestionId),
-            answer: optionLetter,
             questionTypeId: 2,
-          ),
-        );
-        _model?.submittedAnswers?[questionId] =
-            (_model?.submittedAnswers?[questionId] ?? const SubmittedAnswer())
-                .copyWith(answer: optionLetter, questionTypeId: 2);
+            answer: optionLetter,
+          ))
+          .copyWith(
+        examQuestionId: int.tryParse(examQuestionId),
+        answer: optionLetter,
+        questionTypeId: 2,
+      );
+
+      setState(() {
+        _model = _model?.copyWith(submittedAnswers: current);
       });
     } else {
       setState(() {
@@ -404,7 +400,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     });
 
     final resp = await _submitService.submitSingleAnswer(
-      examType: examType, // ✅ pass examType instead of isFreeExam
+      examType: examType,
       admissionId: admissionId,
       examId: examId,
       questionId: '$questionId',
@@ -417,18 +413,24 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
     if (!mounted) return;
 
     if (resp.isSuccess) {
-      setState(() {
-        _model?.submittedAnswers?.putIfAbsent(
-          questionId,
-              () => SubmittedAnswer(
+      // ✅ FIX: always create a new submittedAnswers map and replace _model
+      final current = Map<int, SubmittedAnswer>.from(_model?.submittedAnswers ?? {});
+      final existing = current[questionId];
+
+      current[questionId] = (existing ??
+          SubmittedAnswer(
             examQuestionId: int.tryParse(examQuestionId),
-            answer: answerStr,
             questionTypeId: 1,
-          ),
-        );
-        _model?.submittedAnswers?[questionId] =
-            (_model?.submittedAnswers?[questionId] ?? const SubmittedAnswer())
-                .copyWith(answer: answerStr, questionTypeId: 1);
+            answer: answerStr,
+          ))
+          .copyWith(
+        examQuestionId: int.tryParse(examQuestionId),
+        answer: answerStr,
+        questionTypeId: 1,
+      );
+
+      setState(() {
+        _model = _model?.copyWith(submittedAnswers: current);
       });
     } else {
       final revertedStates = List<bool?>.from(states)..[index] = prev;
@@ -475,7 +477,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
             examId: examId,
             examType: examType,
             middleWidget: CalculatingRow(accent: accent),
-            //Optional: if you want custom navigation instead of default:
             onSuccess: () async {
               Get.offNamed(RouteNames.examResult, arguments: {
                 'admissionId': admissionId,
@@ -486,7 +487,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
           ) ??
               false;
 
-      // If user closes somehow without submit (dialog is non-dismissible, but still safe)
       if (!submitted && mounted) {
         Navigator.of(context).pop(true);
       }
@@ -494,10 +494,6 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
       _showSnack(resp.errorMessage ?? 'Failed to finish exam');
     }
   }
-
-
-
-
 
   // ---------- UI ----------
   @override
@@ -509,7 +505,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
         body: _loading
             ? const Center(child: LoadingWidget())
             : _loadError != null
-            ? ErrorCard(message: _loadError!, onRetry: _load)
+            ? ErrorCardExam(message: _loadError!, onRetry: _load)
             : _buildContent(context),
       ),
     );
@@ -720,8 +716,7 @@ class _ExamQuestionsScreenState extends State<ExamQuestionsScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxWidth =
-        constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
+        final maxWidth = constraints.maxWidth < 720 ? constraints.maxWidth : 720.0;
         return ListView.separated(
           key: key,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),

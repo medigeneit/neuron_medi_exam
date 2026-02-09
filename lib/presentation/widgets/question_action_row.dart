@@ -1,26 +1,113 @@
-// lib/presentation/widgets/question_action_row.dart
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:medi_exam/data/models/favourite_questions_list_model.dart';
+import 'package:medi_exam/data/network_response.dart';
+import 'package:medi_exam/data/services/favourite_questions_list_service.dart';
+import 'package:medi_exam/data/services/favourites_toggle_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/question_explaination_button.dart';
 
-/// Compact 3-action row:
-/// 1) Bookmark (UI-only)
-/// 2) Stats (animated pie chart dialog; UI-only)
-/// 3) Explanation (lazy API)
+/// ✅ Global favourite cache (loads once, used everywhere)
+/// FIXED:
+/// - Do NOT mark loaded=true when API fails
+/// - Allow retry by clearing _loadingFuture on failure
+/// - Allow syncing cache from screens that already fetched favourites
+class GlobalFavouriteCache {
+  static final FavouriteQuestionsListService _listService =
+  FavouriteQuestionsListService();
+
+  static final Set<int> _ids = <int>{};
+  static bool _loaded = false;
+  static Future<void>? _loadingFuture;
+
+  static bool contains(int id) => _ids.contains(id);
+
+  static void setFavourite(int id, bool isFav) {
+    if (isFav) {
+      _ids.add(id);
+    } else {
+      _ids.remove(id);
+    }
+  }
+
+  /// ✅ Call this after you already fetched favourites in a screen
+  /// (so we don't need another network call, and cache stays correct).
+  static void setLoadedIds(Iterable<int> ids) {
+    _ids
+      ..clear()
+      ..addAll(ids);
+    _loaded = true;
+    _loadingFuture = Future.value();
+  }
+
+  static void reset() {
+    _ids.clear();
+    _loaded = false;
+    _loadingFuture = null;
+  }
+
+  static Future<void> ensureLoaded() {
+    if (_loaded) return Future.value();
+    _loadingFuture ??= _loadOnce();
+    return _loadingFuture!;
+  }
+
+  static Future<void> _loadOnce() async {
+    bool success = false;
+
+    try {
+      final resp = await _listService.fetchAllFavouriteQuestions();
+
+      if (resp.isSuccess) {
+        final model = resp.responseData is FavouriteQuestionsListModel
+            ? resp.responseData as FavouriteQuestionsListModel
+            : FavouriteQuestionsListModel.parse(resp.responseData);
+
+        final items = model.data ?? const <FavouriteQuestionItem>[];
+        _ids
+          ..clear()
+          ..addAll(items.map((e) => e.id).whereType<int>());
+
+        success = true;
+      }
+    } catch (_) {
+      success = false;
+    } finally {
+      // ✅ Only mark loaded when successful
+      _loaded = success;
+
+      // ✅ If failed, allow retry later
+      if (!success) {
+        _loadingFuture = null;
+      }
+    }
+  }
+}
+
+/// Compact action row:
+/// 1) Favourite (real API toggle + auto marked from favourite list)
+/// 2) Explanation
 class QuestionActionRow extends StatefulWidget {
   final int? questionId;
+
+  /// Optional: if you already have local status from another response
   final bool initiallyBookmarked;
+
   final DifficultyStats? stats;
+
+  /// ✅ notify parent when favourite changes (added/removed)
+  final ValueChanged<bool>? onFavouriteChanged;
 
   const QuestionActionRow({
     super.key,
     required this.questionId,
     this.initiallyBookmarked = false,
     this.stats,
+    this.onFavouriteChanged,
   });
 
   @override
@@ -28,45 +115,103 @@ class QuestionActionRow extends StatefulWidget {
 }
 
 class _QuestionActionRowState extends State<QuestionActionRow> {
-  late bool _bookmarked;
+  static final FavouritesToggleService _toggleService =
+  FavouritesToggleService();
 
-  @override
-  void initState() {
-    super.initState();
-    _bookmarked = widget.initiallyBookmarked;
-  }
+  bool _bookmarked = false;
+  bool _favLoading = false;
+
+  // Prevent API-loaded state from overriding user action
+  bool _userOverrode = false;
 
   DifficultyStats get _stats =>
       widget.stats ?? const DifficultyStats.happyDefault();
 
   @override
+  void initState() {
+    super.initState();
+    _initFavouriteState();
+  }
+
+  @override
+  void didUpdateWidget(covariant QuestionActionRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.questionId != widget.questionId) {
+      _userOverrode = false;
+      _initFavouriteState();
+    }
+  }
+
+  void _initFavouriteState() {
+    final id = widget.questionId;
+
+    // ✅ Start from initial truth
+    _bookmarked = widget.initiallyBookmarked;
+
+    if (id == null) {
+      setState(() {});
+      return;
+    }
+
+    // ✅ If cache already knows it, OR keep initial true
+    _bookmarked = _bookmarked || GlobalFavouriteCache.contains(id);
+
+    // Keep cache consistent if initial says it's fav
+    if (_bookmarked) {
+      GlobalFavouriteCache.setFavourite(id, true);
+      setState(() {});
+      return;
+    }
+
+    // Otherwise hydrate from cache/API (but MUST NOT override initial true)
+    _hydrateFromFavouriteList(id);
+  }
+
+  Future<void> _hydrateFromFavouriteList(int id) async {
+    await GlobalFavouriteCache.ensureLoaded();
+    if (!mounted) return;
+
+    // If user already tapped, don't override
+    if (_userOverrode) return;
+
+    setState(() {
+      // ✅ IMPORTANT:
+      // Never override initial true to false.
+      _bookmarked = widget.initiallyBookmarked || GlobalFavouriteCache.contains(id);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final bool canFav = widget.questionId != null;
+
     return Row(
       children: [
-/*
-        // 1) Bookmark
         _ActionPillButton(
           icon: _bookmarked
               ? Icons.bookmark_rounded
               : Icons.bookmark_border_rounded,
           label: 'Favorite',
           selected: _bookmarked,
-          onTap: () => setState(() => _bookmarked = !_bookmarked),
+          loading: _favLoading,
+          enabled: canFav && !_favLoading,
+          onTap: _toggleFavourite,
         ),
-        const SizedBox(width: 10),
+/*        const SizedBox(width: 10),
 
         // 2) Stats
         _ActionPillButton(
           icon: Icons.pie_chart_outline_rounded,
           label: 'Stats',
           selected: false,
+          loading: false,
+          enabled: true,
           onTap: () => _openStatsDialog(context),
-        ),
-*/
+        ),*/
+
 
         const Spacer(),
 
-        // 3) Explanation
         QuestionExplainationButton(
           questionId: widget.questionId,
           compact: true,
@@ -75,6 +220,53 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
     );
   }
 
+  Future<void> _toggleFavourite() async {
+    final id = widget.questionId;
+    if (id == null) return;
+    if (_favLoading) return;
+
+    setState(() => _favLoading = true);
+
+    final NetworkResponse resp =
+    await _toggleService.toggleFavourite(questionId: id);
+
+    if (!mounted) return;
+
+    if (!resp.isSuccess) {
+      setState(() => _favLoading = false);
+
+      Get.snackbar(
+        'Failed',
+        resp.errorMessage ?? 'Failed to update favourite',
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    final status = _toggleService.extractStatus(resp.responseData);
+
+    // server is truth
+    bool newState = _bookmarked;
+    if (status == 'added') newState = true;
+    if (status == 'removed') newState = false;
+
+    // update global cache
+    GlobalFavouriteCache.setFavourite(id, newState);
+
+    // prevent hydration override
+    _userOverrode = true;
+
+    setState(() {
+      _bookmarked = newState;
+      _favLoading = false;
+    });
+
+    widget.onFavouriteChanged?.call(newState);
+  }
+
+  // (Stats code kept for compatibility if you re-enable later)
   void _openStatsDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -91,7 +283,6 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Header
                   Row(
                     children: [
                       Icon(Icons.pie_chart_rounded,
@@ -100,8 +291,10 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
                       Expanded(
                         child: Text(
                           'Question Difficulty',
-                          style:
-                          Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
                             fontWeight: FontWeight.w900,
                             color: AppColor.primaryTextColor,
                           ),
@@ -117,8 +310,6 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
                   const SizedBox(height: 6),
                   const Divider(height: 1),
                   const SizedBox(height: 12),
-
-                  // Animated Pie + legend
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       maxHeight: MediaQuery.of(context).size.height * 0.60,
@@ -142,8 +333,6 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
                           const SizedBox(height: 14),
                           _Legend(sections: _stats.sections),
                           const SizedBox(height: 6),
-
-
                         ],
                       ),
                     ),
@@ -161,13 +350,11 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
 /// ------------------------------
 /// Data models (UI-only)
 /// ------------------------------
-
 class DifficultyStats {
   final List<PieSection> sections;
 
   const DifficultyStats({required this.sections});
 
-  /// 3 unique labels (recommended)
   const DifficultyStats.happyDefault()
       : sections = const [
     PieSection(
@@ -212,12 +399,16 @@ class _ActionPillButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
+  final bool loading;
+  final bool enabled;
   final VoidCallback onTap;
 
   const _ActionPillButton({
     required this.icon,
     required this.label,
     required this.selected,
+    required this.loading,
+    required this.enabled,
     required this.onTap,
   });
 
@@ -228,37 +419,47 @@ class _ActionPillButton extends StatelessWidget {
     final Color bg = selected ? accent.withOpacity(0.08) : Colors.white;
     final Color iconColor = selected ? accent : Colors.black87;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 6),
-            )
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: iconColor),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style:  TextStyle(
-                fontSize: Sizes.verySmallText(context),
-                fontWeight: FontWeight.w900,
-                color: AppColor.primaryTextColor,
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: enabled ? onTap : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 6),
+              )
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (loading)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: Sizes.verySmallText(context),
+                  fontWeight: FontWeight.w900,
+                  color: AppColor.primaryTextColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -266,9 +467,8 @@ class _ActionPillButton extends StatelessWidget {
 }
 
 /// ------------------------------
-/// Animated Pie Chart (no external libs)
+/// Animated Pie Chart
 /// ------------------------------
-
 class AnimatedPieChart extends StatefulWidget {
   final List<PieSection> sections;
   final double strokeWidth;
@@ -301,7 +501,6 @@ class _AnimatedPieChartState extends State<AnimatedPieChart>
   @override
   void didUpdateWidget(covariant AnimatedPieChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If data changes, replay the animation
     if (oldWidget.sections != widget.sections ||
         oldWidget.strokeWidth != widget.strokeWidth ||
         oldWidget.duration != widget.duration) {
@@ -325,7 +524,7 @@ class _AnimatedPieChartState extends State<AnimatedPieChart>
           painter: _AnimatedPiePainter(
             sections: widget.sections,
             strokeWidth: widget.strokeWidth,
-            t: _t.value, // 0..1
+            t: _t.value,
           ),
           child: Center(
             child: Column(
@@ -358,7 +557,7 @@ class _AnimatedPieChartState extends State<AnimatedPieChart>
 class _AnimatedPiePainter extends CustomPainter {
   final List<PieSection> sections;
   final double strokeWidth;
-  final double t; // 0..1
+  final double t;
 
   _AnimatedPiePainter({
     required this.sections,
@@ -372,7 +571,6 @@ class _AnimatedPiePainter extends CustomPainter {
     final center = rect.center;
     final radius = math.min(size.width, size.height) / 2 - strokeWidth / 2;
 
-    // background ring (subtle)
     final bg = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
@@ -384,25 +582,19 @@ class _AnimatedPiePainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    // total to normalize to 100
     final total = sections.fold<double>(0, (s, e) => s + e.percent);
     if (total <= 0) return;
 
-    // We animate by limiting the total sweep we are allowed to draw:
-    // allowedSweep = 2π * t
     final allowed = (2 * math.pi) * t;
-
     double startAngle = -math.pi / 2;
 
     for (final sec in sections) {
       final fullSweep = (sec.percent / total) * (2 * math.pi);
       final alreadyUsed = (startAngle - (-math.pi / 2));
       final remainingAllowed = allowed - alreadyUsed;
-
       if (remainingAllowed <= 0) break;
 
       final sweep = math.min(fullSweep, remainingAllowed);
-
       paint.color = sec.color;
 
       canvas.drawArc(
@@ -413,7 +605,7 @@ class _AnimatedPiePainter extends CustomPainter {
         paint,
       );
 
-      startAngle += fullSweep; // advance start regardless, keeps proportions
+      startAngle += fullSweep;
     }
   }
 
@@ -425,9 +617,6 @@ class _AnimatedPiePainter extends CustomPainter {
   }
 }
 
-/// ------------------------------
-/// Legend
-/// ------------------------------
 class _Legend extends StatelessWidget {
   final List<PieSection> sections;
 

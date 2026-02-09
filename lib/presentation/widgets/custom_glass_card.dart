@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class GlassCard extends StatelessWidget {
-  const GlassCard({required this.child, this.opacity = 0.15});
+  const GlassCard({required this.child, this.opacity = 0.2});
   final Widget child;
   final double opacity;
 

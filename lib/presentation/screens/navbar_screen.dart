@@ -73,6 +73,8 @@ class _NavBarScreenState extends State<NavBarScreen> {
   }
 
   Future<void> _onNavBarTap(int index) async {
+    HapticFeedback.lightImpact();
+
     if (index == _currentIndex) return;
 
     if (_requiresAuthentication(index)) {

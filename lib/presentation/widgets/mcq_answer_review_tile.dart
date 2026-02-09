@@ -8,7 +8,6 @@ import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/labeled_radio.dart';
 import 'package:medi_exam/presentation/widgets/question_action_row.dart';
-import 'package:medi_exam/presentation/widgets/question_explaination_button.dart';
 
 /// Read-only MCQ review tile that shows both:
 /// - Your (doctor's) T/F
@@ -20,7 +19,7 @@ class MCQAnswerReviewTile extends StatelessWidget {
   final List<bool?>? doctorStates;
   final List<bool?>? correctStates;
 
-  /// NEW: needed for explanation API
+  /// needed for explanation API
   final int? questionId;
 
   const MCQAnswerReviewTile({
@@ -52,8 +51,7 @@ class MCQAnswerReviewTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColor.secondaryGradient,
@@ -91,7 +89,23 @@ class MCQAnswerReviewTile extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+
+            const SizedBox(height: 8),
+
+            // ✅ Column headers (You / Correct)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _colHeader(context, "You"),
+                  const SizedBox(width: 10 + 1 + 10), // same spacing as divider block
+                  _colHeader(context, "Answer"),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
 
             // Statement rows
             ...List.generate(
@@ -119,6 +133,19 @@ class MCQAnswerReviewTile extends StatelessWidget {
     return out;
   }
 
+  Widget _colHeader(BuildContext context, String text) {
+    return const SizedBox(
+      width: 68, // matches the T/F group width
+      child: Text(
+        "",
+        textAlign: TextAlign.center,
+      ),
+    ).copyWithText(
+      context: context,
+      text: text,
+    );
+  }
+
   Widget _statementRow(
       BuildContext context,
       int i,
@@ -126,16 +153,17 @@ class MCQAnswerReviewTile extends StatelessWidget {
       bool? doc,
       bool? cor,
       ) {
-    final bool? docIsCorrect = (doc == null || cor == null) ? null : (doc == cor);
+    final bool? docIsCorrect =
+    (doc == null || cor == null) ? null : (doc == cor);
 
     final Color correctColor = AppColor.indigo;
     final Color youColor = (docIsCorrect == null)
         ? Colors.grey
         : (docIsCorrect ? Colors.green : Colors.red);
-    final String serial =
-    opt.serial != null ? '${opt.serial!.toLowerCase()})' : '';
 
-    const double radioSize = 24;
+    final String serial = opt.serial != null ? '${opt.serial!.toLowerCase()})' : '';
+
+    const double radioSize = 22;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -149,7 +177,6 @@ class MCQAnswerReviewTile extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Option serial (a), b), c))
                     Padding(
                       padding: const EdgeInsets.only(top: 2, right: 6),
                       child: Text(
@@ -161,8 +188,6 @@ class MCQAnswerReviewTile extends StatelessWidget {
                         ),
                       ),
                     ),
-
-                    // Statement text
                     Expanded(
                       child: Html(
                         data: opt.title ?? '',
@@ -177,51 +202,86 @@ class MCQAnswerReviewTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LabeledRadio(
-                    label: 'T',
-                    selected: doc == true,
-                    disabled: true,
-                    selectedColor: youColor,
-                    size: radioSize,
-                  ),
-                  const SizedBox(width: 8),
-                  LabeledRadio(
-                    label: 'F',
-                    selected: doc == false,
-                    disabled: true,
-                    selectedColor: youColor,
-                    size: radioSize,
-                  ),
-                ],
+
+              // YOU
+              SizedBox(
+                width: 68,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LabeledRadio(
+                      label: 'T',
+                      selected: doc == true,
+                      disabled: true,
+                      selectedColor: youColor,
+                      size: radioSize,
+                    ),
+                    const SizedBox(width: 8),
+                    LabeledRadio(
+                      label: 'F',
+                      selected: doc == false,
+                      disabled: true,
+                      selectedColor: youColor,
+                      size: radioSize,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 10),
+
+              const SizedBox(width: 12),
               Container(width: 1, height: radioSize + 6, color: Colors.black12),
-              const SizedBox(width: 10),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LabeledRadio(
-                    label: 'T',
-                    selected: cor == true,
-                    disabled: true,
-                    selectedColor: correctColor,
-                    size: radioSize,
-                  ),
-                  const SizedBox(width: 8),
-                  LabeledRadio(
-                    label: 'F',
-                    selected: cor == false,
-                    disabled: true,
-                    selectedColor: correctColor,
-                    size: radioSize,
-                  ),
-                ],
+
+
+              // CORRECT
+              SizedBox(
+                width: 68,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LabeledRadio(
+                      label: 'T',
+                      selected: cor == true,
+                      disabled: true,
+                      selectedColor: correctColor,
+                      size: radioSize,
+                    ),
+                    const SizedBox(width: 8),
+                    LabeledRadio(
+                      label: 'F',
+                      selected: cor == false,
+                      disabled: true,
+                      selectedColor: correctColor,
+                      size: radioSize,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small helper to keep code clean without adding new imports/extensions files.
+extension _HeaderTextCopy on SizedBox {
+  SizedBox copyWithText({
+    required BuildContext context,
+    required String text,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: Sizes.verySmallText(context) - 1,
+          fontWeight: FontWeight.w700,
+          color: Colors.grey.shade600,
+          letterSpacing: 0.4,
         ),
       ),
     );

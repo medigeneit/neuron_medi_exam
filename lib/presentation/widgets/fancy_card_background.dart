@@ -10,6 +10,8 @@ class FancyBackground extends StatelessWidget {
     this.radius = 24,
     this.padding = const EdgeInsets.all(24),
     this.showDecorations = true,
+    this.blobTopColor = AppColor.whiteColor,
+    this.blobBottomColor = AppColor.whiteColor,
     this.boxShadow,
   });
 
@@ -27,6 +29,9 @@ class FancyBackground extends StatelessWidget {
 
   /// Toggle decorative circles.
   final bool showDecorations;
+
+  final Color blobTopColor;
+  final Color blobBottomColor;
 
   /// Optional custom shadows. Defaults to the original look.
   final List<BoxShadow>? boxShadow;
@@ -60,7 +65,7 @@ class FancyBackground extends StatelessWidget {
                   width: 130,
                   height: 130,
                   decoration: BoxDecoration(
-                    color: AppColor.whiteColor.withOpacity(0.12),
+                    color: blobTopColor.withOpacity(0.12),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -72,7 +77,7 @@ class FancyBackground extends StatelessWidget {
                   width: 110,
                   height: 110,
                   decoration: BoxDecoration(
-                    color: AppColor.whiteColor.withOpacity(0.08),
+                    color: blobBottomColor.withOpacity(0.08),
                     shape: BoxShape.circle,
                   ),
                 ),

@@ -14,13 +14,18 @@ class ExamQuestionModel {
   /// Backend sends this as MINUTES (e.g. 20).
   final int? duration;
 
-  final Map<int, SubmittedAnswer>? submittedAnswers; // keyed by questionId when numeric
+  /// keyed by questionId when numeric
+  final Map<int, SubmittedAnswer>? submittedAnswers;
+
   final int? totalNumberOfQuestion;
   final int? submittedNumberOfQuestions;
   final List<int>? checkAnswerSubmittedIds;
   final List<int>? partialAnsweredQuestionIds;
   final int? countPartialAnsweredQuestionIds;
-  final Map<int, Question>? questions; // keyed by questionId when numeric
+
+  /// keyed by questionId when numeric
+  final Map<int, Question>? questions;
+
   final ExamInfo? exam;
 
   const ExamQuestionModel({
@@ -44,6 +49,37 @@ class ExamQuestionModel {
 
   /// If you want a Dart Duration.
   Duration get durationAsDuration => Duration(minutes: durationMinutes);
+
+  /// ✅ IMPORTANT: allows safe immutable updates from UI
+  ExamQuestionModel copyWith({
+    bool? runningExam,
+    int? duration,
+    Map<int, SubmittedAnswer>? submittedAnswers,
+    int? totalNumberOfQuestion,
+    int? submittedNumberOfQuestions,
+    List<int>? checkAnswerSubmittedIds,
+    List<int>? partialAnsweredQuestionIds,
+    int? countPartialAnsweredQuestionIds,
+    Map<int, Question>? questions,
+    ExamInfo? exam,
+  }) {
+    return ExamQuestionModel(
+      runningExam: runningExam ?? this.runningExam,
+      duration: duration ?? this.duration,
+      submittedAnswers: submittedAnswers ?? this.submittedAnswers,
+      totalNumberOfQuestion: totalNumberOfQuestion ?? this.totalNumberOfQuestion,
+      submittedNumberOfQuestions:
+      submittedNumberOfQuestions ?? this.submittedNumberOfQuestions,
+      checkAnswerSubmittedIds:
+      checkAnswerSubmittedIds ?? this.checkAnswerSubmittedIds,
+      partialAnsweredQuestionIds:
+      partialAnsweredQuestionIds ?? this.partialAnsweredQuestionIds,
+      countPartialAnsweredQuestionIds:
+      countPartialAnsweredQuestionIds ?? this.countPartialAnsweredQuestionIds,
+      questions: questions ?? this.questions,
+      exam: exam ?? this.exam,
+    );
+  }
 
   factory ExamQuestionModel.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const ExamQuestionModel();
@@ -128,6 +164,18 @@ class ExamInfo {
 
   const ExamInfo({this.id, this.title, this.status});
 
+  ExamInfo copyWith({
+    int? id,
+    String? title,
+    int? status,
+  }) {
+    return ExamInfo(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      status: status ?? this.status,
+    );
+  }
+
   factory ExamInfo.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const ExamInfo();
     return ExamInfo(
@@ -148,7 +196,7 @@ class ExamInfo {
 class Question {
   final int? questionId;
   final int? examQuestionId;
-  final int? questionTypeId; // 1 = MCQ, 2 = SBA (per your example)
+  final int? questionTypeId; // 1 = MCQ, 2 = SBA
   final String? questionType; // "MCQ" / "SBA"
   final int? numberOfOptions; // usually 5
   final String? questionTitle;
@@ -169,6 +217,26 @@ class Question {
 
   bool get isSBA =>
       (questionTypeId == 2) || (questionType?.toUpperCase() == 'SBA');
+
+  Question copyWith({
+    int? questionId,
+    int? examQuestionId,
+    int? questionTypeId,
+    String? questionType,
+    int? numberOfOptions,
+    String? questionTitle,
+    List<QuestionOption>? questionOption,
+  }) {
+    return Question(
+      questionId: questionId ?? this.questionId,
+      examQuestionId: examQuestionId ?? this.examQuestionId,
+      questionTypeId: questionTypeId ?? this.questionTypeId,
+      questionType: questionType ?? this.questionType,
+      numberOfOptions: numberOfOptions ?? this.numberOfOptions,
+      questionTitle: questionTitle ?? this.questionTitle,
+      questionOption: questionOption ?? this.questionOption,
+    );
+  }
 
   factory Question.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const Question();
@@ -211,6 +279,16 @@ class QuestionOption {
   final String? title;
 
   const QuestionOption({this.serial, this.title});
+
+  QuestionOption copyWith({
+    String? serial,
+    String? title,
+  }) {
+    return QuestionOption(
+      serial: serial ?? this.serial,
+      title: title ?? this.title,
+    );
+  }
 
   factory QuestionOption.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const QuestionOption();
