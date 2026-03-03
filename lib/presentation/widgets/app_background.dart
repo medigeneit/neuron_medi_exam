@@ -7,6 +7,7 @@ class AppBackground extends StatelessWidget {
   const AppBackground({
     super.key,
     required this.child,
+    this.enabled = true,
     this.showParticles = true,
     this.showSoftGrid = true,
     this.intensity = 0.3,
@@ -14,6 +15,10 @@ class AppBackground extends StatelessWidget {
   });
 
   final Widget child;
+
+  /// If false => show only AppColor.backgroundColor (no gradient, no particles)
+  final bool enabled;
+
   final bool showParticles;
   final bool showSoftGrid;
   final double intensity;
@@ -21,7 +26,13 @@ class AppBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    // CLEAN BACKGROUND MODE
+    if (!enabled) {
+      return Container(
+        color: AppColor.backgroundColor,
+        child: child,
+      );
+    }
 
     return Stack(
       children: [
@@ -82,9 +93,9 @@ class AppBackground extends StatelessWidget {
   List<Widget> _buildParticles(BuildContext context, double intensity) {
     final particles = <Widget>[];
     final colors = [
-      AppColor.primaryColor.withOpacity(0.12 * intensity),
-      AppColor.indigo.withOpacity(0.12 * intensity),
-      AppColor.purple.withOpacity(0.12 * intensity),
+      AppColor.primaryColor.withOpacity(0.14 * intensity),
+      AppColor.indigo.withOpacity(0.14 * intensity),
+      AppColor.purple.withOpacity(0.14 * intensity),
     ];
 
     // Add multiple particles at different positions
@@ -107,8 +118,14 @@ class AppBackground extends StatelessWidget {
 
   double _getParticlePosition(int index, int axis) {
     final positions = [
-      [0.1, 0.2], [0.8, 0.1], [0.2, 0.7], [0.9, 0.6],
-      [0.15, 0.9], [0.7, 0.3], [0.3, 0.4], [0.85, 0.8],
+      [0.1, 0.2],
+      [0.8, 0.1],
+      [0.2, 0.7],
+      [0.9, 0.6],
+      [0.15, 0.9],
+      [0.7, 0.3],
+      [0.3, 0.4],
+      [0.85, 0.8],
     ];
     return positions[index % positions.length][axis];
   }
@@ -123,45 +140,62 @@ class _GridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = AppColor.primaryColor
-      ..strokeWidth = 0.8 // Increased stroke width
+      ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
 
     // Top-left corner wave pattern
-    _drawCornerWaves(canvas, paint, Offset(0, 0), size.width * 0.4, true);
+    _drawCornerWaves(canvas, paint, const Offset(0, 0), size.width * 0.4, true);
 
     // Bottom-right corner wave pattern
-    _drawCornerWaves(canvas, paint, Offset(size.width, size.height), size.width * 0.4, false);
+    _drawCornerWaves(
+      canvas,
+      paint,
+      Offset(size.width, size.height),
+      size.width * 0.4,
+      false,
+    );
   }
 
-  void _drawCornerWaves(Canvas canvas, Paint paint, Offset origin, double maxDistance, bool isTopLeft) {
-    final waveCount = 12; // Increased wave count for denser pattern
+  void _drawCornerWaves(
+      Canvas canvas,
+      Paint paint,
+      Offset origin,
+      double maxDistance,
+      bool isTopLeft,
+      ) {
+    final waveCount = 12;
     final waveSpacing = maxDistance / waveCount;
 
     for (int i = 0; i < waveCount; i++) {
       final radius = i * waveSpacing;
-      final amplitude = waveSpacing * 0.1; // Reduced amplitude for tighter waves
+      final amplitude = waveSpacing * 0.1;
       final points = <Offset>[];
 
-      // Generate more points for smoother waves
       for (double angle = 0; angle <= math.pi / 2; angle += math.pi / 50) {
-        final waveOffset = math.sin(angle * 5) * amplitude; // Increased frequency
+        final waveOffset = math.sin(angle * 5) * amplitude;
         double x, y;
 
         if (isTopLeft) {
-          x = origin.dx + radius * math.cos(angle) + waveOffset * math.cos(angle + math.pi/2);
-          y = origin.dy + radius * math.sin(angle) + waveOffset * math.sin(angle + math.pi/2);
+          x = origin.dx +
+              radius * math.cos(angle) +
+              waveOffset * math.cos(angle + math.pi / 2);
+          y = origin.dy +
+              radius * math.sin(angle) +
+              waveOffset * math.sin(angle + math.pi / 2);
         } else {
-          x = origin.dx - radius * math.cos(angle) - waveOffset * math.cos(angle + math.pi/2);
-          y = origin.dy - radius * math.sin(angle) - waveOffset * math.sin(angle + math.pi/2);
+          x = origin.dx -
+              radius * math.cos(angle) -
+              waveOffset * math.cos(angle + math.pi / 2);
+          y = origin.dy -
+              radius * math.sin(angle) -
+              waveOffset * math.sin(angle + math.pi / 2);
         }
 
         points.add(Offset(x, y));
       }
 
-      // Draw the wave line
       if (points.length > 1) {
-        final path = Path();
-        path.moveTo(points[0].dx, points[0].dy);
+        final path = Path()..moveTo(points[0].dx, points[0].dy);
         for (int j = 1; j < points.length; j++) {
           path.lineTo(points[j].dx, points[j].dy);
         }
@@ -186,13 +220,13 @@ class _FloatingParticle extends StatefulWidget {
   final int delay;
 
   @override
-  _FloatingParticleState createState() => _FloatingParticleState();
+  State<_FloatingParticle> createState() => _FloatingParticleState();
 }
 
 class _FloatingParticleState extends State<_FloatingParticle>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
 
   @override
   void initState() {
@@ -204,18 +238,15 @@ class _FloatingParticleState extends State<_FloatingParticle>
 
     _animation = Tween<double>(
       begin: 0,
-      end: 2 * 3.14159, // 2π radians for full circle
+      end: 2 * 3.14159,
     ).animate(CurvedAnimation(
       parent: _controller,
       curve: Curves.linear,
     ))
       ..addListener(() => setState(() {}));
 
-    // Start animation after delay
     Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) {
-        _controller.repeat();
-      }
+      if (mounted) _controller.repeat();
     });
   }
 
@@ -243,5 +274,3 @@ class _FloatingParticleState extends State<_FloatingParticle>
     );
   }
 }
-
-

@@ -66,10 +66,9 @@ class _WrongSkippedMCQReviewTileState extends State<WrongSkippedMCQReviewTile> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context),
-
             const SizedBox(height: 10),
 
-            // Column headers aligned to the right (same vibe as your previous tiles)
+            // Column headers aligned to the right
             Align(
               alignment: Alignment.centerRight,
               child: Row(
@@ -93,7 +92,6 @@ class _WrongSkippedMCQReviewTileState extends State<WrongSkippedMCQReviewTile> {
             ),
 
             const SizedBox(height: 2),
-
             QuestionActionRow(questionId: widget.questionId),
           ],
         ),
@@ -105,7 +103,7 @@ class _WrongSkippedMCQReviewTileState extends State<WrongSkippedMCQReviewTile> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Index circle (similar to your other tiles)
+        // Index circle
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
@@ -182,7 +180,7 @@ class _WrongSkippedMCQReviewTileState extends State<WrongSkippedMCQReviewTile> {
 
   Widget _colHeader(BuildContext context, String text) {
     return SizedBox(
-      width: 66, // enough for T/F radios (2x)
+      width: 66,
       child: Text(
         text,
         textAlign: TextAlign.center,
@@ -196,6 +194,19 @@ class _WrongSkippedMCQReviewTileState extends State<WrongSkippedMCQReviewTile> {
     );
   }
 
+  /// ✅ 1->A, 2->B, 3->C ... 26->Z, 27->AA etc (safe)
+  String _toAlphaLabel(int n) {
+    if (n <= 0) return '?';
+    int num = n;
+    String result = '';
+    while (num > 0) {
+      num--; // make it 0-based
+      result = String.fromCharCode(65 + (num % 26)) + result;
+      num ~/= 26;
+    }
+    return result;
+  }
+
   Widget _statementRow(BuildContext context, int index, WrongSkippedStem s) {
     final bool? doc = _tfToBool(s.givenAnswer);
     final bool? cor = _tfToBool(s.correctAnswer);
@@ -203,16 +214,15 @@ class _WrongSkippedMCQReviewTileState extends State<WrongSkippedMCQReviewTile> {
     final bool? docIsCorrect =
     (doc == null || cor == null) ? null : (doc == cor);
 
-    // Color logic: You column becomes green/red/grey like MCQAnswerReviewTile
     final Color youColor = (docIsCorrect == null)
         ? Colors.grey
         : (docIsCorrect ? Colors.green : Colors.red);
 
-    // Correct column always indigo
     final Color correctColor = AppColor.indigo;
 
-    // Serial style like your MCQ tiles
-    final String serial = '${s.stemNo ?? (index + 1)})';
+    // ✅ Serial label: stemNo 1,3,5 -> A,C,E
+    final int number = s.stemNo ?? (index + 1);
+    final String serial = '${_toAlphaLabel(number)})';
 
     const double radioSize = 22;
 
@@ -259,8 +269,6 @@ class _WrongSkippedMCQReviewTileState extends State<WrongSkippedMCQReviewTile> {
               ),
 
               // RIGHT: Answers
-              // If correct hidden => ONLY show You radios
-              // If correct shown => show You + divider + Correct radios
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -290,7 +298,7 @@ class _WrongSkippedMCQReviewTileState extends State<WrongSkippedMCQReviewTile> {
                     ),
                   ),
 
-                  // CORRECT (fully removed when hidden)
+                  // CORRECT
                   if (_showCorrect) ...[
                     const SizedBox(width: 10),
                     Container(
@@ -298,8 +306,6 @@ class _WrongSkippedMCQReviewTileState extends State<WrongSkippedMCQReviewTile> {
                       height: radioSize + 6,
                       color: Colors.black12,
                     ),
-
-
                     SizedBox(
                       width: 66,
                       child: Row(

@@ -1,13 +1,12 @@
-// lib/presentation/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:in_app_update/in_app_update.dart';
-import 'package:medi_exam/data/models/active_course_specialties_subjects_model.dart'; // ✅ NEW
+import 'package:medi_exam/data/models/active_course_specialties_subjects_model.dart';
 import 'package:medi_exam/data/models/courses_model.dart';
 import 'package:medi_exam/data/models/helpline_model.dart';
 import 'package:medi_exam/data/models/slide_items_model.dart';
 import 'package:medi_exam/data/services/active_batch_courses_service.dart';
-import 'package:medi_exam/data/services/active_course_specialties_subjects_service.dart'; // ✅ NEW
+import 'package:medi_exam/data/services/active_course_specialties_subjects_service.dart';
 import 'package:medi_exam/data/services/helpline_service.dart';
 import 'package:medi_exam/data/services/slide_items_service.dart';
 import 'package:medi_exam/data/utils/auth_checker.dart';
@@ -26,6 +25,21 @@ import 'package:medi_exam/presentation/widgets/image_slider_banner.dart';
 import 'package:medi_exam/presentation/widgets/youtube_video_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// ✅ NEW imports for pinned exam
+import 'package:logger/logger.dart';
+import 'package:medi_exam/data/models/open_exam_list_model.dart';
+import 'package:medi_exam/data/network_response.dart';
+import 'package:medi_exam/data/services/open_exam_list_service.dart';
+import 'package:medi_exam/data/services/public_open_exam_service.dart';
+import 'package:medi_exam/presentation/widgets/pinned_free_exam_banner.dart';
+
+// ✅ Reuse overview flow (same as OpenExamListScreen)
+import 'package:medi_exam/data/models/exam_property_model.dart';
+import 'package:medi_exam/data/services/exam_property_service.dart';
+import 'package:medi_exam/presentation/widgets/exam_overview_dialog.dart';
+import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
+import 'package:medi_exam/presentation/widgets/loading_widget.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -36,35 +50,40 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final ActiveBatchCoursesService _coursesService = ActiveBatchCoursesService();
 
-  // ✅ UPDATED: active-course-specialties-subjects service
   final ActiveCourseSpecialtiesSubjectsService _specialtiesSubjectsService =
   ActiveCourseSpecialtiesSubjectsService();
 
   final SlidingItemsService _slidingItemsService = SlidingItemsService();
   final HelplineService _helplineService = HelplineService();
 
-  CoursesModel? _batchCourses; // isBatch = true section
-
-  // ✅ Subject-wise UI will still be shown using CoursesModel,
-  // but populated by converting ActiveCourseSpecialtiesSubjectsModel -> CoursesModel
+  CoursesModel? _batchCourses;
   CoursesModel? _subjectCourses;
 
-  // ✅ NEW: keep subjects list to pass to next screen later
-  List<Subject> _subjects = [];
+  Map<int, List<Subject>> _subjectsBySpecialty = {};
 
   SlideItemsModel? _slideItemsModel;
   HelplineModel? _helpline;
 
-  bool _isLoading = true; // batch-wise
-  bool _isSubjectLoading = true; // subject-wise
+  bool _isLoading = true;
+  bool _isSubjectLoading = true;
   bool _isSlidingLoading = true;
   bool _isHelplineLoading = true;
 
-  String? _errorMessage; // batch-wise
-  String? _subjectErrorMessage; // subject-wise
+  String? _errorMessage;
+  String? _subjectErrorMessage;
   String? _slidingErrorMessage;
   String? _helplineError;
 
+  // -------------------- ✅ PINNED EXAM STATE --------------------
+  final _logger = Logger();
+  final PublicOpenExamService _publicOpenExamService = PublicOpenExamService();
+  final OpenExamListService _doctorOpenExamService = OpenExamListService();
+  final ExamPropertyService _examPropertyService = ExamPropertyService();
+
+  bool _isPinnedLoading = true;
+  String? _pinnedError;
+  OpenExamModel? _pinnedExam;
+  // -------------------------------------------------------------
 
   @override
   void initState() {
@@ -74,18 +93,64 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FreeExamNotifyDialogManager.maybeShow(context: context);
     });
-
   }
 
   Future<void> _fetchData() async {
     await Future.wait([
       _checkForUpdate(),
+      _fetchPinnedExam(), // ✅ pinned first
       _fetchBatchCourses(),
-      _fetchSubjectWiseSpecialtiesAndSubjects(), // ✅ UPDATED
+      _fetchSubjectWiseSpecialtiesAndSubjects(),
       _fetchSlidingItems(),
       _fetchHelpline(),
     ]);
   }
+
+  // -------------------- ✅ FETCH PINNED FROM PUBLIC ENDPOINT --------------------
+  Future<void> _fetchPinnedExam() async {
+    setState(() {
+      _isPinnedLoading = true;
+      _pinnedError = null;
+      _pinnedExam = null;
+    });
+
+    try {
+      // ✅ Public endpoint (no token)
+      final NetworkResponse res =
+      await _publicOpenExamService.fetchPublicFreeOpenExams(
+        Urls.openExamPublicList, // ✅ add this in Urls (see section at bottom)
+      );
+
+      if (res.isSuccess && res.responseData is OpenExamListModel) {
+        final model = res.responseData as OpenExamListModel;
+
+        OpenExamModel? pinned;
+        for (final e in model.items) {
+          if (e.safeIsPinned) {
+            pinned = e;
+            break;
+          }
+        }
+
+        setState(() {
+          _pinnedExam = pinned;
+        });
+      } else {
+        setState(() {
+          _pinnedError = res.errorMessage ?? 'Failed to load pinned exam';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _pinnedError = 'Network error: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isPinnedLoading = false;
+      });
+    }
+  }
+  // ---------------------------------------------------------------------------
 
   Future<void> _fetchBatchCourses() async {
     try {
@@ -111,7 +176,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ✅ UPDATED: Subject-wise uses active-course-specialties-subjects
   Future<void> _fetchSubjectWiseSpecialtiesAndSubjects() async {
     try {
       final response =
@@ -121,14 +185,22 @@ class _HomeScreenState extends State<HomeScreen> {
         final model =
         response.responseData as ActiveCourseSpecialtiesSubjectsModel;
 
-        // ✅ keep subjects for next screen later
-        final subjects = model.subjects ?? [];
+        final courses = model.courses ?? [];
 
-        // ✅ Convert courses(specialties) -> CoursesModel for UI
-        final converted = _convertActiveCoursesToCoursesModel(model.courses ?? []);
+        final Map<int, List<Subject>> subjectsMap = {};
+        for (final course in courses) {
+          for (final sp in (course.specialties ?? [])) {
+            final sid = sp.specialtyId;
+            if (sid != null) {
+              subjectsMap[sid] = sp.subjects ?? <Subject>[];
+            }
+          }
+        }
+
+        final converted = _convertActiveCoursesToCoursesModel(courses);
 
         setState(() {
-          _subjects = subjects;
+          _subjectsBySpecialty = subjectsMap;
           _subjectCourses = converted;
         });
       } else {
@@ -148,16 +220,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// ✅ Convert:
-  /// ActiveCourse(courseId, courseName, specialty[]) -> Course(courseId, courseName, package[])
-  /// Specialty(specialtyId, specialtyName) -> Package(packageId, packageName)
   CoursesModel _convertActiveCoursesToCoursesModel(List<ActiveCourse> list) {
     final convertedCourses = list.map((c) {
-      final packages = (c.specialty ?? [])
-          .map((s) => Package(
-        packageId: s.specialtyId,
-        packageName: s.specialtyName,
-      ))
+      final packages = (c.specialties ?? [])
+          .map(
+            (s) => Package(
+          packageId: s.specialtyId,
+          packageName: s.specialtyName,
+        ),
+      )
           .toList();
 
       return Course(
@@ -231,9 +302,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _batchCourses = null;
       _subjectCourses = null;
-      _subjects = [];
+      _subjectsBySpecialty = {};
       _slideItemsModel = null;
       _helpline = null;
+
+      // pinned reset
+      _isPinnedLoading = true;
+      _pinnedError = null;
+      _pinnedExam = null;
     });
     _fetchData();
   }
@@ -349,13 +425,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ---------------- Free Exam handler (auth + navigation) ----------------
+  // ---------------- Free Exam handler (existing) ----------------
   Future<void> _onFreeExamPressed() async {
     final authed = await AuthChecker.to.isAuthenticated();
 
     Future<void> goNow() async {
       Get.toNamed(
-        RouteNames.freeExams,
+        RouteNames.openExamList,
         arguments: {'url': Urls.openExamList},
         preventDuplicates: true,
       );
@@ -394,6 +470,177 @@ class _HomeScreenState extends State<HomeScreen> {
     await goNow();
   }
 
+  // ---------------- ✅ PINNED EXAM TAP FLOW ----------------
+  Future<void> _onPinnedExamPressed() async {
+    final pinned = _pinnedExam;
+    if (pinned == null || pinned.safeExamId == 0) return;
+
+    // 1) auth gate
+    final authed = await AuthChecker.to.isAuthenticated();
+    if (!authed) {
+      Get.snackbar(
+        'Login Required',
+        'Please log in to take this pinned free exam',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+
+      final result = await Get.toNamed(
+        RouteNames.login,
+        arguments: {
+          'popOnSuccess': true,
+          'returnRoute': null,
+          'returnArguments': null,
+          'message': "Log in to take the Pinned Free Exam.",
+        },
+      );
+
+      if (result == true) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        final nowAuthed = await AuthChecker.to.isAuthenticated();
+        if (!nowAuthed) return;
+      } else {
+        return;
+      }
+    }
+
+    // 2) show loader
+    Get.dialog(
+      const Center(
+        child: CustomBlobBackground(
+          backgroundColor: AppColor.whiteColor,
+          blobColor: AppColor.purple,
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: LoadingWidget(),
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      // 3) doctor list (has status)
+      final NetworkResponse res =
+      await _doctorOpenExamService.fetchFreeExamList(Urls.openExamList);
+
+      if (!res.isSuccess || res.responseData is! OpenExamListModel) {
+        throw Exception(res.errorMessage ?? 'Failed to load your exam status.');
+      }
+
+      final OpenExamListModel model = res.responseData as OpenExamListModel;
+
+      OpenExamModel? target;
+      for (final e in model.items) {
+        if (e.safeExamId == pinned.safeExamId) {
+          target = e;
+          break;
+        }
+      }
+
+      // fallback to pinned object if not found for any reason
+      target ??= pinned;
+
+      // 4) decide action
+      final status = _resolveDoctorExamStatus(target);
+
+      if (Get.isDialogOpen == true) Get.back();
+
+      if (status == _DoctorExamResolvedStatus.completed) {
+        final data = {
+          'admissionId': '',
+          'examId': target.safeExamId.toString(),
+          'examType': 'openExam',
+        };
+        Get.toNamed(
+          RouteNames.examResult,
+          arguments: data,
+          preventDuplicates: true,
+        );
+        return;
+      }
+
+      // available OR running -> open overview (same as OpenExamListScreen)
+      await _openFreeExamOverviewByExamId(target.safeExamId);
+    } catch (e) {
+      if (Get.isDialogOpen == true) Get.back();
+      Get.snackbar(
+        'Failed',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.black,
+      );
+      _logger.e('Pinned exam flow error: $e');
+    }
+  }
+
+  _DoctorExamResolvedStatus _resolveDoctorExamStatus(OpenExamModel exam) {
+    final list = exam.doctorOpenExam;
+    if (list == null || list.isEmpty) return _DoctorExamResolvedStatus.available;
+
+    // if ANY record is Completed => completed
+    for (final e in list) {
+      final s = (e.status ?? '').toLowerCase().trim();
+      if (s == 'completed') return _DoctorExamResolvedStatus.completed;
+    }
+
+    // otherwise assume running/started
+    return _DoctorExamResolvedStatus.running;
+  }
+
+  Future<void> _openFreeExamOverviewByExamId(int examId) async {
+    Get.dialog(
+      const Center(
+        child: CustomBlobBackground(
+          backgroundColor: AppColor.whiteColor,
+          blobColor: AppColor.purple,
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: LoadingWidget(),
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      final String eid = examId.toString();
+      final String url = Urls.openExamProperty(eid);
+      final NetworkResponse res = await _examPropertyService.fetchExamProperty(url);
+
+      if (!res.isSuccess) {
+        throw Exception(res.errorMessage ?? 'Failed to load exam property.');
+      }
+
+      late final ExamPropertyModel model;
+      if (res.responseData is ExamPropertyModel) {
+        model = res.responseData as ExamPropertyModel;
+      } else if (res.responseData is Map<String, dynamic>) {
+        model =
+            ExamPropertyModel.fromJson(res.responseData as Map<String, dynamic>);
+      } else {
+        throw Exception('Unexpected response: ${res.responseData.runtimeType}');
+      }
+
+      if (Get.isDialogOpen == true) Get.back();
+
+      await showExamOverviewDialog(
+        context,
+        model: model,
+        url: Urls.openExamQuestion(eid),
+        examType: 'openExam',
+        admissionId: '',
+      );
+    } catch (e) {
+      if (Get.isDialogOpen == true) Get.back();
+      rethrow;
+    }
+  }
+  // -----------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -412,8 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // Header
               SliverToBoxAdapter(
                 child: Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -438,6 +684,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
+              // ✅ PINNED EXAM (TOP)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 24 : 26,
+                    vertical: 8,
+                  ),
+                  child: _buildPinnedExamSection(),
+                ),
+              ),
+
               // Slider
               SliverToBoxAdapter(
                 child: Padding(
@@ -449,40 +706,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // ✅ Batch Wise Preparation (isBatch = true)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 16 : 24,
-                    vertical: 8,
-                  ),
-                  child: _buildCoursesSection(
-                    isLoading: _isLoading,
-                    errorMessage: _errorMessage,
-                    model: _batchCourses,
-                    showFreeExamRibbon: true,
-                    title: "Batch Wise Preparation",
-                    subtitle:
-                    "Choose a batch and try free exams to check your level",
-                    isBatch: true,
-                  ),
-                ),
-              ),
-
-/*              // Free exam card
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 16 : 24,
-                    vertical: 8,
-                  ),
-                  child: FreeExamCardButton(
-                    onTap: _onFreeExamPressed,
-                  ),
-                ),
-              ),*/
-
-              // ✅ Subject Wise Preparation uses active-course-specialties-subjects
+              // Subject Wise
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -500,6 +724,38 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+
+              // Batch Wise
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : 24,
+                    vertical: 8,
+                  ),
+                  child: _buildCoursesSection(
+                    isLoading: _isLoading,
+                    errorMessage: _errorMessage,
+                    model: _batchCourses,
+                    showFreeExamRibbon: true,
+                    title: "Batch Wise Preparation",
+                    subtitle: "Choose a batch and try free exams to check your level",
+                    isBatch: true,
+                  ),
+                ),
+              ),
+
+/*              // Free exam card
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : 24,
+                    vertical: 8,
+                  ),
+                  child: FreeExamCardButton(
+                    onTap: _onFreeExamPressed,
+                  ),
+                ),
+              ),*/
 
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
@@ -526,6 +782,38 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildPinnedExamSection() {
+    if (_isPinnedLoading) {
+      // simple skeleton
+      return Container(
+        height: 86,
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(16),
+        ),
+      );
+    }
+
+    if (_pinnedError != null) {
+      // silently hide or show a small retry row (your call)
+      return const SizedBox.shrink();
+    }
+
+    final pinned = _pinnedExam;
+    if (pinned == null) return const SizedBox.shrink();
+
+    final examTitle = pinned.safeTitle.isNotEmpty ? pinned.safeTitle : 'Pinned Free Exam';
+    final courseName = pinned.course?.name ?? '';
+
+    return PinnedFreeExamBanner(
+      title: examTitle,
+      subtitle: courseName.isNotEmpty
+          ? 'Course: $courseName'
+          : 'Tap to start/continue your pinned free exam',
+      onTap: _onPinnedExamPressed,
+    );
+  }
+
   Widget _buildSliderSection() {
     if (_isSlidingLoading) {
       return SliderShimmerLoading();
@@ -544,8 +832,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ✅ Reusable section builder (used for BOTH batch + subject sections)
-  // ✅ UPDATED: for subject-wise, pass Subject list to next screen (implement later)
   Widget _buildCoursesSection({
     required bool isLoading,
     required String? errorMessage,
@@ -583,7 +869,6 @@ class _HomeScreenState extends State<HomeScreen> {
           required Package package,
         }) {
           if (isBatch) {
-            // ✅ Batch-wise navigation
             Get.toNamed(
               RouteNames.session_wise_batches,
               arguments: {
@@ -595,7 +880,9 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             );
           } else {
-            // ✅ Subject-wise
+            final sid = package.packageId;
+            final subjects =
+            (sid == null) ? <Subject>[] : (_subjectsBySpecialty[sid] ?? <Subject>[]);
 
             Get.toNamed(
               RouteNames.subjectWisePreparation,
@@ -604,22 +891,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 'icon': icon,
                 'specialtyId': package.packageId,
                 'specialtyName': package.packageName,
-                'subjects': _subjects, // List<Subject>
+                'subjects': subjects,
               },
             );
-
-/*            //If you don't have the route yet, you can keep snackbar for now:
-            Get.snackbar(
-              "Course: $courseTitle",
-              "Specialty: ${package.packageName} selected",
-              backgroundColor: Colors.blue,
-              colorText: Colors.white,
-              snackPosition: SnackPosition.BOTTOM,
-              duration: const Duration(seconds: 3),
-            );*/
           }
         },
       );
     }
   }
 }
+
+enum _DoctorExamResolvedStatus { available, running, completed }

@@ -75,24 +75,45 @@ class _SubjectWisePreparationScreenState
     return int.tryParse(v.toString());
   }
 
-  // ✅ Only show matched items (live)
+  bool _isOpen(Subject s) => (s.isOpen ?? false) == true;
+
+  // ✅ Filter + SORT: open first, then locked
   List<Subject> get _filtered {
     final q = _query.trim();
-    if (q.isEmpty) return subjects;
-
     final low = q.toLowerCase();
 
-    return subjects.where((s) {
+    final list = (q.isEmpty)
+        ? [...subjects]
+        : subjects.where((s) {
       final name = (s.subjectName ?? '').toLowerCase();
       final idStr = (s.subjectId ?? '').toString().toLowerCase();
       return name.contains(low) || idStr.contains(low);
     }).toList();
+
+    // ✅ open first (stable secondary sort by name/id for a consistent order)
+    list.sort((a, b) {
+      final ao = _isOpen(a);
+      final bo = _isOpen(b);
+      if (ao != bo) return ao ? -1 : 1;
+
+      final an = (a.subjectName ?? '').toLowerCase();
+      final bn = (b.subjectName ?? '').toLowerCase();
+      final c = an.compareTo(bn);
+      if (c != 0) return c;
+
+      return (a.subjectId ?? 0).compareTo(b.subjectId ?? 0);
+    });
+
+    return list;
   }
+
+  int get _lockedCount =>
+      subjects.where((s) => (s.isOpen ?? false) == false).length;
+
+  int get _openCount => subjects.where((s) => _isOpen(s)).length;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final width = MediaQuery.of(context).size.width;
     final isCompact = width < 380;
 
@@ -124,7 +145,7 @@ class _SubjectWisePreparationScreenState
                 focusNode: _searchFocus,
                 isCompact: isCompact,
                 onClear: () {
-                  _searchCtrl.clear(); // triggers listener -> filtered becomes full list
+                  _searchCtrl.clear();
                   _searchFocus.requestFocus();
                 },
                 onSubmitted: (_) => _searchFocus.unfocus(),
@@ -141,7 +162,7 @@ class _SubjectWisePreparationScreenState
                   if (_query.trim().isEmpty)
                     _TinyChip(
                       icon: Icons.menu_book_rounded,
-                      label: 'Showing ${subjects.length} subjects',
+                      label: '$_openCount open • $_lockedCount locked',
                     )
                   else
                     _TinyChip(
@@ -182,8 +203,12 @@ class _SubjectWisePreparationScreenState
                 delegate: SliverChildBuilderDelegate(
                       (context, index) {
                     final s = _filtered[index];
+                    final canOpen = _isOpen(s);
+
                     return _SubjectGridCard(
                       subject: s,
+                      canTap: canOpen,
+                      highlight: canOpen, // ✅ highlighted if open
                       onTap: () {
                         Get.toNamed(
                           RouteNames.subjectWiseChapterTopics,
@@ -197,12 +222,33 @@ class _SubjectWisePreparationScreenState
                           },
                         );
                       },
+                      onLockedTap: () {
+                        // optional friendly hint
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "This subject is locked. Get Premium to unlock everything.",
+                            ),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
                     );
                   },
                   childCount: _filtered.length,
                 ),
               ),
             ),
+
+          // ---- tip banner (locked items) ----
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+              child: _LockedTipBanner(
+                lockedCount: _lockedCount,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -211,13 +257,59 @@ class _SubjectWisePreparationScreenState
 
 // ---------------- UI widgets ----------------
 
+class _LockedTipBanner extends StatelessWidget {
+  final int lockedCount;
+
+  const _LockedTipBanner({
+    required this.lockedCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (lockedCount <= 0) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F7FB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE6E8F0)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_outline_rounded,
+              size: 18, color: Color(0xFF6B7280)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Some subjects are locked. Unlock them anytime with a Premium package.",
+              style: TextStyle(
+                fontSize: Sizes.verySmallText(context),
+                height: 1.25,
+                color: const Color(0xFF374151),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SubjectGridCard extends StatefulWidget {
   final Subject subject;
+  final bool canTap;
+  final bool highlight;
   final VoidCallback onTap;
+  final VoidCallback? onLockedTap;
 
   const _SubjectGridCard({
     required this.subject,
+    required this.canTap,
+    required this.highlight,
     required this.onTap,
+    this.onLockedTap,
   });
 
   @override
@@ -239,52 +331,77 @@ class _SubjectGridCardState extends State<_SubjectGridCard> {
         ? widget.subject.subjectName!.trim()
         : 'Unknown Subject';
 
+    final canTap = widget.canTap;
+
+    // ✅ open subjects look "more premium"
+    final openGlow = widget.highlight;
+
     return AnimatedScale(
       duration: const Duration(milliseconds: 120),
       scale: _pressed ? 0.985 : 1.0,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(borderRadius + 2),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: gradientColors,
+      child: Opacity(
+        opacity: canTap ? 1.0 : 0.72,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius + 2),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradientColors,
+            ),
+            boxShadow: openGlow
+                ? [
+              BoxShadow(
+                color: gradientColors[0].withOpacity(0.28),
+                blurRadius: 16,
+                offset: const Offset(0, 10),
+              ),
+            ]
+                : null,
           ),
-        ),
-        padding: const EdgeInsets.all(1.5),
-        child: Material(
-          color: isDark ? const Color(0xFF121416) : Colors.white,
-          borderRadius: BorderRadius.circular(borderRadius),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: widget.onTap,
-            onHighlightChanged: (v) => setState(() => _pressed = v),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Row(
-                children: [
-                  _IconBubble(),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: Sizes.smallText(context),
-                        color: isDark ? Colors.white : Colors.black,
-                        height: 1.15,
+          padding: const EdgeInsets.all(1.5),
+          child: Material(
+            color: isDark ? const Color(0xFF121416) : Colors.white,
+            borderRadius: BorderRadius.circular(borderRadius),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: canTap ? widget.onTap : widget.onLockedTap,
+              onHighlightChanged: (v) {
+                if (!canTap) return;
+                setState(() => _pressed = v);
+              },
+              child: Padding(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                child: Row(
+                  children: [
+                    _IconBubble(highlight: openGlow),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: Sizes.smallText(context),
+                          color: isDark ? Colors.white : Colors.black,
+                          height: 1.15,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 18,
-                    color: isDark ? Colors.white70 : const Color(0xFF6B7280),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Icon(
+                      canTap ? Icons.arrow_forward_rounded : Icons.lock_rounded,
+                      size: 18,
+                      color: canTap
+                          ? (isDark
+                          ? Colors.white70
+                          : const Color(0xFF4B5563))
+                          : const Color(0xFF6B7280),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -295,9 +412,14 @@ class _SubjectGridCardState extends State<_SubjectGridCard> {
 }
 
 class _IconBubble extends StatelessWidget {
+  final bool highlight;
+
+  const _IconBubble({this.highlight = false});
+
   @override
   Widget build(BuildContext context) {
     final gradientColors = [AppColor.indigo, AppColor.purple];
+
     return Container(
       height: Sizes.veryExtraSmallIcon(context) + 16,
       width: Sizes.veryExtraSmallIcon(context) + 16,
@@ -310,8 +432,8 @@ class _IconBubble extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: gradientColors[0].withOpacity(0.25),
-            blurRadius: 10,
+            color: gradientColors[0].withOpacity(highlight ? 0.35 : 0.22),
+            blurRadius: highlight ? 14 : 10,
             offset: const Offset(0, 6),
           ),
         ],

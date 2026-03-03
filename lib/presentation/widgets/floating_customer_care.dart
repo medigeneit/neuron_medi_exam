@@ -387,7 +387,7 @@ class _GlassActionPill extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
         child: Material(
-          color: Colors.grey.withOpacity(0.05),
+          color: Colors.white.withOpacity(0.45),
           child: InkWell(
             onTap: onTap,
             child: Container(
@@ -403,7 +403,7 @@ class _GlassActionPill extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     label,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black),
                   ),
                 ],
               ),

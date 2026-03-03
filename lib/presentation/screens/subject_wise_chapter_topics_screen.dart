@@ -23,7 +23,11 @@ class SubjectWiseChapterTopicsScreen extends StatefulWidget {
 
 class _SubjectWiseChapterTopicsScreenState
     extends State<SubjectWiseChapterTopicsScreen> {
-  static const int _minRequiredQuestions = 10;
+  // ✅ Visible requirement
+  static const int _minRequiredTopics = 5;
+
+  // ✅ Hidden internal requirement (do NOT show counts in UI)
+  static const int _minRequiredQuestionsHidden = 10;
 
   // ✅ resume keys (unique to avoid collision)
   static const String _kResumeNext = '__resume_next';
@@ -63,7 +67,7 @@ class _SubjectWiseChapterTopicsScreenState
     final args = (Get.arguments as Map<String, dynamic>?) ?? {};
 
     courseTitle = (args['courseTitle'] ?? 'Subject Wise Topics').toString();
-      icon = Icons.menu_book_rounded;
+    icon = Icons.menu_book_rounded;
 
     specialtyId = _asInt(args['specialtyId']) ?? 0;
     specialtyName = (args['specialtyName'] ?? '').toString();
@@ -146,7 +150,7 @@ class _SubjectWiseChapterTopicsScreenState
     }
   }
 
-  // -------- derived data (FILTER OUT count==0) --------
+  // -------- derived data (FILTER OUT count==0, but NOT showing in UI) --------
 
   List<Chapter> get _chapters {
     final raw = _model?.chapters ?? <Chapter>[];
@@ -210,7 +214,8 @@ class _SubjectWiseChapterTopicsScreenState
 
   int get _selectedTopicsCount => _selectedTopicIds.length;
 
-  int get _selectedQuestionCount {
+  // ✅ hidden question sum (used only for validation; never shown in UI)
+  int get _selectedQuestionCountHidden {
     int sum = 0;
     for (final c in _chapters) {
       for (final t in (c.topics ?? <Topic>[])) {
@@ -224,7 +229,11 @@ class _SubjectWiseChapterTopicsScreenState
     return sum;
   }
 
-  bool get _canProceed => _selectedQuestionCount >= _minRequiredQuestions;
+  bool get _meetsTopicRequirement => _selectedTopicsCount >= _minRequiredTopics;
+
+  bool get _canProceed =>
+      _meetsTopicRequirement &&
+          _selectedQuestionCountHidden >= _minRequiredQuestionsHidden;
 
   // -------- selection helpers --------
 
@@ -316,19 +325,23 @@ class _SubjectWiseChapterTopicsScreenState
       'subjectName': subjectName,
       'specialty': _model?.specialty?.toJson() ?? {},
       'subject': _model?.subject?.toJson() ?? {},
+
       'selectedChapters': selectedChapters,
       'selectedTopics': selectedTopics,
+
+      // ✅ for downstream screens / API
       'selectedTopicsCount': _selectedTopicsCount,
-      'selectedQuestionCount': _selectedQuestionCount,
-      'minRequiredQuestionCount': _minRequiredQuestions,
+      'selectedQuestionCount': _selectedQuestionCountHidden,
+      'minRequiredTopics': _minRequiredTopics,
+      'minRequiredQuestionCount': _minRequiredQuestionsHidden,
     };
   }
 
-  void _showNeedMoreSnack() {
-    final need = _minRequiredQuestions - _selectedQuestionCount;
+  void _showNeedMoreTopicsSnack() {
+    final need = _minRequiredTopics - _selectedTopicsCount;
     Get.snackbar(
-      'Select More Questions',
-      'You need at least $_minRequiredQuestions questions.\nSelect $need more question${need == 1 ? '' : 's'} to continue.',
+      'Pick a Few More Topics',
+      'Select at least $_minRequiredTopics topics to continue.\nAdd ${need < 0 ? 0 : need} more topic${need == 1 ? '' : 's'}.',
       snackPosition: SnackPosition.BOTTOM,
       backgroundColor: const Color(0xFFFFF7ED),
       colorText: const Color(0xFF111827),
@@ -336,7 +349,17 @@ class _SubjectWiseChapterTopicsScreenState
     );
   }
 
-  // ✅ FIXED: remove preventDuplicates (this was blocking navigation)
+  void _showNeedMoreCoverageSnack() {
+    Get.snackbar(
+      'Almost There',
+      'Your selected topics don’t have enough practice items yet.\nPlease add a few more topics to continue.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: const Color(0xFFFFF7ED),
+      colorText: const Color(0xFF111827),
+      duration: const Duration(seconds: 3),
+    );
+  }
+
   void _goToCustomize(Map<String, dynamic> payload) {
     Get.toNamed(
       RouteNames.makeCustomizeQuestion,
@@ -344,7 +367,6 @@ class _SubjectWiseChapterTopicsScreenState
     );
   }
 
-  // ✅ include icon in return args safely
   Map<String, dynamic> _buildReturnArgsForResume(Map<String, dynamic> payload) {
     return {
       'courseTitle': courseTitle,
@@ -366,10 +388,17 @@ class _SubjectWiseChapterTopicsScreenState
   }
 
   Future<void> _onNextWithAuthCheckAndResume() async {
-    if (_loading) return; // extra safety
+    if (_loading) return;
 
-    if (!_canProceed) {
-      _showNeedMoreSnack();
+    // ✅ Step-1: must pick at least 5 topics
+    if (!_meetsTopicRequirement) {
+      _showNeedMoreTopicsSnack();
+      return;
+    }
+
+    // ✅ Step-2: hidden validation (don’t show question counts, just ask for more topics)
+    if (_selectedQuestionCountHidden < _minRequiredQuestionsHidden) {
+      _showNeedMoreCoverageSnack();
       return;
     }
 
@@ -473,10 +502,12 @@ class _SubjectWiseChapterTopicsScreenState
                           label:
                           '${filtered.length} match${filtered.length == 1 ? '' : 'es'} for "$_query"',
                         ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 6),
+
+                      // ✅ requirement shown as TOPICS only
                       RequirementChip(
-                        minQ: _minRequiredQuestions,
-                        selectedQ: _selectedQuestionCount,
+                        minTopics: _minRequiredTopics,
+                        selectedTopics: _selectedTopicsCount,
                       ),
                     ],
                   ),
@@ -534,7 +565,6 @@ class _SubjectWiseChapterTopicsScreenState
                       return ChapterTopicsCard(
                         chapterTitle:
                         (chapter.chapterName ?? 'Unknown Chapter').trim(),
-                        chapterCount: chapter.questionCount ?? 0,
                         topicsCount: topics.length,
                         selectedTopicsCount: selectedInThisChapter,
                         chapterChecked: allSelected,
@@ -543,11 +573,9 @@ class _SubjectWiseChapterTopicsScreenState
                         isChapterSelected: !noneSelected,
                         topics: topics.map((t) {
                           final tn = (t.topicName ?? 'Unknown Topic').trim();
-                          final tq = t.questionCount ?? 0;
                           return TopicRowData(
                             id: t.topicId ?? -1,
                             title: tn,
-                            count: tq,
                             checked: _isTopicSelected(t),
                             onChanged: (v) =>
                                 _toggleTopic(chapter, t, v ?? false),
@@ -566,15 +594,14 @@ class _SubjectWiseChapterTopicsScreenState
             right: 0,
             bottom: 0,
             child: BottomNextBar(
-              selectedQuestionCount: _selectedQuestionCount,
-              minRequired: _minRequiredQuestions,
+              selectedTopicsCount: _selectedTopicsCount,
+              minTopics: _minRequiredTopics,
               buttonText: 'Next',
               onPressed: _onNextWithAuthCheckAndResume,
               gradientColors: const [AppColor.indigo, AppColor.purple],
             ),
           ),
 
-          // ✅ FIXED: block taps during loading
           if (_loading)
             const Positioned.fill(
               child: AbsorbPointer(

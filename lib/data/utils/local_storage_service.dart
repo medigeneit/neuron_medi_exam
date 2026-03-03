@@ -21,11 +21,11 @@ class LocalStorageService {
   static const String lastPhone = 'last_phone';
   static const String lastOtpCode = 'last_otp_code';
   static const String otpToken = 'otp_token';
-  static const String lastOtpExpiresAt = 'otp_expires_at';      // ISO string
-  static const String lastOtpVerifiedAt = 'otp_verified_at';    // ISO string
-  static const String isLoggedIn = 'is_logged_in';              // "true"/"false"
-  static const String loggedInAt = 'logged_in_at';              // ISO string
-  static const String lastAuthSnapshot = 'last_auth_snapshot';  // JSON
+  static const String lastOtpExpiresAt = 'otp_expires_at'; // ISO string
+  static const String lastOtpVerifiedAt = 'otp_verified_at'; // ISO string
+  static const String isLoggedIn = 'is_logged_in'; // "true"/"false"
+  static const String loggedInAt = 'logged_in_at'; // ISO string
+  static const String lastAuthSnapshot = 'last_auth_snapshot'; // JSON
 
   // NEW: separate keys for doctor profile + top-level profile status
   static const String profileStatus = 'profile_status'; // bool
@@ -36,6 +36,9 @@ class LocalStorageService {
   static const String doctorEmail = 'doctor_email';
   static const String doctorStatus = 'doctor_status';
   static const String doctorPhoto = 'doctor_photo';
+
+  // ✅ NEW: Background animation preference key
+  static const String backgroundAnimationEnabled = 'background_animation_enabled';
 
   // Initialize
   static Future<void> init() async {
@@ -115,6 +118,19 @@ class LocalStorageService {
         await prefs.remove(k);
       }
     }
+  }
+
+  // =======================================================================
+  //               ✅ NEW: BACKGROUND ANIMATION PREF HELPERS
+  // =======================================================================
+
+  /// true = animated background ON, false = clean background
+  static bool getBackgroundAnimationEnabled({bool defaultValue = true}) {
+    return getBool(backgroundAnimationEnabled, defaultValue: defaultValue);
+  }
+
+  static Future<void> setBackgroundAnimationEnabled(bool value) async {
+    await setBool(backgroundAnimationEnabled, value);
   }
 
   // =======================================================================
@@ -198,8 +214,6 @@ class LocalStorageService {
       await setBool(key, value);
     }
   }
-
-
 
   // Lightweight safe casters (avoid importing model layer here)
   static int? _tryParseInt(dynamic v) {

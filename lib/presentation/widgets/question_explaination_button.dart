@@ -148,7 +148,7 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
         ? OutlinedButton.styleFrom(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       minimumSize: const Size(0, 34),
-      side: BorderSide(color: AppColor.indigo.withOpacity(0.35)),
+      side: BorderSide(color: AppColor.blue.withOpacity(0.35)),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(999),
       ),
@@ -163,7 +163,7 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
         icon: Icon(
           Icons.lightbulb_outline_rounded,
           size: widget.compact ? 18 : 20,
-          color: AppColor.indigo,
+          color: AppColor.blue,
         ),
         label: Text(
           'Explanation',
@@ -190,7 +190,7 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
           insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           child: CustomBlobBackground(
             backgroundColor: Colors.white,
-            blobColor: AppColor.indigo,
+            blobColor: AppColor.blue,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child: Column(
@@ -200,7 +200,7 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
                   Row(
                     children: [
                       Icon(Icons.lightbulb_outline_rounded,
-                          size: 20, color: AppColor.indigo),
+                          size: 20, color: AppColor.blue),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -279,7 +279,7 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
         insetPadding: const EdgeInsets.all(16),
         child: CustomBlobBackground(
           backgroundColor: Colors.white,
-          blobColor: AppColor.indigo,
+          blobColor: AppColor.blue,
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(

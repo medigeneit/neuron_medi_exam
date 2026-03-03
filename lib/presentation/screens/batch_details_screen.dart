@@ -118,7 +118,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
         return;
       }
       Get.toNamed(
-        RouteNames.freeExams,
+        RouteNames.openExamList,
         arguments: {
           'url': Urls.openExamListCourseWise(courseId),
         },

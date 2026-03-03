@@ -1,35 +1,18 @@
 // lib/presentation/screens/dashboard.dart
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:logger/logger.dart';
-
 import 'package:medi_exam/main.dart'; // ✅ routeObserver
-
 import 'package:medi_exam/data/models/all_enrolled_batches_model.dart';
-import 'package:medi_exam/data/models/exam_property_model.dart';
-import 'package:medi_exam/data/models/free_exam_list_model.dart';
 import 'package:medi_exam/data/models/wrong_skipped_qus_model.dart';
-import 'package:medi_exam/data/models/favourite_questions_list_model.dart';
-import 'package:medi_exam/data/network_response.dart';
-
 import 'package:medi_exam/data/services/all_enrolled_batches_service.dart';
-import 'package:medi_exam/data/services/exam_property_service.dart';
-import 'package:medi_exam/data/services/free_exam_list_service.dart';
-import 'package:medi_exam/data/services/wrong_skipped_qus_service.dart';
 import 'package:medi_exam/data/utils/urls.dart';
-
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
-
-import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
 import 'package:medi_exam/presentation/widgets/helpers/dashboard_section_helpers.dart';
 import 'package:medi_exam/presentation/widgets/enrolled_courses_card_widget.dart';
-import 'package:medi_exam/presentation/widgets/exam_overview_dialog.dart';
-import 'package:medi_exam/presentation/widgets/free_exam_item_widget.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/notification_bell.dart';
 import 'package:medi_exam/presentation/widgets/question_action_row.dart';
@@ -127,7 +110,7 @@ class _DashboardState extends State<Dashboard>
     }
   }
 
-  // ✅ Tap action: scroll down (one "screen" / viewport)
+/*  // ✅ Tap action: scroll down (one "screen" / viewport)
   Future<void> _scrollDownOnTap() async {
     if (!_scrollController.hasClients) return;
 
@@ -142,17 +125,17 @@ class _DashboardState extends State<Dashboard>
       duration: const Duration(milliseconds: 420),
       curve: Curves.easeOutCubic,
     );
-  }
+  }*/
 
   // If you want tap to go straight to bottom, use this instead:
-  // Future<void> _scrollToBottom() async {
-  //   if (!_scrollController.hasClients) return;
-  //   await _scrollController.animateTo(
-  //     _scrollController.position.maxScrollExtent,
-  //     duration: const Duration(milliseconds: 650),
-  //     curve: Curves.easeOutCubic,
-  //   );
-  // }
+  Future<void> _scrollToBottom() async {
+    if (!_scrollController.hasClients) return;
+    await _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   Future<void> _silentRefresh() async {
     if (!mounted) return;
@@ -383,7 +366,7 @@ class _DashboardState extends State<Dashboard>
 
                 const SizedBox(height: 16),
 
-                // ✅ Customized Exam section
+/*                // ✅ Customized Exam section
                 DashboardCustomizedExamSection(
                   maxItems: 1,
                   showSeeAll: true,
@@ -395,7 +378,45 @@ class _DashboardState extends State<Dashboard>
                   },
                 ),
 
+
                 const SizedBox(height: 16),
+                // ✅ Batch wise free exam section (shows only first item)
+                DashboardBatchWiseFreeExamSection(
+                  url: Urls.openExamList,
+                  maxItems: 1,
+                  showSeeAll: true,
+                  onSeeAll: () {
+                    Get.toNamed(
+                      RouteNames.openExamList, // ✅ change if your route is different
+                      arguments: {'url': Urls.openExamList},
+                      preventDuplicates: true,
+                    );
+                  },
+                ),*/
+
+
+
+// ✅ NEW: All Exams (Subject + Batch) merged
+                DashboardAllExamsSection(
+                  openExamUrl: Urls.openExamList,
+                  onOpenSubjectWise: () {
+                    Get.toNamed(
+                      RouteNames.freeExamList,
+                      preventDuplicates: true,
+                    );
+                  },
+                  onOpenBatchWise: () {
+                    Get.toNamed(
+                      RouteNames.openExamList,
+                      arguments: {'url': Urls.openExamList},
+                      preventDuplicates: true,
+                    );
+                  },
+                ),
+
+
+                const SizedBox(height: 16),
+
 
                 // ✅ Wrong & Skipped (compact + donut)
                 GlassCard(
@@ -466,7 +487,7 @@ class _DashboardState extends State<Dashboard>
                 const SizedBox(height: 16),
 
                 // ✅ NEW: Favourites Section
-                GlassCard(
+         /*       GlassCard(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -525,6 +546,16 @@ class _DashboardState extends State<Dashboard>
                       ],
                     ),
                   ),
+                ),*/
+
+                DashboardFavouritesSection(
+                  onOpen: (model) {
+                    Get.toNamed(
+                      RouteNames.favouriteQuestionsList,
+                      arguments: model,
+                      preventDuplicates: true,
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 40),
@@ -541,7 +572,7 @@ class _DashboardState extends State<Dashboard>
             child: Material(
               color: Colors.transparent,
               child: GestureDetector(
-                onTap: _scrollDownOnTap,
+                onTap: _scrollToBottom,
                 child: Container(
                   padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

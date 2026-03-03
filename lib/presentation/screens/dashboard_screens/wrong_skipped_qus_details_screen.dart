@@ -31,12 +31,12 @@ class _WrongSkippedQusDetailsScreenState extends State<WrongSkippedQusDetailsScr
     ),
     _TabMeta(
       keyName: 'open',
-      title: 'Course-wise free exams performance',
+      title: 'Batch-wise free exams performance',
       icon: Icons.auto_stories_rounded,
     ),
     _TabMeta(
       keyName: 'free',
-      title: 'Customized free exams performance',
+      title: 'Customized exams performance',
       icon: Icons.tune_rounded,
     ),
   ];
@@ -134,7 +134,7 @@ class _WrongSkippedQusDetailsScreenState extends State<WrongSkippedQusDetailsScr
                       icon: const Icon(Icons.auto_stories_rounded, size: 18),
                       child: Center(
                         child: Text(
-                          'Course-wise\nFree Exam',
+                          'Batch-wise\nFree Exam',
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -150,7 +150,7 @@ class _WrongSkippedQusDetailsScreenState extends State<WrongSkippedQusDetailsScr
                       icon: const Icon(Icons.tune_rounded, size: 18),
                       child: Center(
                         child: Text(
-                          'Customized\nFree Exam',
+                          'Customized\n Exam',
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,

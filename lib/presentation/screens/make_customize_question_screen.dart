@@ -55,7 +55,7 @@ class _MakeCustomizeQuestionScreenState
   late List<Map<String, dynamic>> selectedChapters;
   late List<Map<String, dynamic>> selectedTopics;
 
-  int selectedQuestionPool = 0; // total available from prev selections
+  int selectedQuestionPool = 0; // internal only
 
   // ---- exam config ----
   int mcqCount = 5;
@@ -96,28 +96,130 @@ class _MakeCustomizeQuestionScreenState
 
     isPremiumUser = (args['isPremiumUser'] == true);
 
-    selectedQuestionPool = _asInt(args['selectedQuestionCount']) ??
-        _calcPoolFromTopics(selectedTopics);
+    selectedQuestionPool =
+        _asInt(args['selectedQuestionCount']) ?? _calcPoolFromTopics(selectedTopics);
 
     // initialize defaults (min 10, not exceeding plan cap)
-    final cap = _maxAllowedByPlan; // (quota loading state uses provisional cap)
+    final cap = _maxAllowedByPlan; // while quota loading: provisional cap
     final safeInitial = math.max(_minExamQ, math.min(_freeMaxQ, cap)).toInt();
     mcqCount = safeInitial;
     sbaCount = 0;
 
     _normalizeCounts();
 
-    // ✅ Fetch quota first (only free user)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchQuota();
     });
+  }
+
+  // ------------------ UI: No questions dialog ------------------
+
+  void _showNoQuestionsDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 18),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: CustomBlobBackground(
+            backgroundColor: AppColor.whiteColor,
+            blobColor: AppColor.purple,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.info_outline_rounded,
+                      size: 30,
+                      color: Color(0xFFF59E0B),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "No questions available",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF111827),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    "Looks like there aren’t any questions available for this selection right now.\nTry selecting more topics/chapters or choose a different subject.",
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.35,
+                      color: Color(0xFF6B7280),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context); // close dialog
+                            Get.back(); // go back to topic selection
+                          },
+                          child: const Text(
+                            "Go back",
+                            style: TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            backgroundColor: AppColor.indigo,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text(
+                            "Okay",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // ------------------ QUOTA API ------------------
 
   Future<void> _fetchQuota() async {
     if (isPremiumUser) {
-      // Premium ignores quota
       if (mounted) {
         setState(() {
           _quotaLoading = false;
@@ -156,10 +258,8 @@ class _MakeCustomizeQuestionScreenState
           _quotaError = null;
         });
 
-        // ✅ after quota arrives, normalize to new cap
         _normalizeCounts();
 
-        // ✅ if max < min, auto-set to max (still can't create)
         if (_maxAllowedByPlan > 0 && totalSelected == 0) {
           setState(() {
             mcqCount = _maxAllowedByPlan;
@@ -189,13 +289,8 @@ class _MakeCustomizeQuestionScreenState
     if (isPremiumUser) return true;
     if (_quotaLoading) return false;
     if (_quotaError != null) return false;
-
-    // must be allowed by API
     if (_quota?.canCreateExam != true) return false;
-
-    // must have >= 10 remaining
     if (_remainingToday < _minExamQ) return false;
-
     return true;
   }
 
@@ -219,32 +314,23 @@ class _MakeCustomizeQuestionScreenState
 
   int get _maxAllowedByPool => math.min(_hardMaxQ, selectedQuestionPool);
 
-  /// ✅ Dynamic max allowed (quota-based for free users)
   int get _maxAllowedByPlan {
     final poolCap = _maxAllowedByPool;
 
     if (isPremiumUser) return poolCap;
 
-    // While loading quota, keep UI cap = freeMax, but creation disabled
     if (_quotaLoading) return math.min(_freeMaxQ, poolCap);
 
-    // If quota says no exam today => 0
     if (_quota?.canCreateExam != true) return 0;
 
-    // cap = min(20, remainingToday, poolCap)
     return math.min(_freeMaxQ, math.min(_remainingToday, poolCap));
   }
 
   bool get meetsMin => totalSelected >= _minExamQ;
   bool get withinPool => totalSelected <= selectedQuestionPool;
-
-  /// old meaning: >20 = premium feature
   bool get lockedByFree => !isPremiumUser && totalSelected > _freeMaxQ;
-
-  /// quota-aware limit
   bool get withinPlan => totalSelected <= _maxAllowedByPlan;
 
-  /// ✅ final permission
   bool get canCreate =>
       _quotaAllowsCreate && meetsMin && withinPool && withinPlan;
 
@@ -262,7 +348,6 @@ class _MakeCustomizeQuestionScreenState
       return;
     }
 
-    // ✅ snap down to nearest 5 always
     mcqCount = _floorTo5(mcqCount);
     sbaCount = _floorTo5(sbaCount);
 
@@ -271,9 +356,8 @@ class _MakeCustomizeQuestionScreenState
 
     final total = mcqCount + sbaCount;
 
-    // ✅ keep total within cap
     if (total > cap) {
-      final overflow = total - cap; // overflow will also be multiple of 5
+      final overflow = total - cap;
       if (mcqCount >= sbaCount) {
         mcqCount = math.max(0, mcqCount - overflow);
       } else {
@@ -281,12 +365,10 @@ class _MakeCustomizeQuestionScreenState
       }
     }
 
-    // ✅ final snap again (extra safety)
     mcqCount = _floorTo5(mcqCount);
     sbaCount = _floorTo5(sbaCount);
   }
 
-  // ✅ increment/decrement by 5
   void _incMcq() => setState(() {
     mcqCount += 5;
     _normalizeCounts();
@@ -317,7 +399,7 @@ class _MakeCustomizeQuestionScreenState
         subjectName: subjectName,
         selectedChapters: selectedChapters,
         selectedTopics: selectedTopics,
-        totalPool: selectedQuestionPool,
+        totalPool: selectedQuestionPool, // internal only (dialog hides it)
       ),
     );
   }
@@ -348,7 +430,6 @@ class _MakeCustomizeQuestionScreenState
 
     final sets = <FreeExamCreateQuestionSetRequest>[];
 
-    // free_exam_type_id: 1 = MCQ, 2 = SBA
     if (mcqCount > 0) {
       sets.add(
         FreeExamCreateQuestionSetRequest(
@@ -379,7 +460,6 @@ class _MakeCustomizeQuestionScreenState
   // ✅ SAME functionality as FreeExamListScreen._freeExamOverview
   // ===========================================================
   Future<void> _openFreeExamOverviewByExamId(String examId) async {
-    // show loader dialog (same style)
     Get.dialog(
       const Center(
         child: CustomBlobBackground(
@@ -418,10 +498,8 @@ class _MakeCustomizeQuestionScreenState
         );
       }
 
-      // close loader
       if (Get.isDialogOpen == true) Get.back();
 
-      // show overview dialog (same as list screen)
       await showExamOverviewDialog(
         context,
         model: model,
@@ -447,7 +525,12 @@ class _MakeCustomizeQuestionScreenState
   Future<void> _onCreateExam() async {
     if (_creatingExam) return;
 
-    // ✅ quota gating first (free user)
+    // ✅ NEW: if pool has no questions, show dialog (even if button is tapped)
+    if (selectedQuestionPool <= 0) {
+      _showNoQuestionsDialog();
+      return;
+    }
+
     if (!isPremiumUser) {
       if (_quotaLoading) {
         Get.snackbar(
@@ -488,7 +571,7 @@ class _MakeCustomizeQuestionScreenState
       if (_remainingToday < _minExamQ) {
         Get.snackbar(
           'Not enough free quota',
-          'You need at least $_minExamQ remaining questions today. Remaining: $_remainingToday',
+          'You don’t have enough remaining quota to create an exam right now.',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: const Color(0xFFFFF7ED),
           colorText: const Color(0xFF111827),
@@ -501,7 +584,7 @@ class _MakeCustomizeQuestionScreenState
     if (!canCreate) {
       String msg;
       if (!withinPool) {
-        msg = 'Your pool has only $selectedQuestionPool questions.';
+        msg = 'Your selection exceeds the available pool.';
       } else if (!meetsMin) {
         msg = 'Select at least $_minExamQ questions.';
       } else if (lockedByFree) {
@@ -509,7 +592,7 @@ class _MakeCustomizeQuestionScreenState
       } else if (!withinPlan) {
         msg = isPremiumUser
             ? 'Please adjust within your available pool.'
-            : 'Today you can create up to $_maxAllowedByPlan questions (remaining: $_remainingToday).';
+            : 'Please adjust your selection within today’s free limit.';
       } else {
         msg = 'Please adjust your selection.';
       }
@@ -537,9 +620,6 @@ class _MakeCustomizeQuestionScreenState
         if (!mounted) return;
         setState(() => _creatingExam = false);
 
-        final createdTotal = model.exam?.totalQuestions ?? totalSelected;
-        final todayMax = _maxAllowedByPlan <= 0 ? _freeMaxQ : _maxAllowedByPlan;
-
         final createdExamId = model.exam?.examId?.toString() ?? '';
 
         showDialog(
@@ -547,10 +627,9 @@ class _MakeCustomizeQuestionScreenState
           barrierDismissible: false,
           builder: (_) => FreeExamCreatedDialog(
             examId: createdExamId,
-            totalQuestions: createdTotal,
-            todayMax: todayMax,
+            totalQuestions: model.exam?.totalQuestions ?? totalSelected,
+            todayMax: _maxAllowedByPlan <= 0 ? _freeMaxQ : _maxAllowedByPlan,
             onAttendNow: () async {
-              // close success dialog first
               Get.back();
 
               if (createdExamId.trim().isEmpty) {
@@ -565,12 +644,11 @@ class _MakeCustomizeQuestionScreenState
                 return;
               }
 
-              // ✅ SAME flow as FreeExamListScreen._freeExamOverview
               await _openFreeExamOverviewByExamId(createdExamId);
             },
             onAttendLater: () {
-              Get.back(); // dialog close
-              Get.offAllNamed(RouteNames.freeExamList);
+              Get.back();
+              Get.offNamed(RouteNames.freeExamList);
             },
           ),
         );
@@ -600,12 +678,11 @@ class _MakeCustomizeQuestionScreenState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final pool = selectedQuestionPool;
     final poolCap = _maxAllowedByPool;
-    final planCap = _maxAllowedByPlan; // ✅ now quota-aware
+    final planCap = _maxAllowedByPlan;
 
     return CommonScaffold(
       title: 'Customize Exam',
@@ -616,8 +693,7 @@ class _MakeCustomizeQuestionScreenState
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   child: HeaderInfoContainer(
                     title: courseTitle,
                     subtitle: 'Discipline/Faculty: $specialtyName',
@@ -719,7 +795,7 @@ class _MakeCustomizeQuestionScreenState
 }
 
 // ===========================================================
-// ✅ Attractive modern compact dialog (UPDATED: supports async attend now + examId)
+// ✅ dialog (same as before)
 // ===========================================================
 class FreeExamCreatedDialog extends StatelessWidget {
   final String examId;
@@ -777,7 +853,7 @@ class FreeExamCreatedDialog extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                "Your exam of $totalQuestions/$todayMax questions is created successfully.",
+                "Your exam is ready. Start now or attend later anytime.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
@@ -819,7 +895,6 @@ class FreeExamCreatedDialog extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        // wrapper so button expects void callback
                         onAttendNow();
                       },
                       child: const Text(

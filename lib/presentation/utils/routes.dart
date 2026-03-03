@@ -75,7 +75,7 @@ class RouteNames {
   static const String solveVideo = '/solveVideo';
   static const String paymentHistory = '/paymentHistory';
   static const String manualPayment = '/manualPayment';
-  static const String freeExams = '/freeExams';
+  static const String openExamList = '/freeExams';
   static const String pdfScreen = '/pdfScreen';
   static const String subjectWisePreparation = '/subjectWisePreparation';
   static const String subjectWiseChapterTopics = '/subjectWiseChapterTopics';
@@ -196,7 +196,7 @@ final List<GetPage> appRoutes = [
   ),
 
   GetPage(
-    name: RouteNames.freeExams,
+    name: RouteNames.openExamList,
     page: () => const OpenExamListScreen(),
   ),
   GetPage(

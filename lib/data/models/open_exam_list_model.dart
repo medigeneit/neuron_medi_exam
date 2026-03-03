@@ -29,13 +29,19 @@ class OpenExamModel {
   final int? examId;
   final String? title;
   final CourseModel? course;
-  /// May be null (server can send `null`) or a list.
+
+  /// Public endpoint: includes `is_pinned`
+  /// Doctor endpoint: also includes `is_pinned`
+  final bool? isPinned;
+
+  /// Doctor endpoint: can be null or list
   final List<DoctorOpenExamModel>? doctorOpenExam;
 
   OpenExamModel({
     this.examId,
     this.title,
     this.course,
+    this.isPinned,
     this.doctorOpenExam,
   });
 
@@ -46,6 +52,7 @@ class OpenExamModel {
       course: json['course'] == null
           ? null
           : CourseModel.fromJson(_asMap(json['course'])),
+      isPinned: _parseBool(json['is_pinned']),
       doctorOpenExam: _parseList<DoctorOpenExamModel>(
         json['doctor_open_exam'],
             (e) => DoctorOpenExamModel.fromJson(_asMap(e)),
@@ -58,17 +65,20 @@ class OpenExamModel {
       'exam_id': examId,
       'title': title,
       'course': course?.toJson(),
+      'is_pinned': isPinned,
       'doctor_open_exam': doctorOpenExam?.map((e) => e.toJson()).toList(),
     };
   }
 
-  // -------- Convenience: has* checks --------
+  // -------- Convenience --------
   bool get hasTitle => title != null && title!.isNotEmpty;
   bool get hasCourse => course != null;
+
+  bool get safeIsPinned => isPinned ?? false;
+
   bool get hasDoctorOpenExam =>
       doctorOpenExam != null && doctorOpenExam!.isNotEmpty;
 
-  // -------- Convenience: safe getters --------
   int get safeExamId => examId ?? 0;
   String get safeTitle => title ?? '';
   CourseModel get safeCourse => course ?? CourseModel();
@@ -96,7 +106,6 @@ class CourseModel {
     };
   }
 
-  // Convenience
   bool get hasName => name != null && name!.isNotEmpty;
   int get safeId => id ?? 0;
   String get safeName => name ?? '';
@@ -133,7 +142,6 @@ class DoctorOpenExamModel {
     };
   }
 
-  // Convenience
   bool get hasStatus => status != null && status!.isNotEmpty;
   int get safeId => id ?? 0;
   int get safeExamId => examId ?? 0;
@@ -141,9 +149,8 @@ class DoctorOpenExamModel {
   String get safeStatus => status ?? '';
 }
 
-// ----------------- Shared helpers (same pattern as your previous model) -----------------
+// ----------------- Shared helpers -----------------
 
-// Parse integers with null/empty handling
 int? _parseInt(dynamic value) {
   if (value == null) return null;
   if (value is int) return value;
@@ -156,7 +163,6 @@ int? _parseInt(dynamic value) {
   return null;
 }
 
-// Parse strings with null/empty handling
 String? _parseString(dynamic value) {
   if (value == null) return null;
   if (value is String) {
@@ -166,7 +172,18 @@ String? _parseString(dynamic value) {
   return value.toString();
 }
 
-// Safely parse lists (returns null if source is null or not a List)
+bool? _parseBool(dynamic value) {
+  if (value == null) return null;
+  if (value is bool) return value;
+  if (value is int) return value == 1;
+  if (value is String) {
+    final v = value.trim().toLowerCase();
+    if (v == 'true' || v == '1' || v == 'yes') return true;
+    if (v == 'false' || v == '0' || v == 'no') return false;
+  }
+  return null;
+}
+
 List<T>? _parseList<T>(dynamic value, T Function(dynamic) mapper) {
   if (value == null) return null;
   if (value is List) {
@@ -175,7 +192,6 @@ List<T>? _parseList<T>(dynamic value, T Function(dynamic) mapper) {
   return null;
 }
 
-// Ensure dynamic is a Map<String, dynamic>
 Map<String, dynamic> _asMap(dynamic v) {
   if (v is Map<String, dynamic>) return v;
   if (v is Map) {

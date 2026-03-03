@@ -1,6 +1,7 @@
 // lib/presentation/widgets/helpers/make_customize_question_helpers.dart
 //
-// ✅ Updated helpers (compact, better dialog, +5/-5 steppers, no presets UI)
+// ✅ Updated: hide pool question count, hide quota max/min in UI,
+// ✅ hide ALL question counts inside Selected Content dialog and its list.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -13,9 +14,12 @@ import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 
 class SelectionSummaryCompactCard extends StatelessWidget {
   final bool isDark;
+
+  // (kept for logic/compatibility — UI hides these numbers)
   final int totalPool;
-  final int poolCap; // min(200, pool)
-  final int planCap; // ✅ now comes from screen (quota-aware for free)
+  final int poolCap;
+  final int planCap;
+
   final List<Map<String, dynamic>> selectedChapters;
   final List<Map<String, dynamic>> selectedTopics;
   final int topicsCount;
@@ -39,13 +43,6 @@ class SelectionSummaryCompactCard extends StatelessWidget {
     required this.onViewSelected,
   }) : super(key: key);
 
-
-  int _asInt(dynamic v) {
-    if (v == null) return 0;
-    if (v is int) return v;
-    return int.tryParse(v.toString()) ?? 0;
-  }
-
   String _pickStr(Map<String, dynamic> m, List<String> keys, String fallback) {
     for (final k in keys) {
       final v = m[k];
@@ -54,10 +51,13 @@ class SelectionSummaryCompactCard extends StatelessWidget {
     return fallback;
   }
 
-  /// Build a chapter key that is stable even if ids missing.
   String _chapterKeyFromTopic(Map<String, dynamic> t) {
     final id = t['chapter_id'] ?? t['chapterId'] ?? t['chapterID'];
-    final name = _pickStr(t, ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'], '');
+    final name = _pickStr(
+      t,
+      ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'],
+      '',
+    );
     if (id != null) return 'id:$id';
     if (name.isNotEmpty) return 'name:$name';
     return 'unknown';
@@ -65,50 +65,36 @@ class SelectionSummaryCompactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0xFF121416) : Colors.white;
-
-    // ✅ LIMIT TEXT updated: use planCap directly
-    final capText = isPremiumUser ? 'Up to $planCap' : 'Today up to $freeMaxExamQ';
-
-    // ✅ group selectedTopics by chapter
+    // ✅ group selectedTopics by chapter (for accurate chapter count)
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     for (final t in selectedTopics) {
       final key = _chapterKeyFromTopic(t);
       grouped.putIfAbsent(key, () => []);
       grouped[key]!.add(t);
     }
-    // ✅ include fully selected chapters even if topics list doesn't carry them
-    // (still show as a chapter section, with no topic slices if not found)
+
+    // ✅ include fully selected chapters too
     final Map<String, Map<String, dynamic>> fullChaptersByKey = {};
     for (final c in selectedChapters) {
       final id = c['chapter_id'] ?? c['chapterId'] ?? c['chapterID'];
-      final name = _pickStr(c, ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'], '');
+      final name = _pickStr(
+        c,
+        ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'],
+        '',
+      );
       final key = (id != null) ? 'id:$id' : (name.isNotEmpty ? 'name:$name' : 'unknown_full');
       fullChaptersByKey[key] = c;
-      grouped.putIfAbsent(key, () => []); // ensure exists
+      grouped.putIfAbsent(key, () => []);
     }
 
-    // Sort chapters (by name)
-    final chapterKeys = grouped.keys.toList();
-    chapterKeys.sort((a, b) {
-      String nameFor(String k) {
-        if (fullChaptersByKey.containsKey(k)) {
-          return _pickStr(fullChaptersByKey[k]!, ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'], 'Chapter');
-        }
-        final topics = grouped[k]!;
-        if (topics.isNotEmpty) {
-          return _pickStr(topics.first, ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'], 'Chapter');
-        }
-        return 'Chapter';
-      }
+    final chapterCount = grouped.keys.length;
 
-      return nameFor(a).toLowerCase().compareTo(nameFor(b).toLowerCase());
-    });
-
+    // ✅ No pool counts / no numeric limit in UI
+    final planText = isPremiumUser ? 'Premium plan' : 'Free plan';
 
     return CustomBlobBackground(
-        backgroundColor: AppColor.whiteColor,
-        blobColor: AppColor.indigo,
+      backgroundColor: AppColor.whiteColor,
+      blobColor: AppColor.indigo,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -134,23 +120,20 @@ class SelectionSummaryCompactCard extends StatelessWidget {
               runSpacing: 10,
               children: [
                 _InfoStat(
-                    icon: Icons.inventory_2_rounded,
-                    title: 'Pool:',
-                    value: '$totalPool'),
+                  icon: Icons.layers_rounded,
+                  title: 'Chapters:',
+                  value: '$chapterCount',
+                ),
                 _InfoStat(
-                    icon: Icons.layers_rounded,
-                    title: 'Chapters:',
-                    value: '${chapterKeys.length}'),
+                  icon: Icons.local_library_rounded,
+                  title: 'Topics:',
+                  value: '$topicsCount',
+                ),
                 _InfoStat(
-                    icon: Icons.local_library_rounded,
-                    title: 'Topics:',
-                    value: '$topicsCount'),
-                _InfoStat(
-                    icon: Icons.rule_rounded, title: 'Limit:', value: capText),
-/*                _InfoStat(
-                    icon: Icons.check_circle_outline_rounded,
-                    title: 'Min: ',
-                    value: '$minExamQ'),*/
+                  icon: Icons.workspace_premium_rounded,
+                  title: 'Plan:',
+                  value: planText,
+                ),
                 _ActionStat(
                   value: 'Selected Content',
                   onTap: onViewSelected,
@@ -169,7 +152,7 @@ class SelectionSummaryCompactCard extends StatelessWidget {
 class ExamQuantityCard extends StatelessWidget {
   final bool isDark;
 
-  final int pool;
+  final int pool; // internal
   final int mcqCount;
   final int sbaCount;
   final int total;
@@ -184,7 +167,6 @@ class ExamQuantityCard extends StatelessWidget {
   final VoidCallback onSbaMinus;
   final VoidCallback onSbaPlus;
 
-  /// kept for signature (UI removed)
   final ValueChanged<int> onPresetTap;
 
   const ExamQuantityCard({
@@ -214,9 +196,6 @@ class ExamQuantityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0xFF121416) : Colors.white;
-
-    // ✅ always show nearest low multiple of 5
     final int fixedMcq = _floorToStep(mcqCount);
     final int fixedSba = _floorToStep(sbaCount);
     final int fixedTotal = fixedMcq + fixedSba;
@@ -238,46 +217,33 @@ class ExamQuantityCard extends StatelessWidget {
                     style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w900),
                   ),
                 ),
-                _CountPill(text: '$fixedTotal Q'), // ✅ fixed total
+                _CountPill(text: '$fixedTotal Q'),
               ],
             ),
             const SizedBox(height: 10),
             _divider(),
             const SizedBox(height: 10),
-
             _TypeStepperTile(
               title: 'MCQ',
               subtitle: 'Multiple Choice Questions',
               icon: Icons.rule_rounded,
-              value: fixedMcq, // ✅ snapped
+              value: fixedMcq,
               onMinus: onMcqMinus,
               onPlus: onMcqPlus,
               selected: fixedMcq > 0,
-              stepLabel: '±$_step', // ✅ always 5
+              stepLabel: '±$_step',
             ),
             const SizedBox(height: 10),
             _TypeStepperTile(
               title: 'SBA',
               subtitle: 'Single Best Answer',
               icon: Icons.task_alt_rounded,
-              value: fixedSba, // ✅ snapped
+              value: fixedSba,
               onMinus: onSbaMinus,
               onPlus: onSbaPlus,
               selected: fixedSba > 0,
-              stepLabel: '±$_step', // ✅ always 5
+              stepLabel: '±$_step',
             ),
-            const SizedBox(height: 10),
-
-            // (your constraint bar is commented out, kept as-is)
-            /*
-            _ConstraintBar(
-              total: fixedTotal,
-              minTotal: minTotal,
-              planMax: planMax,
-              freeMax: freeMax,
-              isPremiumUser: isPremiumUser,
-            ),
-            */
           ],
         ),
       ),
@@ -286,9 +252,10 @@ class ExamQuantityCard extends StatelessWidget {
 }
 
 // --------------------- Status Hint ---------------------
+
 class StatusHintCompactCard extends StatelessWidget {
   final bool isDark;
-  final int pool;
+  final int pool; // internal only (UI hides it)
   final int minRequired;
   final int freeMax;
   final bool isPremiumUser;
@@ -306,22 +273,19 @@ class StatusHintCompactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0xFF121416) : Colors.white;
-
     String title;
     String message;
     IconData icon;
     Color tint;
 
     if (totalSelected > pool) {
-      title = 'Exceeds pool';
-      message =
-      'You selected $totalSelected questions, but your pool has only $pool.';
+      title = 'Exceeds available pool';
+      message = 'Your selection is higher than what’s available. Try lowering it a bit.';
       icon = Icons.error_outline_rounded;
       tint = const Color(0xFFEF4444);
     } else if (!isPremiumUser && totalSelected > freeMax) {
       title = 'Premium Feature';
-      message = 'Free users can create up to $freeMax questions per exam.';
+      message = 'Larger exams are available with Premium.';
       icon = Icons.workspace_premium_rounded;
       tint = const Color(0xFFF59E0B);
     } else if (totalSelected < minRequired) {
@@ -337,7 +301,7 @@ class StatusHintCompactCard extends StatelessWidget {
     }
 
     return Container(
-      decoration: _cardDecoration(bg: bg),
+      decoration: _cardDecoration(bg: isDark ? const Color(0xFF121416) : Colors.white),
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
@@ -358,8 +322,7 @@ class StatusHintCompactCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w900, fontSize: 14.5),
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -384,7 +347,7 @@ class StatusHintCompactCard extends StatelessWidget {
 
 class CreateExamBottomBarCompact extends StatelessWidget {
   final bool canCreate;
-  final bool isLoading; // ✅ added
+  final bool isLoading;
   final int totalSelected;
   final int minRequired;
   final VoidCallback onPressed;
@@ -395,7 +358,7 @@ class CreateExamBottomBarCompact extends StatelessWidget {
     required this.totalSelected,
     required this.minRequired,
     required this.onPressed,
-    this.isLoading = false, // ✅ default
+    this.isLoading = false,
   }) : super(key: key);
 
   @override
@@ -403,17 +366,17 @@ class CreateExamBottomBarCompact extends StatelessWidget {
     final media = MediaQuery.of(context);
     final safeBottom = media.padding.bottom;
 
-    // ✅ disable when cannot create OR loading
-    final disabled = !canCreate || isLoading;
+    // ✅ only block taps while loading
+    final disabled = isLoading;
 
-    final gradient = disabled
+    final gradient = (disabled || !canCreate)
         ? [
       AppColor.indigo.withOpacity(0.55),
       AppColor.purple.withOpacity(0.55),
     ]
         : const [AppColor.indigo, AppColor.purple];
 
-    // ✅ optional dynamic text
+    // ✅ keep "Let's create exam" visible when >= min (even if not creatable yet)
     final buttonText = isLoading
         ? "Creating..."
         : (totalSelected < minRequired
@@ -439,83 +402,14 @@ class CreateExamBottomBarCompact extends StatelessWidget {
         text: buttonText,
         icon: Icons.play_arrow_rounded,
         gradientColors: gradient,
-        isLoading: isLoading, // ✅ added
-        onPressed: disabled ? null : onPressed, // ✅ disable tap
+        isLoading: isLoading,
+        onPressed: disabled ? null : onPressed, // ✅ clickable unless loading
       ),
     );
   }
 }
 
-
-// --------------------- Constraint Bar (✅ updated max text) ---------------------
-
-class _ConstraintBar extends StatelessWidget {
-  final int total;
-  final int minTotal;
-  final int planMax;
-  final int freeMax;
-  final bool isPremiumUser;
-
-  const _ConstraintBar({
-    required this.total,
-    required this.minTotal,
-    required this.planMax,
-    required this.freeMax,
-    required this.isPremiumUser,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final okMin = total >= minTotal;
-    final okMax = total <= planMax;
-
-    Color tint;
-    String label;
-
-    if (planMax <= 0 && !isPremiumUser) {
-      tint = const Color(0xFFEF4444);
-      label = 'Free exam not available today';
-    } else if (!okMin) {
-      tint = const Color(0xFFF59E0B);
-      label = 'Minimum $minTotal required';
-    } else if (!okMax) {
-      tint = const Color(0xFFF59E0B);
-      label = isPremiumUser
-          ? 'Max $planMax'
-          : 'Today max $planMax (free)';
-    } else {
-      tint = const Color(0xFF10B981);
-      label = 'Looks good';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: tint.withOpacity(0.10),
-        border: Border.all(color: tint.withOpacity(0.25)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.summarize_rounded, color: tint),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(fontWeight: FontWeight.w900, color: tint),
-            ),
-          ),
-          Text(
-            '$total / $planMax',
-            style: TextStyle(fontWeight: FontWeight.w900, color: tint),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// --------------------- Internal UI pieces (unchanged) ---------------------
+// --------------------- Internal UI pieces ---------------------
 
 class _TypeStepperTile extends StatelessWidget {
   final String title;
@@ -568,13 +462,13 @@ class _TypeStepperTile extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 14.5, fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
                     color: Colors.white,
@@ -753,8 +647,8 @@ class _PrimaryButton extends StatelessWidget {
   final String text;
   final IconData icon;
   final List<Color> gradientColors;
-  final VoidCallback? onPressed; // ✅ nullable for disable
-  final bool isLoading; // ✅ added
+  final VoidCallback? onPressed;
+  final bool isLoading;
 
   const _PrimaryButton({
     required this.text,
@@ -790,7 +684,7 @@ class _PrimaryButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: disabled ? null : onPressed, // ✅ disabled when loading
+          onTap: disabled ? null : onPressed,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Center(
@@ -806,8 +700,7 @@ class _PrimaryButton extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.3,
-                        valueColor:
-                        AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     ),
                     SizedBox(width: 10),
@@ -857,8 +750,7 @@ class _Badge extends StatelessWidget {
       height: 36,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient:
-        const LinearGradient(colors: [AppColor.indigo, AppColor.purple]),
+        gradient: const LinearGradient(colors: [AppColor.indigo, AppColor.purple]),
         boxShadow: [
           BoxShadow(
             color: AppColor.indigo.withOpacity(0.25),
@@ -902,9 +794,8 @@ BoxDecoration _cardDecoration({required Color bg}) {
   );
 }
 
-
 /// -----------------------
-/// Dialog: Selected content (✅ grouped by chapter + pie + collapsible)
+/// Dialog: Selected content (✅ hides question counts + hides pool)
 /// -----------------------
 class SelectedContentDialog extends StatelessWidget {
   final bool isDark;
@@ -915,6 +806,8 @@ class SelectedContentDialog extends StatelessWidget {
 
   final List<Map<String, dynamic>> selectedChapters;
   final List<Map<String, dynamic>> selectedTopics;
+
+  // kept for compatibility, NOT displayed
   final int totalPool;
 
   const SelectedContentDialog({
@@ -942,10 +835,13 @@ class SelectedContentDialog extends StatelessWidget {
     return fallback;
   }
 
-  /// Build a chapter key that is stable even if ids missing.
   String _chapterKeyFromTopic(Map<String, dynamic> t) {
     final id = t['chapter_id'] ?? t['chapterId'] ?? t['chapterID'];
-    final name = _pickStr(t, ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'], '');
+    final name = _pickStr(
+      t,
+      ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'],
+      '',
+    );
     if (id != null) return 'id:$id';
     if (name.isNotEmpty) return 'name:$name';
     return 'unknown';
@@ -953,9 +849,7 @@ class SelectedContentDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0xFF121416) : Colors.white;
-
-    // ✅ group selectedTopics by chapter
+    // group selectedTopics by chapter
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     for (final t in selectedTopics) {
       final key = _chapterKeyFromTopic(t);
@@ -963,18 +857,20 @@ class SelectedContentDialog extends StatelessWidget {
       grouped[key]!.add(t);
     }
 
-    // ✅ include fully selected chapters even if topics list doesn't carry them
-    // (still show as a chapter section, with no topic slices if not found)
+    // include full chapters
     final Map<String, Map<String, dynamic>> fullChaptersByKey = {};
     for (final c in selectedChapters) {
       final id = c['chapter_id'] ?? c['chapterId'] ?? c['chapterID'];
-      final name = _pickStr(c, ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'], '');
+      final name = _pickStr(
+        c,
+        ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'],
+        '',
+      );
       final key = (id != null) ? 'id:$id' : (name.isNotEmpty ? 'name:$name' : 'unknown_full');
       fullChaptersByKey[key] = c;
-      grouped.putIfAbsent(key, () => []); // ensure exists
+      grouped.putIfAbsent(key, () => []);
     }
 
-    // Sort chapters (by name)
     final chapterKeys = grouped.keys.toList();
     chapterKeys.sort((a, b) {
       String nameFor(String k) {
@@ -997,7 +893,6 @@ class SelectedContentDialog extends StatelessWidget {
       child: CustomBlobBackground(
         backgroundColor: AppColor.whiteColor,
         blobColor: AppColor.indigo,
-
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -1024,11 +919,12 @@ class SelectedContentDialog extends StatelessWidget {
               _divider(),
               const SizedBox(height: 10),
 
-              _TinyLine(left: courseTitle, right: 'Pool: $totalPool'),
+              // ✅ no pool / no question numbers
+              _TinyLine(left: courseTitle, right: 'Chapters: ${chapterKeys.length}'),
               const SizedBox(height: 6),
               _TinyLine(
                 left: 'Faculty: $specialtyName',
-                right: 'Subject: $subjectName',
+                right: 'Topics: ${selectedTopics.length}',
               ),
               const SizedBox(height: 12),
 
@@ -1050,8 +946,6 @@ class SelectedContentDialog extends StatelessWidget {
                       final isFull = fullChaptersByKey.containsKey(key);
 
                       String chapterName;
-                      int chapterQCount = 0;
-
                       if (isFull) {
                         final c = fullChaptersByKey[key]!;
                         chapterName = _pickStr(
@@ -1059,30 +953,27 @@ class SelectedContentDialog extends StatelessWidget {
                           ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'],
                           'Chapter',
                         );
-                        chapterQCount = _asInt(c['question_count']);
                       } else if (topics.isNotEmpty) {
                         chapterName = _pickStr(
                           topics.first,
                           ['chapter_name', 'chapterName', 'chapter_title', 'chapterTitle'],
                           'Chapter',
                         );
-                        chapterQCount = topics.fold<int>(0, (p, e) => p + _asInt(e['question_count']));
                       } else {
                         chapterName = 'Chapter';
-                        chapterQCount = 0;
                       }
 
-                      // pie data
+                      // ✅ pie can still use internal values, but we do not show counts anywhere
                       final slices = topics
                           .map((t) => _PieSlice(
-                        label: _pickStr(t, ['topic_name', 'topicName', 'title', 'name'], 'Topic'),
-                        value: math.max(0, _asInt(t['question_count'])),
+                        label: _pickStr(
+                          t,
+                          ['topic_name', 'topicName', 'title', 'name'],
+                          'Topic',
+                        ),
+                        value: math.max(1, _asInt(t['question_count'])), // internal only
                       ))
-                          .where((s) => s.value > 0)
                           .toList();
-
-                      final totalSelectedInChapter =
-                      slices.fold<int>(0, (p, e) => p + e.value);
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
@@ -1092,17 +983,13 @@ class SelectedContentDialog extends StatelessWidget {
                           color: Colors.grey.shade50,
                         ),
                         child: Theme(
-                          data: Theme.of(context).copyWith(
-                            dividerColor: Colors.transparent,
-                          ),
+                          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                           child: ExpansionTile(
                             tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                             leading: _MiniPieChart(
                               size: 36,
-                              slices: slices.isEmpty
-                                  ? [_PieSlice(label: 'All', value: math.max(1, chapterQCount))]
-                                  : slices,
+                              slices: slices.isEmpty ? const [_PieSlice(label: 'All', value: 1)] : slices,
                             ),
                             title: Text(
                               chapterName,
@@ -1115,8 +1002,8 @@ class SelectedContentDialog extends StatelessWidget {
                             ),
                             subtitle: Text(
                               isFull
-                                  ? 'Full chapter • $chapterQCount Q'
-                                  : 'Selected topics • $totalSelectedInChapter Q',
+                                  ? 'Full chapter selected'
+                                  : 'Selected topics: ${topics.length}',
                               style: const TextStyle(
                                 fontSize: 12.2,
                                 height: 1.1,
@@ -1130,9 +1017,7 @@ class SelectedContentDialog extends StatelessWidget {
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: Text(
-                                    isFull
-                                        ? 'All topics included.'
-                                        : 'No topics found for this chapter.',
+                                    isFull ? 'All topics included.' : 'No topics found for this chapter.',
                                     style: const TextStyle(
                                       color: Color(0xFF6B7280),
                                       fontWeight: FontWeight.w700,
@@ -1150,8 +1035,7 @@ class SelectedContentDialog extends StatelessWidget {
                                       ['topic_name', 'topicName', 'title', 'name'],
                                       'Topic',
                                     );
-                                    final q = _asInt(t['question_count']);
-                                    return _Chip(label: tn, suffix: '$q Q');
+                                    return _Chip(label: tn); // ✅ no suffix / no counts
                                   }).toList(),
                                 ),
                             ],
@@ -1168,7 +1052,7 @@ class SelectedContentDialog extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.check_rounded, color: Colors.white,),
+                  icon: const Icon(Icons.check_rounded, color: Colors.white),
                   label: const Text('Done'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColor.indigo,
@@ -1215,21 +1099,16 @@ class _TinyLine extends StatelessWidget {
             fontSize: 12.5,
             color: AppColor.indigo,
           ),
-        )
+        ),
       ],
     );
   }
 }
 
-/// -----------------------
-/// Internal UI pieces
-/// -----------------------
-
 class _Chip extends StatelessWidget {
   final String label;
-  final String suffix;
 
-  const _Chip({required this.label, required this.suffix});
+  const _Chip({required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1240,44 +1119,19 @@ class _Chip extends StatelessWidget {
         color: AppColor.indigo.withOpacity(0.08),
         border: Border.all(color: AppColor.indigo.withOpacity(0.18)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 2,
-              style:  TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: Sizes.verySmallText(context),
-                  color: Color(0xFF111827),
-                  overflow: TextOverflow.ellipsis
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              color: Colors.white,
-              border: Border.all(color: Colors.black.withOpacity(0.06)),
-            ),
-            child: Text(
-              suffix,
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: Sizes.verySmallText(context),
-                color: AppColor.indigo,
-              ),
-            ),
-          ),
-        ],
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: Sizes.verySmallText(context),
+          color: const Color(0xFF111827),
+        ),
       ),
     );
   }
 }
-
 
 /// -----------------------
 /// Mini pie chart (no external packages)
@@ -1325,7 +1179,6 @@ class _PiePainter extends CustomPainter {
       return;
     }
 
-    // simple palette derived from indigo/purple/grey (no extra deps)
     final palette = <Color>[
       AppColor.indigo.withOpacity(0.85),
       const Color(0xFFF59E0B).withOpacity(0.85),
@@ -1334,16 +1187,6 @@ class _PiePainter extends CustomPainter {
       AppColor.purple.withOpacity(0.85),
       const Color(0xFFEF4444).withOpacity(0.85),
       Colors.blueGrey.withOpacity(0.85),
-      Colors.pink.withOpacity(0.85),
-      Colors.deepPurple.withOpacity(0.85),
-      Colors.orangeAccent.withOpacity(0.85),
-      Colors.brown.withOpacity(0.85),
-      Colors.lightBlueAccent.withOpacity(0.85),
-      Colors.teal.withOpacity(0.85),
-      Colors.lightBlue.withOpacity(0.85),
-      Colors.lime.withOpacity(0.85),
-      Colors.deepOrangeAccent.withOpacity(0.85),
-      Colors.cyan.withOpacity(0.85),
     ];
 
     double start = -math.pi / 2;
@@ -1366,7 +1209,6 @@ class _PiePainter extends CustomPainter {
       start += sweep;
     }
 
-    // inner hole ring for modern look
     final holePaint = Paint()
       ..style = PaintingStyle.fill
       ..color = Colors.white;
@@ -1385,13 +1227,14 @@ class _PiePainter extends CustomPainter {
   }
 }
 
-
-/// ✅ Compact, modern quota banner (FREE user only)
+/// ✅ Compact quota banner (FREE user only) — shows ONLY remaining count
 class QuotaStatusBanner extends StatelessWidget {
   final bool isDark;
   final bool loading;
   final String? error;
   final FreeExamQuotaModel? quota;
+
+  // kept for compatibility; UI does not show min/max counts
   final int minRequired;
   final int todayMax;
 
@@ -1407,7 +1250,7 @@ class QuotaStatusBanner extends StatelessWidget {
   String _formatDate(String? iso) {
     if (iso == null || iso.trim().isEmpty) return '';
     final dt = DateTime.tryParse(iso.trim());
-    if (dt == null) return iso;
+    if (dt == null) return '';
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -1420,14 +1263,11 @@ class QuotaStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0xFF121416) : Colors.white;
-
     IconData icon = Icons.auto_awesome_rounded;
     Color tint = AppColor.indigo;
 
-    String title = 'Free Questions Quota';
+    String title = 'Free Exam Quota';
     String subtitle = 'Checking quota...';
-    final can = quota?.canCreateExam == true;
 
     if (loading) {
       icon = Icons.hourglass_bottom_rounded;
@@ -1445,22 +1285,22 @@ class QuotaStatusBanner extends StatelessWidget {
       if (!can) {
         icon = Icons.lock_clock_rounded;
         tint = const Color(0xFFEF4444);
-        subtitle = 'Today\'s free Questions is already used.';
+        subtitle = 'Today’s free exam is already used.';
       } else if (remaining < minRequired) {
         icon = Icons.error_outline_rounded;
         tint = const Color(0xFFF59E0B);
-        subtitle = 'Not enough quota. Remaining $remaining (need $minRequired).';
+        subtitle = 'Remaining today: $remaining • Not enough to create an exam.';
       } else {
         icon = Icons.verified_rounded;
-        tint =  AppColor.indigo;
-        subtitle = 'Remaining: $remaining • Today max: $todayMax • $dateText';
+        tint = AppColor.indigo;
+        subtitle = 'Remaining today: $remaining${dateText.isEmpty ? '' : ' • $dateText'}';
       }
     }
 
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: bg,
+        color: isDark ? const Color(0xFF121416) : Colors.white,
         border: Border.all(color: tint.withOpacity(0.20)),
         boxShadow: [
           BoxShadow(
@@ -1501,7 +1341,7 @@ class QuotaStatusBanner extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style:  TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: Sizes.smallText(context),
                   ),
@@ -1517,21 +1357,6 @@ class QuotaStatusBanner extends StatelessWidget {
                     color: Colors.black.withOpacity(0.55),
                   ),
                 ),
-
-/*                if(!can)...[
-                  const SizedBox(height: 3),
-
-                  Text(
-                    'Upgrade to Premium for unlimited questions.',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: Sizes.verySmallText(context),
-                      color: Colors.black.withOpacity(0.55),
-                    ),
-                  ),
-                ]*/
-
               ],
             ),
           ),
@@ -1540,4 +1365,3 @@ class QuotaStatusBanner extends StatelessWidget {
     );
   }
 }
-

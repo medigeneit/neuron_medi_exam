@@ -29,7 +29,7 @@ class TinyInfoChip extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: Sizes.verySmallText(context),
-              color: Color(0xFF374151),
+              color: const Color(0xFF374151),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -39,26 +39,26 @@ class TinyInfoChip extends StatelessWidget {
   }
 }
 
-/// ✅ shows: Minimum requirement + progress color
+/// ✅ shows: Minimum TOPIC requirement + progress color (NO question count shown)
 class RequirementChip extends StatelessWidget {
-  final int minQ;
-  final int selectedQ;
+  final int minTopics;
+  final int selectedTopics;
 
   const RequirementChip({
     Key? key,
-    required this.minQ,
-    required this.selectedQ,
+    required this.minTopics,
+    required this.selectedTopics,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final ok = selectedQ >= minQ;
+    final ok = selectedTopics >= minTopics;
     final bg = ok ? const Color(0xFFECFDF5) : const Color(0xFFFFF7ED);
     final border = ok ? const Color(0xFF34D399) : const Color(0xFFF59E0B);
     final fg = ok ? const Color(0xFF065F46) : const Color(0xFF92400E);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(999),
@@ -74,7 +74,7 @@ class RequirementChip extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            'Min $minQ Q • $selectedQ selected',
+            'Min $minTopics topics • $selectedTopics selected',
             style: TextStyle(
               fontSize: Sizes.verySmallText(context),
               fontWeight: FontWeight.w900,
@@ -321,18 +321,18 @@ class _ChapterTopicSearchBarState extends State<ChapterTopicSearchBar> {
   }
 }
 
-/// ✅ Now bottom bar shows selected QUESTION count and disables feel when < min.
+/// ✅ Bottom bar shows TOPIC selection only (NO question count shown)
 class BottomNextBar extends StatelessWidget {
-  final int selectedQuestionCount;
-  final int minRequired;
+  final int selectedTopicsCount;
+  final int minTopics;
   final String buttonText;
   final VoidCallback onPressed;
   final List<Color> gradientColors;
 
   const BottomNextBar({
     Key? key,
-    required this.selectedQuestionCount,
-    required this.minRequired,
+    required this.selectedTopicsCount,
+    required this.minTopics,
     required this.buttonText,
     required this.onPressed,
     required this.gradientColors,
@@ -343,7 +343,7 @@ class BottomNextBar extends StatelessWidget {
     final media = MediaQuery.of(context);
     final safeBottom = media.padding.bottom;
 
-    final ok = selectedQuestionCount >= minRequired;
+    final ok = selectedTopicsCount >= minTopics;
 
     return Container(
       padding: EdgeInsets.fromLTRB(14, 10, 14, 10 + safeBottom),
@@ -362,13 +362,6 @@ class BottomNextBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-    /*      Expanded(
-            child: _SelectedCounterPill(
-              selectedQ: selectedQuestionCount,
-              minRequired: minRequired,
-            ),
-          ),
-          const SizedBox(width: 10),*/
           Expanded(
             flex: 2,
             child: _GradientButton(
@@ -388,54 +381,6 @@ class BottomNextBar extends StatelessWidget {
     );
   }
 }
-
-/*class _SelectedCounterPill extends StatelessWidget {
-  final int selectedQ;
-  final int minRequired;
-
-  const _SelectedCounterPill({
-    required this.selectedQ,
-    required this.minRequired,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final ok = selectedQ >= minRequired;
-
-    final bg = ok ? const Color(0xFFECFDF5) : const Color(0xFFFFF7ED);
-    final border = ok ? const Color(0xFF34D399) : const Color(0xFFF59E0B);
-    final fg = ok ? const Color(0xFF065F46) : const Color(0xFF92400E);
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: bg,
-        border: Border.all(color: border.withOpacity(0.45)),
-      ),
-      child: Row(
-        children: [
-          Icon(ok ? Icons.verified_rounded : Icons.warning_amber_rounded,
-              color: fg),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '$selectedQ / $minRequired Q',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                color: fg,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}*/
 
 class _GradientButton extends StatelessWidget {
   final String text;
@@ -505,14 +450,12 @@ class _GradientButton extends StatelessWidget {
 class TopicRowData {
   final int id;
   final String title;
-  final int count;
   final bool checked;
   final ValueChanged<bool?> onChanged;
 
   TopicRowData({
     required this.id,
     required this.title,
-    required this.count,
     required this.checked,
     required this.onChanged,
   });
@@ -520,7 +463,6 @@ class TopicRowData {
 
 class ChapterTopicsCard extends StatefulWidget {
   final String chapterTitle;
-  final int chapterCount;
   final int topicsCount;
   final int selectedTopicsCount;
 
@@ -535,7 +477,6 @@ class ChapterTopicsCard extends StatefulWidget {
   const ChapterTopicsCard({
     Key? key,
     required this.chapterTitle,
-    required this.chapterCount,
     required this.topicsCount,
     required this.selectedTopicsCount,
     required this.chapterChecked,
@@ -551,15 +492,17 @@ class ChapterTopicsCard extends StatefulWidget {
 }
 
 class _ChapterTopicsCardState extends State<ChapterTopicsCard> {
-  bool _expanded = true;
+  // ✅ Initially collapsed
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(18);
     final gradientColors = [AppColor.indigo, AppColor.purple];
 
+    // ✅ NO question info
     final subtitle =
-        '${widget.chapterCount} Q • ${widget.topicsCount} topic${widget.topicsCount == 1 ? '' : 's'}'
+        '${widget.topicsCount} topic${widget.topicsCount == 1 ? '' : 's'}'
         '${widget.selectedTopicsCount > 0 ? ' • ${widget.selectedTopicsCount} selected' : ''}';
 
     final selectedGlow = widget.isChapterSelected;
@@ -687,7 +630,6 @@ class _ChapterTopicsCardState extends State<ChapterTopicsCard> {
                       final t = widget.topics[i];
                       return _TopicTile(
                         title: t.title,
-                        count: t.count,
                         checked: t.checked,
                         onChanged: t.onChanged,
                         isDark: widget.isDark,
@@ -707,14 +649,12 @@ class _ChapterTopicsCardState extends State<ChapterTopicsCard> {
 
 class _TopicTile extends StatelessWidget {
   final String title;
-  final int count;
   final bool checked;
   final ValueChanged<bool?> onChanged;
   final bool isDark;
 
   const _TopicTile({
     required this.title,
-    required this.count,
     required this.checked,
     required this.onChanged,
     required this.isDark,
@@ -741,7 +681,7 @@ class _TopicTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: () => onChanged(!checked),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           child: Row(
             children: [
               Checkbox(
@@ -751,7 +691,7 @@ class _TopicTile extends StatelessWidget {
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   title,
@@ -765,44 +705,14 @@ class _TopicTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              _CountPill(count: count, active: checked),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: isDark ? Colors.white54 : const Color(0xFF9CA3AF),
+              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CountPill extends StatelessWidget {
-  final int count;
-  final bool active;
-  const _CountPill({required this.count, required this.active});
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = active
-        ? AppColor.indigo.withOpacity(0.16)
-        : AppColor.indigo.withOpacity(0.08);
-    final border = active
-        ? AppColor.indigo.withOpacity(0.32)
-        : AppColor.indigo.withOpacity(0.18);
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: bg,
-        border: Border.all(color: border),
-      ),
-      child: Text(
-        '$count Q',
-        style: TextStyle(
-          fontWeight: FontWeight.w900,
-          color: AppColor.indigo,
-          fontSize: Sizes.verySmallText(context),
         ),
       ),
     );

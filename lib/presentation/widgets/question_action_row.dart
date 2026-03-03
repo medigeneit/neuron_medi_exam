@@ -3,19 +3,17 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/favourite_questions_list_model.dart';
+import 'package:medi_exam/data/models/question_analytics_breakdown_model.dart';
 import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/data/services/favourite_questions_list_service.dart';
 import 'package:medi_exam/data/services/favourites_toggle_service.dart';
+import 'package:medi_exam/data/services/question_analytics_breakdown_service.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/question_explaination_button.dart';
 
 /// ✅ Global favourite cache (loads once, used everywhere)
-/// FIXED:
-/// - Do NOT mark loaded=true when API fails
-/// - Allow retry by clearing _loadingFuture on failure
-/// - Allow syncing cache from screens that already fetched favourites
 class GlobalFavouriteCache {
   static final FavouriteQuestionsListService _listService =
   FavouriteQuestionsListService();
@@ -34,8 +32,6 @@ class GlobalFavouriteCache {
     }
   }
 
-  /// ✅ Call this after you already fetched favourites in a screen
-  /// (so we don't need another network call, and cache stays correct).
   static void setLoadedIds(Iterable<int> ids) {
     _ids
       ..clear()
@@ -77,10 +73,7 @@ class GlobalFavouriteCache {
     } catch (_) {
       success = false;
     } finally {
-      // ✅ Only mark loaded when successful
       _loaded = success;
-
-      // ✅ If failed, allow retry later
       if (!success) {
         _loadingFuture = null;
       }
@@ -89,15 +82,12 @@ class GlobalFavouriteCache {
 }
 
 /// Compact action row:
-/// 1) Favourite (real API toggle + auto marked from favourite list)
-/// 2) Explanation
+/// 1) Favourite
+/// 2) Stats (fetch breakdown, show pies)
+/// 3) Explanation
 class QuestionActionRow extends StatefulWidget {
   final int? questionId;
-
-  /// Optional: if you already have local status from another response
   final bool initiallyBookmarked;
-
-  final DifficultyStats? stats;
 
   /// ✅ notify parent when favourite changes (added/removed)
   final ValueChanged<bool>? onFavouriteChanged;
@@ -106,7 +96,6 @@ class QuestionActionRow extends StatefulWidget {
     super.key,
     required this.questionId,
     this.initiallyBookmarked = false,
-    this.stats,
     this.onFavouriteChanged,
   });
 
@@ -118,14 +107,13 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
   static final FavouritesToggleService _toggleService =
   FavouritesToggleService();
 
+  static final QuestionAnalyticsBreakdownService _statsService =
+  QuestionAnalyticsBreakdownService();
+
   bool _bookmarked = false;
   bool _favLoading = false;
 
-  // Prevent API-loaded state from overriding user action
   bool _userOverrode = false;
-
-  DifficultyStats get _stats =>
-      widget.stats ?? const DifficultyStats.happyDefault();
 
   @override
   void initState() {
@@ -145,7 +133,6 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
   void _initFavouriteState() {
     final id = widget.questionId;
 
-    // ✅ Start from initial truth
     _bookmarked = widget.initiallyBookmarked;
 
     if (id == null) {
@@ -153,31 +140,25 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
       return;
     }
 
-    // ✅ If cache already knows it, OR keep initial true
     _bookmarked = _bookmarked || GlobalFavouriteCache.contains(id);
 
-    // Keep cache consistent if initial says it's fav
     if (_bookmarked) {
       GlobalFavouriteCache.setFavourite(id, true);
       setState(() {});
       return;
     }
 
-    // Otherwise hydrate from cache/API (but MUST NOT override initial true)
     _hydrateFromFavouriteList(id);
   }
 
   Future<void> _hydrateFromFavouriteList(int id) async {
     await GlobalFavouriteCache.ensureLoaded();
     if (!mounted) return;
-
-    // If user already tapped, don't override
     if (_userOverrode) return;
 
     setState(() {
-      // ✅ IMPORTANT:
-      // Never override initial true to false.
-      _bookmarked = widget.initiallyBookmarked || GlobalFavouriteCache.contains(id);
+      _bookmarked =
+          widget.initiallyBookmarked || GlobalFavouriteCache.contains(id);
     });
   }
 
@@ -189,29 +170,24 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
       children: [
         _ActionPillButton(
           icon: _bookmarked
-              ? Icons.bookmark_rounded
-              : Icons.bookmark_border_rounded,
+              ? Icons.favorite_rounded
+              : Icons.favorite_border_rounded,
           label: 'Favorite',
           selected: _bookmarked,
           loading: _favLoading,
           enabled: canFav && !_favLoading,
           onTap: _toggleFavourite,
         ),
-/*        const SizedBox(width: 10),
-
-        // 2) Stats
+        const SizedBox(width: 10),
         _ActionPillButton(
           icon: Icons.pie_chart_outline_rounded,
           label: 'Stats',
           selected: false,
           loading: false,
-          enabled: true,
+          enabled: widget.questionId != null,
           onTap: () => _openStatsDialog(context),
-        ),*/
-
-
+        ),
         const Spacer(),
-
         QuestionExplainationButton(
           questionId: widget.questionId,
           compact: true,
@@ -247,15 +223,11 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
 
     final status = _toggleService.extractStatus(resp.responseData);
 
-    // server is truth
     bool newState = _bookmarked;
     if (status == 'added') newState = true;
     if (status == 'removed') newState = false;
 
-    // update global cache
     GlobalFavouriteCache.setFavourite(id, newState);
-
-    // prevent hydration override
     _userOverrode = true;
 
     setState(() {
@@ -266,8 +238,10 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
     widget.onFavouriteChanged?.call(newState);
   }
 
-  // (Stats code kept for compatibility if you re-enable later)
   void _openStatsDialog(BuildContext context) {
+    final qid = widget.questionId;
+    if (qid == null) return;
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -280,17 +254,19 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
             blobColor: AppColor.indigo,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
+              child: FutureBuilder<NetworkResponse>(
+                future: _statsService.fetchQuestionAnalyticsBreakdown(
+                  qid.toString(),
+                ),
+                builder: (context, snapshot) {
+                  final header = Row(
                     children: [
                       Icon(Icons.pie_chart_rounded,
                           size: 20, color: AppColor.indigo),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Question Difficulty',
+                          'Question Stats',
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
@@ -306,38 +282,80 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
                         splashRadius: 20,
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Divider(height: 1),
-                  const SizedBox(height: 12),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.60,
-                    ),
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Center(
-                            child: SizedBox(
-                              width: 180,
-                              height: 180,
-                              child: AnimatedPieChart(
-                                sections: _stats.sections,
-                                strokeWidth: 26,
-                                duration: const Duration(milliseconds: 900),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          _Legend(sections: _stats.sections),
-                          const SizedBox(height: 6),
-                        ],
+                  );
+
+                  Widget body;
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    body = const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 28),
+                      child: Center(
+                        child: SizedBox(
+                          width: 26,
+                          height: 26,
+                          child: CircularProgressIndicator(strokeWidth: 2.6),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
+                    );
+                  } else if (snapshot.hasError) {
+                    body = Padding(
+                      padding: const EdgeInsets.only(top: 14, bottom: 10),
+                      child: Text(
+                        'Failed to load stats.',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                    );
+                  } else {
+                    final resp = snapshot.data;
+
+                    if (resp == null ||
+                        !resp.isSuccess ||
+                        resp.responseData == null) {
+                      body = Padding(
+                        padding: const EdgeInsets.only(top: 14, bottom: 10),
+                        child: Text(
+                          resp?.errorMessage ?? 'Failed to load stats.',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Colors.red.shade700,
+                          ),
+                        ),
+                      );
+                    } else {
+                      final model =
+                      resp.responseData is QuestionAnalyticsBreakdownModel
+                          ? (resp.responseData
+                      as QuestionAnalyticsBreakdownModel)
+                          : QuestionAnalyticsBreakdownModel.parse(
+                        resp.responseData,
+                      );
+
+                      body = _StatsContent(model: model);
+                    }
+                  }
+
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      header,
+                      const SizedBox(height: 6),
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.72,
+                        ),
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: body,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -347,49 +365,197 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
   }
 }
 
-/// ------------------------------
-/// Data models (UI-only)
-/// ------------------------------
-class DifficultyStats {
-  final List<PieSection> sections;
+/// --------------------------------------
+/// Stats content:
+/// - type 2 => 1 pie (Right/Wrong/Skipped)
+/// - type 1 => for stems/options: show pies in a grid (3 items per row)
+///
+/// Requirements:
+/// - Real pie (cake), not donut
+/// - Percent text inside the pie
+/// - Legend chips at the TOP (color dot + meaning) for BOTH types
+/// - For type 1: grid of stems (A/B/C/...), each stem shows its own PIE + label under it
+/// --------------------------------------
+class _StatsContent extends StatelessWidget {
+  final QuestionAnalyticsBreakdownModel model;
 
-  const DifficultyStats({required this.sections});
+  const _StatsContent({required this.model});
 
-  const DifficultyStats.happyDefault()
-      : sections = const [
-    PieSection(
-      label: 'Challenging',
-      percent: 28,
-      color: Colors.red,
-      icon: Icons.local_fire_department_rounded,
-    ),
-    PieSection(
-      label: 'Moderate',
-      percent: 42,
-      color: Colors.orange,
-      icon: Icons.bolt_rounded,
-    ),
-    PieSection(
-      label: 'Easy',
-      percent: 30,
-      color: Colors.green,
-      icon: Icons.verified_rounded,
-    ),
+  static const _legendSegments = <PieLegendItem>[
+    PieLegendItem(label: 'Right', color: Colors.green),
+    PieLegendItem(label: 'Wrong', color: Colors.red),
+    PieLegendItem(label: 'Skipped', color: Colors.orangeAccent),
   ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (model.isOverallWise) {
+      final slices = _buildSlices(
+        right: model.rightAsPercent,
+        wrong: model.wrongAsPercent,
+        skip: model.skipAsPercent,
+      );
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _LegendChips(items: _legendSegments),
+          const SizedBox(height: 12),
+          Center(
+            child: SizedBox(
+              width: 220,
+              height: 220,
+              child: AnimatedCakePieChart(
+                slices: slices,
+                duration: const Duration(milliseconds: 900),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: Text(
+              'Right ${slices[0].value.toStringAsFixed(0)}% • '
+                  'Wrong ${slices[1].value.toStringAsFixed(0)}% • '
+                  'Skipped ${slices[2].value.toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColor.primaryTextColor.withOpacity(0.75),
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
+      );
+    }
+
+    final optionMap =
+        model.optionBreakdowns ?? const <String, QuestionAnalyticsOptionBreakdown>{};
+    if (optionMap.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _LegendChips(items: _legendSegments),
+          const SizedBox(height: 12),
+          const Padding(
+            padding: EdgeInsets.only(top: 10, bottom: 10),
+            child: Text(
+              'No stats available.',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final keys = optionMap.keys.toList()
+      ..sort((a, b) {
+        final aa = a.trim();
+        final bb = b.trim();
+        if (aa.length == 1 && bb.length == 1) {
+          return aa.codeUnitAt(0).compareTo(bb.codeUnitAt(0));
+        }
+        return aa.compareTo(bb);
+      });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _LegendChips(items: _legendSegments),
+        const SizedBox(height: 12),
+        GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
+          itemCount: keys.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3, // ✅ 3 pie in a row
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.82,
+          ),
+          itemBuilder: (context, index) {
+            final k = keys[index];
+            final o = optionMap[k];
+
+            final slices = _buildSlices(
+              right: o?.rightAsPercent,
+              wrong: o?.wrongAsPercent,
+              skip: o?.skipAsPercent,
+            );
+
+            return _StemPieTile(
+              stemLabel: k,
+              slices: slices,
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+
+  List<PieSlice> _buildSlices({
+    int? right,
+    int? wrong,
+    int? skip,
+  }) {
+    final r = (right ?? 0).toDouble();
+    final w = (wrong ?? 0).toDouble();
+    final s = (skip ?? 0).toDouble();
+
+    // Keep stable order matching legend chips.
+    return [
+      PieSlice(label: 'Right', value: r, color: Colors.green),
+      PieSlice(label: 'Wrong', value: w, color: Colors.red),
+      PieSlice(label: 'Skipped', value: s, color: Colors.orangeAccent),
+    ];
+  }
 }
 
-class PieSection {
-  final String label;
-  final double percent; // 0..100
-  final Color color;
-  final IconData icon;
+/// A grid tile: a cake pie chart + stem label at bottom
+class _StemPieTile extends StatelessWidget {
+  final String stemLabel;
+  final List<PieSlice> slices;
 
-  const PieSection({
-    required this.label,
-    required this.percent,
-    required this.color,
-    required this.icon,
+  const _StemPieTile({
+    required this.stemLabel,
+    required this.slices,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: AnimatedCakePieChart(
+                slices: slices,
+                duration: const Duration(milliseconds: 850),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            stemLabel,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: AppColor.primaryTextColor,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// ------------------------------
@@ -414,7 +580,7 @@ class _ActionPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color accent = AppColor.indigo;
+    final Color accent = AppColor.blue;
     final Color border = selected ? accent.withOpacity(0.55) : Colors.black12;
     final Color bg = selected ? accent.withOpacity(0.08) : Colors.white;
     final Color iconColor = selected ? accent : Colors.black87;
@@ -467,25 +633,92 @@ class _ActionPillButton extends StatelessWidget {
 }
 
 /// ------------------------------
-/// Animated Pie Chart
+/// Legend chips (top)
 /// ------------------------------
-class AnimatedPieChart extends StatefulWidget {
-  final List<PieSection> sections;
-  final double strokeWidth;
+class PieLegendItem {
+  final String label;
+  final Color color;
+
+  const PieLegendItem({required this.label, required this.color});
+}
+
+class _LegendChips extends StatelessWidget {
+  final List<PieLegendItem> items;
+
+  const _LegendChips({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: items.map((e) => _chip(e)).toList(),
+    );
+  }
+
+  Widget _chip(PieLegendItem item) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: item.color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: item.color.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              color: item.color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            item.label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: AppColor.primaryTextColor,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ------------------------------
+/// ------------------------------
+class PieSlice {
+  final String label; // Right/Wrong/Skipped
+  final double value; // 0..100
+  final Color color;
+
+  const PieSlice({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+}
+
+class AnimatedCakePieChart extends StatefulWidget {
+  final List<PieSlice> slices;
   final Duration duration;
 
-  const AnimatedPieChart({
+  const AnimatedCakePieChart({
     super.key,
-    required this.sections,
-    required this.strokeWidth,
+    required this.slices,
     this.duration = const Duration(milliseconds: 900),
   });
 
   @override
-  State<AnimatedPieChart> createState() => _AnimatedPieChartState();
+  State<AnimatedCakePieChart> createState() => _AnimatedCakePieChartState();
 }
 
-class _AnimatedPieChartState extends State<AnimatedPieChart>
+class _AnimatedCakePieChartState extends State<AnimatedCakePieChart>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _t;
@@ -499,10 +732,9 @@ class _AnimatedPieChartState extends State<AnimatedPieChart>
   }
 
   @override
-  void didUpdateWidget(covariant AnimatedPieChart oldWidget) {
+  void didUpdateWidget(covariant AnimatedCakePieChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.sections != widget.sections ||
-        oldWidget.strokeWidth != widget.strokeWidth ||
+    if (oldWidget.slices != widget.slices ||
         oldWidget.duration != widget.duration) {
       _ctrl.duration = widget.duration;
       _ctrl.forward(from: 0);
@@ -521,47 +753,23 @@ class _AnimatedPieChartState extends State<AnimatedPieChart>
       animation: _t,
       builder: (_, __) {
         return CustomPaint(
-          painter: _AnimatedPiePainter(
-            sections: widget.sections,
-            strokeWidth: widget.strokeWidth,
+          painter: _CakePiePainter(
+            slices: widget.slices,
             t: _t.value,
           ),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '100%',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: AppColor.primaryTextColor,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Distribution',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColor.primaryTextColor.withOpacity(0.7),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: const SizedBox.expand(),
         );
       },
     );
   }
 }
 
-class _AnimatedPiePainter extends CustomPainter {
-  final List<PieSection> sections;
-  final double strokeWidth;
+class _CakePiePainter extends CustomPainter {
+  final List<PieSlice> slices;
   final double t;
 
-  _AnimatedPiePainter({
-    required this.sections,
-    required this.strokeWidth,
+  _CakePiePainter({
+    required this.slices,
     required this.t,
   });
 
@@ -569,110 +777,120 @@ class _AnimatedPiePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final center = rect.center;
-    final radius = math.min(size.width, size.height) / 2 - strokeWidth / 2;
+    final radius = math.min(size.width, size.height) / 2;
 
+    // background faint circle
     final bg = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..color = Colors.black.withOpacity(0.05);
+      ..style = PaintingStyle.fill
+      ..color = Colors.black.withOpacity(0.03);
     canvas.drawCircle(center, radius, bg);
 
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    final total = sections.fold<double>(0, (s, e) => s + e.percent);
-    if (total <= 0) return;
+    final total = slices.fold<double>(0, (s, e) => s + e.value);
+    if (total <= 0) {
+      // If all are 0, show empty center text
+      final tp = TextPainter(
+        text: const TextSpan(
+          text: '0%',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 14,
+            color: AppColor.primaryTextColor,
+          ),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
+      return;
+    }
 
     final allowed = (2 * math.pi) * t;
     double startAngle = -math.pi / 2;
 
-    for (final sec in sections) {
-      final fullSweep = (sec.percent / total) * (2 * math.pi);
-      final alreadyUsed = (startAngle - (-math.pi / 2));
-      final remainingAllowed = allowed - alreadyUsed;
+    // Draw slices
+    for (final s in slices) {
+      final fullSweep = (s.value / total) * (2 * math.pi);
+      final used = (startAngle - (-math.pi / 2));
+      final remainingAllowed = allowed - used;
       if (remainingAllowed <= 0) break;
 
       final sweep = math.min(fullSweep, remainingAllowed);
-      paint.color = sec.color;
+
+      final paint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = s.color;
 
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         startAngle,
         sweep,
-        false,
+        true,
         paint,
+      );
+
+      // outline
+      final outline = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = Colors.white.withOpacity(0.95);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweep,
+        true,
+        outline,
       );
 
       startAngle += fullSweep;
     }
+
+    // Draw % texts after paint (based on FULL values, no animation dependency)
+    // Place at mid angle of each slice.
+    double angle = -math.pi / 2;
+    for (final s in slices) {
+      final sweep = (s.value / total) * (2 * math.pi);
+      if (s.value <= 0) {
+        angle += sweep;
+        continue;
+      }
+
+      final mid = angle + sweep / 2;
+
+      // place text at ~55% radius (inside slice)
+      final r = radius * 0.55;
+      final pos = Offset(
+        center.dx + r * math.cos(mid),
+        center.dy + r * math.sin(mid),
+      );
+
+      final txt = '${s.value.toStringAsFixed(0)}%';
+      final tp = TextPainter(
+        text: TextSpan(
+          text: txt,
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: radius < 60 ? 8 : 12,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      tp.paint(canvas, pos - Offset(tp.width / 2, tp.height / 2));
+
+      angle += sweep;
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _AnimatedPiePainter oldDelegate) {
-    return oldDelegate.sections != sections ||
-        oldDelegate.strokeWidth != strokeWidth ||
-        oldDelegate.t != t;
-  }
-}
-
-class _Legend extends StatelessWidget {
-  final List<PieSection> sections;
-
-  const _Legend({required this.sections});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: sections.map((s) => _legendRow(context, s)).toList(),
-    );
-  }
-
-  Widget _legendRow(BuildContext context, PieSection s) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: s.color.withOpacity(0.06),
-          border: Border.all(color: s.color.withOpacity(0.25)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: s.color.withOpacity(0.12),
-                border: Border.all(color: s.color.withOpacity(0.35)),
-              ),
-              child: Icon(s.icon, size: 16, color: s.color),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                s.label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  color: AppColor.primaryTextColor,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-            Text(
-              '${s.percent.toStringAsFixed(0)}%',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                color: AppColor.primaryTextColor.withOpacity(0.85),
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  bool shouldRepaint(covariant _CakePiePainter oldDelegate) {
+    return oldDelegate.slices != slices || oldDelegate.t != t;
   }
 }

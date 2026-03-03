@@ -2,11 +2,9 @@
 
 class ActiveCourseSpecialtiesSubjectsModel {
   final List<ActiveCourse>? courses;
-  final List<Subject>? subjects;
 
   ActiveCourseSpecialtiesSubjectsModel({
     this.courses,
-    this.subjects,
   });
 
   /// API returns Map<String, dynamic>
@@ -16,16 +14,12 @@ class ActiveCourseSpecialtiesSubjectsModel {
       courses: (json['courses'] as List<dynamic>?)
           ?.map((e) => ActiveCourse.fromJson(e as Map<String, dynamic>))
           .toList(),
-      subjects: (json['subjects'] as List<dynamic>?)
-          ?.map((e) => Subject.fromJson(e as Map<String, dynamic>))
-          .toList(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'courses': courses?.map((c) => c.toJson()).toList() ?? [],
-      'subjects': subjects?.map((s) => s.toJson()).toList() ?? [],
     };
   }
 }
@@ -33,19 +27,19 @@ class ActiveCourseSpecialtiesSubjectsModel {
 class ActiveCourse {
   final int? courseId;
   final String? courseName;
-  final List<Specialty>? specialty;
+  final List<Specialty>? specialties;
 
   ActiveCourse({
     this.courseId,
     this.courseName,
-    this.specialty,
+    this.specialties,
   });
 
   factory ActiveCourse.fromJson(Map<String, dynamic> json) {
     return ActiveCourse(
       courseId: json['course_id'],
       courseName: json['course_name'],
-      specialty: (json['specialty'] as List<dynamic>?)
+      specialties: (json['specialties'] as List<dynamic>?)
           ?.map((e) => Specialty.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
@@ -55,7 +49,7 @@ class ActiveCourse {
     return {
       'course_id': courseId,
       'course_name': courseName,
-      'specialty': specialty?.map((s) => s.toJson()).toList() ?? [],
+      'specialties': specialties?.map((s) => s.toJson()).toList() ?? [],
     };
   }
 }
@@ -63,16 +57,21 @@ class ActiveCourse {
 class Specialty {
   final int? specialtyId;
   final String? specialtyName;
+  final List<Subject>? subjects;
 
   Specialty({
     this.specialtyId,
     this.specialtyName,
+    this.subjects,
   });
 
   factory Specialty.fromJson(Map<String, dynamic> json) {
     return Specialty(
       specialtyId: json['specialty_id'],
       specialtyName: json['specialty_name'],
+      subjects: (json['subjects'] as List<dynamic>?)
+          ?.map((e) => Subject.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -80,6 +79,7 @@ class Specialty {
     return {
       'specialty_id': specialtyId,
       'specialty_name': specialtyName,
+      'subjects': subjects?.map((s) => s.toJson()).toList() ?? [],
     };
   }
 }
@@ -87,16 +87,19 @@ class Specialty {
 class Subject {
   final int? subjectId;
   final String? subjectName;
+  final bool? isOpen;
 
   Subject({
     this.subjectId,
     this.subjectName,
+    this.isOpen,
   });
 
   factory Subject.fromJson(Map<String, dynamic> json) {
     return Subject(
       subjectId: json['subject_id'],
       subjectName: json['subject_name'],
+      isOpen: json['is_open'],
     );
   }
 
@@ -104,6 +107,7 @@ class Subject {
     return {
       'subject_id': subjectId,
       'subject_name': subjectName,
+      'is_open': isOpen,
     };
   }
 }

@@ -174,5 +174,9 @@ class Urls {
     return "${_baseUrl}doctor/dashboard/exams/wrong-and-unanswered?type=$type&id=$examId";
   }
 
+  static String questionAnalyticsBreakdown(String questionId) {
+    return "${_baseUrl}doctor/question-analytics/breakdown?question_id=$questionId";
+  }
+
 
 }
