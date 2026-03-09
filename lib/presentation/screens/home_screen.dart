@@ -16,12 +16,14 @@ import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
+import 'package:medi_exam/presentation/widgets/easy_finder_card.dart';
 import 'package:medi_exam/presentation/widgets/floating_customer_care.dart';
 import 'package:medi_exam/presentation/widgets/free_exam_card.dart';
 import 'package:medi_exam/presentation/widgets/free_exam_notify_dialog.dart';
 import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/helpers/home_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/image_slider_banner.dart';
+import 'package:medi_exam/presentation/widgets/login_offer_dialog.dart';
 import 'package:medi_exam/presentation/widgets/youtube_video_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -92,6 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FreeExamNotifyDialogManager.maybeShow(context: context);
+
+    LoginOfferPromptManager.maybeShow(context: context);
+
     });
   }
 
@@ -703,6 +708,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     vertical: 16,
                   ),
                   child: _buildSliderSection(),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : 24,
+                    vertical: 8,
+                  ),
+                  child: const EasyFinderCard(title: 'Easy Finder'),
                 ),
               ),
 

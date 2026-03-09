@@ -40,6 +40,9 @@ class LocalStorageService {
   // ✅ NEW: Background animation preference key
   static const String backgroundAnimationEnabled = 'background_animation_enabled';
 
+  // ✅ NEW: Easy Finder recent searches (JSON encoded List<String>)
+  static const String easyFinderRecentSearches = 'easy_finder_recent_searches';
+
   // Initialize
   static Future<void> init() async {
     _prefs ??= await SharedPreferences.getInstance();
@@ -102,6 +105,31 @@ class LocalStorageService {
     } catch (_) {
       return null;
     }
+  }
+
+  // ✅ --------- String List (stored as JSON string) ---------
+  static Future<void> setStringList(String key, List<String> list) async {
+    final cleaned = list
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+    await setString(key, jsonEncode(cleaned));
+  }
+
+  static List<String> getStringList(String key) {
+    final raw = getString(key);
+    if (raw == null || raw.trim().isEmpty) return <String>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .map((e) => e?.toString() ?? '')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+    return <String>[];
   }
 
   // --------- Remove / Clear ---------

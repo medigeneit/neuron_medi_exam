@@ -13,6 +13,7 @@ import 'package:medi_exam/presentation/screens/dashboard_screens/exam_result_scr
 import 'package:medi_exam/presentation/screens/dashboard_screens/free_exam_list_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/wrong_skipped_questions_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/wrong_skipped_qus_details_screen.dart';
+import 'package:medi_exam/presentation/screens/easy_finder_screen.dart';
 import 'package:medi_exam/presentation/screens/edit_profile_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/favourites_question_list_screen.dart';
 import 'package:medi_exam/presentation/screens/open_exam_list_screen.dart';
@@ -84,6 +85,7 @@ class RouteNames {
   static const String wrongSkippedQusDetails = '/wrongSkippedQusDetails';
   static const String wrongSkippedQuestions = '/wrongSkippedQuestions';
   static const String favouriteQuestionsList = '/favouriteQuestionsList';
+  static const String easyFinderScreen = '/easyFinderScreen';
 }
 
 // Define routes
@@ -236,6 +238,11 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.favouriteQuestionsList,
     page: () => const FavouriteQuestionsListScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.easyFinderScreen,
+    page: () => const EasyFinderScreen(),
   ),
 
 ];

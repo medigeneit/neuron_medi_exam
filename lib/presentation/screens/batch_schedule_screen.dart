@@ -48,6 +48,7 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
   late String time;
   late String days;
   late String startDate;
+  late bool isFreeBatch;
 
   @override
   void initState() {
@@ -67,6 +68,7 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
     startDate = args['startDate']?.toString() ?? '';
     title = args['title']?.toString() ?? '';
     subTitle = args['subTitle']?.toString() ?? '';
+    isFreeBatch = args['isFreeBatch'];
   }
 
   Future<void> _fetchSchedule() async {
@@ -331,6 +333,7 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
     final gradientColors = [AppColor.indigo, AppColor.purple];
     final gradientButtonColors = [Colors.purple, Colors.blue];
 
+
     final Batch? batch = _schedule?.batch;
     final String banner = (imageUrl.isNotEmpty)
         ? imageUrl
@@ -490,6 +493,7 @@ class _BatchScheduleScreenState extends State<BatchScheduleScreen> {
                       time: time,
                       days: days,
                       startDate: startDate,
+                      isFreeBatch: isFreeBatch,
                     );
                   },
                 ),

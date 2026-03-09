@@ -34,6 +34,7 @@ class Urls {
   static const String wrongSkippedQus = "${_baseUrl}doctor/dashboard/exams/summary";
   static const String favourites = "${_baseUrl}doctor/favourites";
   static const String favouritesToggleAddRemove = "${_baseUrl}doctor/favourites/add";
+  static String smartSearchKeywordsAll = "${_baseUrl}doctor/smart-search/keywords/all";
 
 
 
@@ -176,6 +177,9 @@ class Urls {
 
   static String questionAnalyticsBreakdown(String questionId) {
     return "${_baseUrl}doctor/question-analytics/breakdown?question_id=$questionId";
+  }
+  static String smartSearchQuestions(String query) {
+    return "${_baseUrl}doctor/smart-search/questions?q=$query";
   }
 
 

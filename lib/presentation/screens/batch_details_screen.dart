@@ -1,33 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/batch_details_model.dart';
 import 'package:medi_exam/data/services/batch_details_service.dart';
 import 'package:medi_exam/data/utils/auth_checker.dart';
+import 'package:medi_exam/data/utils/payment_navigator.dart';
 import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
-import 'package:medi_exam/data/utils/payment_navigator.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/animated_gradient_button.dart';
+import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/date_formatter_widget.dart';
 import 'package:medi_exam/presentation/widgets/free_exam_card.dart';
 import 'package:medi_exam/presentation/widgets/helpers/banner_card_helpers.dart';
 import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_helpers.dart';
-import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
-// ------------------------- Batch Details Screen -------------------------
 class BatchDetailsScreen extends StatefulWidget {
   const BatchDetailsScreen({Key? key}) : super(key: key);
 
   @override
-  _BatchDetailsScreenState createState() => _BatchDetailsScreenState();
+  State<BatchDetailsScreen> createState() => _BatchDetailsScreenState();
 }
 
 class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
   final BatchDetailsService _batchDetailsService = BatchDetailsService();
+
   BatchDetailsModel? _batchDetails;
   bool _isLoading = true;
   String _errorMessage = '';
@@ -91,21 +90,19 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     }
   }
 
-  // --- Helpers for offers ---
   double? _tryParsePrice(dynamic p) {
     if (p == null) return null;
     if (p is num) return p.toDouble();
+
     final s = p.toString().replaceAll(RegExp(r'[^0-9\.\-]'), '');
     return double.tryParse(s);
   }
 
-  // ---------------- NEW: Free Exam handler (auth + navigation) ----------------
   Future<void> _onFreeExamPressed() async {
     final authed = await AuthChecker.to.isAuthenticated();
 
     Future<void> goNow() async {
-      final String courseId =
-          _batchDetails?.courseId?.toString() ?? '';
+      final String courseId = _batchDetails?.courseId?.toString() ?? '';
       if (courseId.isEmpty) {
         Get.snackbar(
           'Unavailable',
@@ -117,6 +114,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
         );
         return;
       }
+
       Get.toNamed(
         RouteNames.openExamList,
         arguments: {
@@ -127,12 +125,14 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     }
 
     if (!authed) {
-      Get.snackbar('Login Required',
-          'Please log in to try the free exam',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 3));
+      Get.snackbar(
+        'Login Required',
+        'Please log in to try the free exam',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
 
       final result = await Get.toNamed(
         RouteNames.login,
@@ -140,8 +140,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
           'popOnSuccess': true,
           'returnRoute': null,
           'returnArguments': null,
-          'message':
-          "You’re one step away! Log in to take the Free Exam.",
+          'message': "You’re one step away! Log in to take the Free Exam.",
         },
       );
 
@@ -163,6 +162,10 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     final bool isMobile = Responsive.isMobile(context);
     final gradientColors = [AppColor.indigo, AppColor.purple];
     final gradientButtonColors = [Colors.purple, Colors.blue];
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+
+    final double? coursePriceValue = _tryParsePrice(_batchDetails?.coursePrice);
+    final bool isFreeBatch = coursePriceValue != null && coursePriceValue <= 0;
 
     return CommonScaffold(
       title: 'Batch Details',
@@ -188,10 +191,8 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
               ),
             )
           else
-          // ------------------ Scroll view with collapsible hero ------------------
             CustomScrollView(
               slivers: [
-                // Collapsible/minimizable hero image
                 SliverAppBar(
                   automaticallyImplyLeading: false,
                   toolbarHeight: 0,
@@ -211,19 +212,27 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(12),
-                            bottomRight: Radius.circular(12),
+                            bottomLeft: Radius.circular(18),
+                            bottomRight: Radius.circular(18),
                           ),
                           child: BannerImage(url: imageUrl),
                         ),
-                        Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Container(
-                            height: 20,
-                            decoration: BoxDecoration(
-                              borderRadius: const BorderRadius.only(
-                                bottomLeft: Radius.circular(12),
-                                bottomRight: Radius.circular(12),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: IgnorePointer(
+                            child: Container(
+                              height: 40,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    scaffoldBg.withOpacity(0),
+                                    scaffoldBg,
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -232,16 +241,12 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                     ),
                   ),
                 ),
-
-                // Rest of content
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                    // keep bottom space for CTA
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Title & SubTitle
                         Container(
                           padding: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
@@ -265,13 +270,23 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              if (subTitle.trim().isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  subTitle,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade700,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
-                        // Info chips
                         GridView.count(
                           crossAxisCount: 2,
                           crossAxisSpacing: 10,
@@ -298,26 +313,27 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                               bg: const Color(0xFFF0F7FF),
                               iconColor: gradientColors[0],
                             ),
-                            if (_batchDetails?.coursePrice != null)
+                            if (!isFreeBatch && _batchDetails?.coursePrice != null)
                               BatchInfoPill(
                                 icon: Icons.attach_money_rounded,
                                 label: 'Price: ${_batchDetails!.coursePrice}',
                                 bg: const Color(0xFFF8FBFF),
                                 iconColor: gradientColors[0],
                               ),
+                            if (isFreeBatch)
+                              BatchInfoPill(
+                                icon: Icons.local_offer_rounded,
+                                label: 'Free 🎉',
+                                bg: Colors.green.withOpacity(0.12),
+                                iconColor: Colors.green,
+                              ),
                           ],
                         ),
-
                         const SizedBox(height: 18),
-
-                        // ---------------- NEW: Free Exam Button (above Schedule) ----------------
                         FreeExamCardButton(
                           onTap: _onFreeExamPressed,
                         ),
-
                         const SizedBox(height: 12),
-
-                        // Schedule Button
                         Container(
                           width: double.infinity,
                           decoration: BoxDecoration(
@@ -339,31 +355,29 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                                 Get.toNamed(
                                   RouteNames.batchSchedule,
                                   arguments: {
-                                    'batchPackageId': _batchDetails
-                                        ?.batchPackageId
-                                        ?.toString() ??
+                                    'batchPackageId':
+                                    _batchDetails?.batchPackageId?.toString() ??
                                         '',
-                                    'coursePackageId': _batchDetails
-                                        ?.coursePackageId
-                                        ?.toString() ??
+                                    'coursePackageId':
+                                    _batchDetails?.coursePackageId?.toString() ??
                                         '',
                                     'batchId': batchId,
-                                    'title': title, // batch title
-                                    'subTitle': _batchDetails
-                                        ?.coursePackageName ??
-                                        '', // course_package_name
+                                    'title': title,
+                                    'subTitle':
+                                    _batchDetails?.coursePackageName ?? '',
                                     'startDate': startDate,
                                     'imageUrl': imageUrl,
-                                    'time': time ?? '',
-                                    'days': days ?? '',
+                                    'time': time,
+                                    'days': days,
+                                    'isFreeBatch': isFreeBatch,
                                   },
                                 );
-                                print(
-                                    'batchPackageID: ${_batchDetails?.batchPackageId}');
                               },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    vertical: 16, horizontal: 20),
+                                  vertical: 16,
+                                  horizontal: 20,
+                                ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -387,63 +401,46 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 18),
-
-                        // Offers
                         if ((_batchDetails?.newDoctorDiscount ?? 0) > 0 ||
                             (_batchDetails?.oldDoctorDiscount ?? 0) > 0)
                           OfferSection(
-                            basePrice:
-                            _tryParsePrice(_batchDetails?.coursePrice),
-                            newDoctorDiscount:
-                            _batchDetails?.newDoctorDiscount, // taka amount
-                            oldDoctorDiscount:
-                            _batchDetails?.oldDoctorDiscount, // taka amount
+                            basePrice: coursePriceValue,
+                            newDoctorDiscount: _batchDetails?.newDoctorDiscount,
+                            oldDoctorDiscount: _batchDetails?.oldDoctorDiscount,
                             gradientColors: gradientColors,
                           ),
-
                         const SizedBox(height: 24),
-
-                        // Expandable HTML sections
                         if (_batchDetails?.hasDescription ?? false)
                           ExpandableHtmlSection(
                             title: 'Batch Details',
                             htmlContent: _batchDetails!.safeDescription,
                             gradientColors: gradientColors,
                           ),
-
                         if (_batchDetails?.hasDescription ?? false)
                           const SizedBox(height: 16),
-
                         if (_batchDetails?.hasCourseOutline ?? false)
                           ExpandableHtmlSection(
                             title: 'Course Outline',
                             htmlContent: _batchDetails!.safeCourseOutline,
                             gradientColors: gradientColors,
                           ),
-
                         if (_batchDetails?.hasCourseOutline ?? false)
                           const SizedBox(height: 16),
-
                         if (_batchDetails?.hasCourseFeeOffer ?? false)
                           ExpandableHtmlSection(
                             title: 'Course Fee Offer',
                             htmlContent: _batchDetails!.safeCourseFeeOffer,
                             gradientColors: gradientColors,
                           ),
-
                         if (_batchDetails?.hasCourseFeeOffer ?? false)
                           const SizedBox(height: 16),
-
                         if (_batchDetails?.hasRegistrationProcess ?? false)
                           ExpandableHtmlSection(
                             title: 'Registration Process',
-                            htmlContent:
-                            _batchDetails!.safeRegistrationProcess,
+                            htmlContent: _batchDetails!.safeRegistrationProcess,
                             gradientColors: gradientColors,
                           ),
-
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -451,9 +448,6 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                 ),
               ],
             ),
-          // --------------------------------------------------------------------
-
-          // Bottom CTA (unchanged)
           if (!_isLoading && _errorMessage.isEmpty)
             Positioned(
               left: 16,
@@ -473,6 +467,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                     time: time,
                     days: days,
                     startDate: startDate,
+                    isFreeBatch: isFreeBatch,
                   );
                 },
               ),
@@ -482,5 +477,3 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     );
   }
 }
-
-

@@ -1,7 +1,6 @@
-// ---------------- Offer UI (unchanged) ----------------
-
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 
@@ -12,11 +11,12 @@ class OfferSection extends StatelessWidget {
   final List<Color> gradientColors;
 
   const OfferSection({
+    Key? key,
     required this.basePrice,
     required this.newDoctorDiscount,
     required this.oldDoctorDiscount,
     required this.gradientColors,
-  });
+  }) : super(key: key);
 
   double _applyDiscount(double price, num discount) =>
       (price - discount.toDouble()).clamp(0, price);
@@ -31,35 +31,39 @@ class OfferSection extends StatelessWidget {
     final cards = <Widget>[];
 
     if (hasNew) {
-      cards.add(OfferCard(
-        title: 'New Doctor',
-        discount: newDoctorDiscount!.toDouble(),
-        oldPrice: basePrice,
-        newPrice: (basePrice != null)
-            ? _applyDiscount(basePrice!, newDoctorDiscount!)
-            : null,
-        gradientColors: [
-          Colors.indigo,
-          Colors.purpleAccent,
-        ],
-        icon: Icons.local_offer_outlined,
-      ));
+      cards.add(
+        OfferCard(
+          title: 'New Doctor',
+          discount: newDoctorDiscount!.toDouble(),
+          oldPrice: basePrice,
+          newPrice: (basePrice != null)
+              ? _applyDiscount(basePrice!, newDoctorDiscount!)
+              : null,
+          gradientColors: const [
+            Colors.indigo,
+            Colors.purpleAccent,
+          ],
+          icon: Icons.local_offer_outlined,
+        ),
+      );
     }
 
     if (hasOld) {
-      cards.add(OfferCard(
-        title: 'Existing Doctor',
-        discount: oldDoctorDiscount!.toDouble(),
-        oldPrice: basePrice,
-        newPrice: (basePrice != null)
-            ? _applyDiscount(basePrice!, oldDoctorDiscount!)
-            : null,
-        gradientColors: [
-          Colors.pinkAccent,
-          Colors.deepPurple,
-        ],
-        icon: Icons.workspace_premium_rounded,
-      ));
+      cards.add(
+        OfferCard(
+          title: 'Existing Doctor',
+          discount: oldDoctorDiscount!.toDouble(),
+          oldPrice: basePrice,
+          newPrice: (basePrice != null)
+              ? _applyDiscount(basePrice!, oldDoctorDiscount!)
+              : null,
+          gradientColors: const [
+            Colors.pinkAccent,
+            Colors.deepPurple,
+          ],
+          icon: Icons.workspace_premium_rounded,
+        ),
+      );
     }
 
     return Column(
@@ -99,7 +103,7 @@ class OfferSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 80, // Reduced height
+          height: 80,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: cards.length,
@@ -121,13 +125,14 @@ class OfferCard extends StatelessWidget {
   final IconData icon;
 
   const OfferCard({
+    Key? key,
     required this.title,
     required this.discount,
     required this.oldPrice,
     required this.newPrice,
     required this.gradientColors,
     required this.icon,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -139,18 +144,21 @@ class OfferCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         gradient: LinearGradient(
-            colors: gradientColors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight),
+          colors: gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
       ),
       child: Stack(
         children: [
-
           Positioned(
             top: -4,
             right: -4,
-            child: Icon(Icons.auto_awesome_rounded,
-                color: Colors.white.withOpacity(0.2), size: 36),
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              color: Colors.white.withOpacity(0.2),
+              size: 36,
+            ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,17 +180,20 @@ class OfferCard extends StatelessWidget {
                   ),
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.white30, width: 0.5),
                     ),
-                    child: const Text('Limited',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500)),
+                    child: const Text(
+                      'Limited',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -193,18 +204,22 @@ class OfferCard extends StatelessWidget {
                   Text(
                     '৳${_formatPrice(discount)}',
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 22,
-                        height: 0.9),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 22,
+                      height: 0.9,
+                    ),
                   ),
                   const SizedBox(width: 4),
-                  const Text('OFF',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14)),
-                  Spacer(),
+                  const Text(
+                    'OFF',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const Spacer(),
                   if (oldPrice != null && newPrice != null)
                     Row(
                       children: [
@@ -220,7 +235,9 @@ class OfferCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 3),
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: isDark
                                 ? Colors.black.withOpacity(0.25)
@@ -248,21 +265,19 @@ class OfferCard extends StatelessWidget {
   }
 
   String _formatPrice(double v) {
-
     if (v == v.roundToDouble()) {
       return v.toStringAsFixed(0).replaceAllMapped(
-            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
             (Match m) => '${m[1]},',
-          );
+      );
     }
+
     return v.toStringAsFixed(2).replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
           (Match m) => '${m[1]},',
-        );
+    );
   }
 }
-
-// ---------------- Expandable HTML Section (unchanged) ----------------
 
 class ExpandableHtmlSection extends StatefulWidget {
   final String title;
@@ -270,10 +285,11 @@ class ExpandableHtmlSection extends StatefulWidget {
   final List<Color> gradientColors;
 
   const ExpandableHtmlSection({
+    Key? key,
     required this.title,
     required this.htmlContent,
     required this.gradientColors,
-  });
+  }) : super(key: key);
 
   @override
   State<ExpandableHtmlSection> createState() => ExpandableHtmlSectionState();
@@ -282,6 +298,7 @@ class ExpandableHtmlSection extends StatefulWidget {
 class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
   bool _expanded = false;
   bool _shouldAllowExpand = false;
+
   static const _fontSize = 15.0;
   static const _lineHeight = 1.5;
   static const _maxLinesCollapsed = 3;
@@ -296,8 +313,8 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
 
   void _recomputeShouldExpand(BuildContext context) {
     final box = context.findRenderObject() as RenderBox?;
-    final width = box?.constraints.maxWidth ??
-        MediaQuery.of(context).size.width - 32;
+    final width =
+        box?.constraints.maxWidth ?? MediaQuery.of(context).size.width - 32;
     if (width <= 0) return;
 
     final plain = _stripHtml(widget.htmlContent);
@@ -305,6 +322,7 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
       text: plain,
       style: const TextStyle(fontSize: _fontSize, height: _lineHeight),
     );
+
     final tp = TextPainter(
       text: textSpan,
       textDirection: TextDirection.ltr,
@@ -362,7 +380,7 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
     final collapsedHeight = _fontSize * _lineHeight * _maxLinesCollapsed;
 
     return CustomBlobBackground(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1E2125) : Colors.white,
       blobColor: Colors.blueAccent,
       child: Container(
         decoration: BoxDecoration(
@@ -375,7 +393,6 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
           children: [
             sectionHeader,
             const SizedBox(height: 12),
-
             if (!_shouldAllowExpand || _expanded)
               Html(
                 data: widget.htmlContent,
@@ -392,7 +409,6 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
                 },
               )
             else
-
               Stack(
                 children: [
                   ClipRect(
@@ -426,9 +442,13 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              (isDark ? const Color(0xFF1E2125) : Colors.white)
+                              (isDark
+                                  ? const Color(0xFF1E2125)
+                                  : Colors.white)
                                   .withOpacity(0),
-                              (isDark ? const Color(0xFF1E2125) : Colors.white),
+                              (isDark
+                                  ? const Color(0xFF1E2125)
+                                  : Colors.white),
                             ],
                           ),
                         ),
@@ -437,7 +457,6 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
                   ),
                 ],
               ),
-
             if (_shouldAllowExpand) const SizedBox(height: 8),
             if (_shouldAllowExpand)
               GestureDetector(
@@ -470,7 +489,151 @@ class ExpandableHtmlSectionState extends State<ExpandableHtmlSection> {
   }
 }
 
-// ---------------- Generic info pill (unchanged) ----------------
+
+class FreeBatchBanner extends StatefulWidget {
+  const FreeBatchBanner({Key? key}) : super(key: key);
+
+  @override
+  State<FreeBatchBanner> createState() => _FreeBatchBannerState();
+}
+
+class _FreeBatchBannerState extends State<FreeBatchBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnim;
+  late final Animation<double> _glowAnim;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+
+    _scaleAnim = Tween<double>(begin: 1.0, end: 1.06).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _glowAnim = Tween<double>(begin: 0.18, end: 0.34).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColor.indigo,
+            AppColor.purple,
+            AppColor.blue,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.16),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+
+
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.22),
+                    width: 1,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'This Batch is Free',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: _scaleAnim.value,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColor.primaryColor,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.white.withOpacity(_glowAnim.value),
+                              blurRadius: 12,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          'FREE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.6,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class BatchInfoPill extends StatelessWidget {
   final IconData icon;
@@ -479,11 +642,12 @@ class BatchInfoPill extends StatelessWidget {
   final Color iconColor;
 
   const BatchInfoPill({
+    Key? key,
     required this.icon,
     required this.label,
     required this.bg,
     required this.iconColor,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -502,7 +666,11 @@ class BatchInfoPill extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: Sizes.extraSmallIcon(context), color: iconColor),
+          Icon(
+            icon,
+            size: Sizes.extraSmallIcon(context),
+            color: iconColor,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -521,5 +689,3 @@ class BatchInfoPill extends StatelessWidget {
     );
   }
 }
-
-

@@ -17,45 +17,39 @@ Future<void> onEnrollPressed({
   required String time,
   required String days,
   required String startDate,
+  required bool isFreeBatch,
 }) async {
-  // 1) Check auth
   final authed = await AuthChecker.to.isAuthenticated();
 
-  // 2) If not authed, go to login and wait for a result
   if (!authed) {
-    Get.snackbar('Login Required', 'Please log in to enroll in $title.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: Duration(seconds: 3));
-
+    Get.snackbar(
+      'Login Required',
+      'Please log in to enroll in $title.',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 3),
+    );
 
     final result = await Get.toNamed(
       RouteNames.login,
       arguments: {
         'popOnSuccess': true,
-        'returnRoute': null, // Explicitly set to null
+        'returnRoute': null,
         'returnArguments': null,
-        'message': "You’re almost there! join us to enroll in '$title'.",
+        'message': "You’re almost there! Join us to enroll in '$title'.",
       },
     );
 
-
-
     print('Login/Registration screen returned with result: $result');
 
-    // Check if user completed authentication successfully (either login OR registration)
     if (result == true) {
-      // Give a small delay to ensure auth state is updated
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Verify authentication was successful
       final isNowAuthenticated = await AuthChecker.to.isAuthenticated();
       print('After auth flow, authentication status: $isNowAuthenticated');
 
       if (isNowAuthenticated) {
-        // User successfully authenticated (either login or registration)
-        // Now proceed with enrollment
         await PaymentNavigator.go(
           batchId: batchId,
           coursePackageId: coursePackageId,
@@ -66,16 +60,16 @@ Future<void> onEnrollPressed({
           time: time,
           days: days,
           startDate: startDate,
+          isFreeBatch: isFreeBatch,
         );
       } else {
         print('User completed auth flow but authentication failed');
       }
     } else {
       print('User cancelled auth flow');
-      return; // User cancelled or failed authentication
+      return;
     }
   } else {
-    // 3) User is already authenticated - proceed directly to enrollment
     await PaymentNavigator.go(
       batchId: batchId,
       coursePackageId: coursePackageId,
@@ -86,6 +80,7 @@ Future<void> onEnrollPressed({
       time: time,
       days: days,
       startDate: startDate,
+      isFreeBatch: isFreeBatch,
     );
   }
 }
@@ -103,12 +98,12 @@ class PaymentNavigator {
     required String time,
     required String days,
     required String startDate,
+    required bool isFreeBatch,
   }) async {
     print('Starting enrollment process for batchPackageId: $batchPackageId');
 
     final dialogController = EnrollmentDialogController();
 
-    // One dialog shared by all states; stays centered.
     Get.dialog(
       EnrollmentDialog(controller: dialogController),
       barrierDismissible: false,
@@ -116,14 +111,15 @@ class PaymentNavigator {
 
     try {
       dialogController.showLoading(
-          title: 'Enrolling you…',
-          subtitle: "We're reserving your seat 🎟️",
+        title: 'Enrolling you…',
+        subtitle: isFreeBatch
+            ? "We're confirming your free seat 🎟️"
+            : "We're reserving your seat 🎟️",
       );
 
       final service = BatchEnrollmentService();
       final response = await service.enrollInBatch(batchPackageId);
 
-      // -------- Helpers --------
       bool? _asBool(dynamic v) {
         if (v is bool) return v;
         if (v is num) return v != 0;
@@ -159,11 +155,9 @@ class PaymentNavigator {
       }
 
       String? _extractAdmissionId(dynamic v) {
-        // Direct string or primitive id
         if (v is String && v.trim().isNotEmpty) return v.trim();
         if (v is num) return v.toString();
 
-        // Map shapes: admission: { id }, or admission_id, or id
         final m = _asMap(v);
         if (m == null) return null;
 
@@ -182,7 +176,6 @@ class PaymentNavigator {
         return null;
       }
 
-      // -------- Extract fields from response --------
       final dynamic data = response.responseData;
 
       bool? isEnroll;
@@ -192,7 +185,6 @@ class PaymentNavigator {
       String? admissionId;
 
       if (data is BatchEnrollmentModel) {
-        // Expected success model
         admissionId = data.admission?.id?.toString();
         isEnroll = true;
       } else {
@@ -204,16 +196,14 @@ class PaymentNavigator {
           batchPackage = map['batch_package'];
           admissionId = _extractAdmissionId(map);
         } else {
-          // Sometimes response may directly be an id or admission payload
           admissionId = _extractAdmissionId(data) ?? _asString(data);
         }
       }
 
-      print('Enrollment response - isEnroll: $isEnroll, admissionId: $admissionId, alreadyEnrolled: $alreadyEnrolled');
+      print(
+        'Enrollment response - isEnroll: $isEnroll, admissionId: $admissionId, alreadyEnrolled: $alreadyEnrolled',
+      );
 
-      // -------- Branching logic --------
-
-      // A) Already enrolled – flag or message hints
       final looksAlreadyEnrolled = alreadyEnrolled ||
           _containsIgnoreCase(
             serverMessage,
@@ -227,8 +217,8 @@ class PaymentNavigator {
       if (looksAlreadyEnrolled) {
         dialogController.showInfo(
           title: "You're already enrolled",
-        subtitle: serverMessage ??
-        'Dear doctor, you have already filled admission form for this batch.',
+          subtitle: serverMessage ??
+              'Dear doctor, you have already filled admission form for this batch.',
         );
         await Future.delayed(const Duration(milliseconds: 2000));
         if (Get.isDialogOpen == true) Get.back();
@@ -236,8 +226,9 @@ class PaymentNavigator {
         return;
       }
 
-      // B) Wrong/unknown batchPackage or explicit negative enroll
-      final noBatchPackageInfo = batchPackage == null || batchPackage.toString().isEmpty;
+      final noBatchPackageInfo =
+          batchPackage == null || batchPackage.toString().isEmpty;
+
       if (isEnroll == false && noBatchPackageInfo) {
         dialogController.showFailure(
           title: 'Enrollment failed',
@@ -246,24 +237,37 @@ class PaymentNavigator {
         return;
       }
 
-      // C) Success → we mainly need admissionId for payment
       if ((admissionId != null && admissionId.isNotEmpty) || isEnroll == true) {
+        if (isFreeBatch) {
+          dialogController.showSuccess(
+            title: 'Enrollment completed! 🎉',
+            subtitle:
+            'This batch is free. No payment is needed. Taking you to home…',
+          );
+
+          await Future.delayed(const Duration(seconds: 2));
+
+          if (Get.isDialogOpen == true) Get.back();
+
+          await Future.delayed(const Duration(milliseconds: 150));
+
+          Get.offAllNamed(RouteNames.navBar, arguments: 0);
+          return;
+        }
+
         dialogController.showSuccess(
           title: 'Enrollment done! 🎉',
           subtitle: 'Taking you to payment…',
         );
 
-        // ⏳ Give users time to read the success
-        const successHold = Duration(seconds: 2);
-        await Future.delayed(successHold);
+        await Future.delayed(const Duration(seconds: 2));
 
         if (Get.isDialogOpen == true) Get.back();
 
-        // Small gap so the route push feels smooth after the dialog closes
         await Future.delayed(const Duration(milliseconds: 150));
 
         final paymentData = {
-          'admissionId': admissionId ?? '', // safe pass-through
+          'admissionId': admissionId ?? '',
         };
 
         print('Navigating to payment with admissionId: $admissionId');
@@ -275,13 +279,11 @@ class PaymentNavigator {
         return;
       }
 
-      // D) Fallback failure
       dialogController.showFailure(
         title: 'Enrollment failed',
         subtitle: 'Please try again.',
       );
 
-      // log
       print('Error: ${response.errorMessage}');
     } catch (e) {
       dialogController.showFailure(
@@ -289,7 +291,6 @@ class PaymentNavigator {
         subtitle: 'Please try again.',
       );
 
-      // log
       print('Error: $e');
     }
   }
