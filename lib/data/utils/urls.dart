@@ -34,7 +34,8 @@ class Urls {
   static const String wrongSkippedQus = "${_baseUrl}doctor/dashboard/exams/summary";
   static const String favourites = "${_baseUrl}doctor/favourites";
   static const String favouritesToggleAddRemove = "${_baseUrl}doctor/favourites/add";
-  static String smartSearchKeywordsAll = "${_baseUrl}doctor/smart-search/keywords/all";
+  static const String smartSearchKeywordsAll = "${_baseUrl}doctor/smart-search/keywords/all";
+  static const String careerGuidelines = "${_baseUrl}career-guidelines/folders";
 
 
 
@@ -180,6 +181,10 @@ class Urls {
   }
   static String smartSearchQuestions(String query) {
     return "${_baseUrl}doctor/smart-search/questions?q=$query";
+  }
+
+  static String careerGuidelineFolder(String folderId) {
+    return "${_baseUrl}career-guidelines/folders/$folderId";
   }
 
 

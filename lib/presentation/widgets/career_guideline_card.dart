@@ -5,37 +5,41 @@ import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 
-class EasyFinderCard extends StatefulWidget {
+class CareerGuidelineCard extends StatefulWidget {
   final String title;
 
-  /// Named navigation (optional)
+  /// Optional direct navigation route
   final String? routeName;
   final Map<String, dynamic>? arguments;
 
-  /// Custom navigation callback (optional)
+  /// Optional custom callback after auth
   final VoidCallback? onAuthedNavigate;
 
-  /// Require auth gate (default true)
+  /// Auth gate
   final bool requireAuth;
 
-  /// Optional: show trailing arrow
+  /// Optional trailing arrow
   final bool showArrow;
 
-  const EasyFinderCard({
+  /// Subtitle text
+  final String subtitle;
+
+  const CareerGuidelineCard({
     super.key,
-    this.title = 'Easy Finder',
+    this.title = 'Post Graduation Guideline',
     this.routeName,
     this.arguments,
     this.onAuthedNavigate,
     this.requireAuth = true,
     this.showArrow = true,
+    this.subtitle = 'Browse folders and resources instantly',
   });
 
   @override
-  State<EasyFinderCard> createState() => _EasyFinderCardState();
+  State<CareerGuidelineCard> createState() => _CareerGuidelineCardState();
 }
 
-class _EasyFinderCardState extends State<EasyFinderCard>
+class _CareerGuidelineCardState extends State<CareerGuidelineCard>
     with TickerProviderStateMixin {
   late final AnimationController _pressCtrl;
   late final AnimationController _pulseCtrl;
@@ -44,7 +48,6 @@ class _EasyFinderCardState extends State<EasyFinderCard>
   void initState() {
     super.initState();
 
-    // ✅ Press feedback (like your banner)
     _pressCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 120),
@@ -52,7 +55,6 @@ class _EasyFinderCardState extends State<EasyFinderCard>
       upperBound: 1,
     );
 
-    // ✅ Icon pulse (like _FreeBadge)
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -82,15 +84,13 @@ class _EasyFinderCardState extends State<EasyFinderCard>
     }
 
     Get.toNamed(
-      RouteNames.easyFinderScreen,
+      RouteNames.careerGuidelineScreen,
+      arguments: widget.arguments,
       preventDuplicates: true,
-
     );
-
   }
 
   Future<void> _handleTap() async {
-    // press animation
     await _pressCtrl.forward();
     await _pressCtrl.reverse();
 
@@ -99,7 +99,6 @@ class _EasyFinderCardState extends State<EasyFinderCard>
       return;
     }
 
-    // auth gate
     final authed = await AuthChecker.to.isAuthenticated();
     if (!authed) {
       Get.snackbar(
@@ -137,11 +136,9 @@ class _EasyFinderCardState extends State<EasyFinderCard>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Search-bar size (compact, but premium)
     const double h = 58;
     final borderRadius = BorderRadius.circular(20);
 
-    // Inner background (search bar feel)
     final innerBg = isDark
         ? Colors.grey.shade900.withOpacity(0.60)
         : Colors.white.withOpacity(0.92);
@@ -153,11 +150,8 @@ class _EasyFinderCardState extends State<EasyFinderCard>
       child: AnimatedBuilder(
         animation: Listenable.merge([_pressCtrl, _pulseCtrl]),
         builder: (context, _) {
-          // press scale (like your banner)
           final pressScale = 1.0 - (_pressCtrl.value * 0.028);
-
-          // icon pulse (like _FreeBadge)
-          final pulse = _pulseCtrl.value; // 0..1
+          final pulse = _pulseCtrl.value;
           final iconScale = 1.0 + pulse * 0.10;
           final iconGlowOpacity = 0.18 + pulse * 0.22;
 
@@ -173,7 +167,6 @@ class _EasyFinderCardState extends State<EasyFinderCard>
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: borderRadius,
-                      // ✅ gradient border shell (eye-catchy)
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -192,7 +185,7 @@ class _EasyFinderCardState extends State<EasyFinderCard>
                       ],
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(1.4), // gradient border thickness
+                      padding: const EdgeInsets.all(1.4),
                       child: ClipRRect(
                         borderRadius: borderRadius,
                         child: Container(
@@ -202,7 +195,6 @@ class _EasyFinderCardState extends State<EasyFinderCard>
                           ),
                           child: Stack(
                             children: [
-                              // subtle decorative blob/circle (like your banner)
                               Positioned(
                                 right: -30,
                                 top: -35,
@@ -215,12 +207,13 @@ class _EasyFinderCardState extends State<EasyFinderCard>
                                   ),
                                 ),
                               ),
-
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
                                 child: Row(
                                   children: [
-                                    // ✅ Icon bubble with pulse scale + glow
                                     Transform.scale(
                                       scale: iconScale,
                                       child: Container(
@@ -252,20 +245,17 @@ class _EasyFinderCardState extends State<EasyFinderCard>
                                           ],
                                         ),
                                         child: const Icon(
-                                          Icons.manage_search_rounded,
+                                          Icons.school_rounded,
                                           color: Colors.white,
                                           size: 20,
                                         ),
                                       ),
                                     ),
-
                                     const SizedBox(width: 12),
-
-                                    // ✅ Search-bar hint text style
-                                    // ✅ Title + Subtitle
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -283,20 +273,21 @@ class _EasyFinderCardState extends State<EasyFinderCard>
                                           ),
                                           const SizedBox(height: 3),
                                           Text(
-                                            'Find any question instantly',
+                                            widget.subtitle,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              fontSize: Sizes.verySmallText(context),
+                                              fontSize:
+                                              Sizes.verySmallText(context),
                                               fontWeight: FontWeight.w600,
-                                              color: hintColor.withOpacity(0.72),
+                                              color:
+                                              hintColor.withOpacity(0.72),
                                               height: 1.0,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-
                                     if (widget.showArrow) ...[
                                       const SizedBox(width: 8),
                                       Icon(
@@ -315,8 +306,6 @@ class _EasyFinderCardState extends State<EasyFinderCard>
                     ),
                   ),
                 ),
-
-                // ✅ Optional tiny “spark” dot (extra eye-candy, still search-bar-ish)
                 Positioned(
                   left: 42,
                   top: 10,
@@ -330,7 +319,8 @@ class _EasyFinderCardState extends State<EasyFinderCard>
                         color: Colors.amber.withOpacity(0.9),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.amber.withOpacity(0.30 + _pulseCtrl.value * 0.30),
+                            color: Colors.amber
+                                .withOpacity(0.30 + _pulseCtrl.value * 0.30),
                             blurRadius: 10,
                             spreadRadius: 1,
                           ),
@@ -343,43 +333,6 @@ class _EasyFinderCardState extends State<EasyFinderCard>
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// ✅ Placeholder screen (replace later with your Smart Search screen)
-class EasyFinderPlaceholderScreen extends StatelessWidget {
-  const EasyFinderPlaceholderScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Easy Finder')),
-      body: Center(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          margin: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: isDark ? Colors.grey[900] : Colors.white,
-            border: Border.all(color: Colors.grey.withOpacity(0.15)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: const Text(
-            'Smart Search screen will be implemented here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
       ),
     );
   }

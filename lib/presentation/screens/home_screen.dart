@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:in_app_update/in_app_update.dart';
+import 'package:logger/logger.dart';
 import 'package:medi_exam/data/models/active_course_specialties_subjects_model.dart';
+import 'package:medi_exam/data/models/career_guidelines_model.dart';
 import 'package:medi_exam/data/models/courses_model.dart';
+import 'package:medi_exam/data/models/exam_property_model.dart';
 import 'package:medi_exam/data/models/helpline_model.dart';
+import 'package:medi_exam/data/models/open_exam_list_model.dart';
 import 'package:medi_exam/data/models/slide_items_model.dart';
+import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/data/services/active_batch_courses_service.dart';
 import 'package:medi_exam/data/services/active_course_specialties_subjects_service.dart';
+import 'package:medi_exam/data/services/career_guidelines_service.dart';
+import 'package:medi_exam/data/services/exam_property_service.dart';
 import 'package:medi_exam/data/services/helpline_service.dart';
+import 'package:medi_exam/data/services/open_exam_list_service.dart';
+import 'package:medi_exam/data/services/public_open_exam_service.dart';
 import 'package:medi_exam/data/services/slide_items_service.dart';
 import 'package:medi_exam/data/utils/auth_checker.dart';
 import 'package:medi_exam/data/utils/urls.dart';
@@ -16,31 +25,21 @@ import 'package:medi_exam/presentation/utils/assets_path.dart';
 import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/available_course_container_widget.dart';
+import 'package:medi_exam/presentation/widgets/career_guideline_card.dart';
+import 'package:medi_exam/presentation/widgets/career_guideline_dialog.dart';
+import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/easy_finder_card.dart';
+import 'package:medi_exam/presentation/widgets/exam_overview_dialog.dart';
 import 'package:medi_exam/presentation/widgets/floating_customer_care.dart';
-import 'package:medi_exam/presentation/widgets/free_exam_card.dart';
 import 'package:medi_exam/presentation/widgets/free_exam_notify_dialog.dart';
 import 'package:medi_exam/presentation/widgets/helpers/batch_details_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/helpers/home_screen_helpers.dart';
 import 'package:medi_exam/presentation/widgets/image_slider_banner.dart';
+import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/login_offer_dialog.dart';
+import 'package:medi_exam/presentation/widgets/pinned_free_exam_banner.dart';
 import 'package:medi_exam/presentation/widgets/youtube_video_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-// ✅ NEW imports for pinned exam
-import 'package:logger/logger.dart';
-import 'package:medi_exam/data/models/open_exam_list_model.dart';
-import 'package:medi_exam/data/network_response.dart';
-import 'package:medi_exam/data/services/open_exam_list_service.dart';
-import 'package:medi_exam/data/services/public_open_exam_service.dart';
-import 'package:medi_exam/presentation/widgets/pinned_free_exam_banner.dart';
-
-// ✅ Reuse overview flow (same as OpenExamListScreen)
-import 'package:medi_exam/data/models/exam_property_model.dart';
-import 'package:medi_exam/data/services/exam_property_service.dart';
-import 'package:medi_exam/presentation/widgets/exam_overview_dialog.dart';
-import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
-import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,6 +56,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final SlidingItemsService _slidingItemsService = SlidingItemsService();
   final HelplineService _helplineService = HelplineService();
+  final CareerGuidelinesService _careerGuidelinesService =
+  CareerGuidelinesService();
 
   CoursesModel? _batchCourses;
   CoursesModel? _subjectCourses;
@@ -76,7 +77,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _slidingErrorMessage;
   String? _helplineError;
 
-  // -------------------- ✅ PINNED EXAM STATE --------------------
   final _logger = Logger();
   final PublicOpenExamService _publicOpenExamService = PublicOpenExamService();
   final OpenExamListService _doctorOpenExamService = OpenExamListService();
@@ -85,7 +85,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isPinnedLoading = true;
   String? _pinnedError;
   OpenExamModel? _pinnedExam;
-  // -------------------------------------------------------------
 
   @override
   void initState() {
@@ -94,16 +93,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FreeExamNotifyDialogManager.maybeShow(context: context);
-
-    LoginOfferPromptManager.maybeShow(context: context);
-
+      LoginOfferPromptManager.maybeShow(context: context);
     });
   }
 
   Future<void> _fetchData() async {
     await Future.wait([
       _checkForUpdate(),
-      _fetchPinnedExam(), // ✅ pinned first
+      _fetchPinnedExam(),
       _fetchBatchCourses(),
       _fetchSubjectWiseSpecialtiesAndSubjects(),
       _fetchSlidingItems(),
@@ -111,7 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
-  // -------------------- ✅ FETCH PINNED FROM PUBLIC ENDPOINT --------------------
   Future<void> _fetchPinnedExam() async {
     setState(() {
       _isPinnedLoading = true;
@@ -120,10 +116,9 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      // ✅ Public endpoint (no token)
       final NetworkResponse res =
       await _publicOpenExamService.fetchPublicFreeOpenExams(
-        Urls.openExamPublicList, // ✅ add this in Urls (see section at bottom)
+        Urls.openExamPublicList,
       );
 
       if (res.isSuccess && res.responseData is OpenExamListModel) {
@@ -155,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
-  // ---------------------------------------------------------------------------
 
   Future<void> _fetchBatchCourses() async {
     try {
@@ -311,15 +305,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _slideItemsModel = null;
       _helpline = null;
 
-      // pinned reset
       _isPinnedLoading = true;
       _pinnedError = null;
       _pinnedExam = null;
     });
+
     _fetchData();
   }
 
-  // ---------- Promo Video helpers ----------
   bool get _isDesktopLike {
     final w = MediaQuery.of(context).size.width;
     return w >= 900;
@@ -430,7 +423,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ---------------- Free Exam handler (existing) ----------------
   Future<void> _onFreeExamPressed() async {
     final authed = await AuthChecker.to.isAuthenticated();
 
@@ -475,12 +467,55 @@ class _HomeScreenState extends State<HomeScreen> {
     await goNow();
   }
 
-  // ---------------- ✅ PINNED EXAM TAP FLOW ----------------
+  Future<void> _onCareerGuidelinePressed() async {
+    showCareerGuidelineLoadingDialog(context);
+
+    try {
+      final response = await _careerGuidelinesService.fetchCareerGuidelines();
+
+      if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (response.isSuccess &&
+          response.responseData is CareerGuidelinesListModel) {
+        final model = response.responseData as CareerGuidelinesListModel;
+
+        if (!mounted) return;
+
+        await showCareerGuidelineDialog(
+          context: context,
+          model: model,
+          title: 'Post Graduation Guideline',
+        );
+      } else {
+        Get.snackbar(
+          'Failed',
+          response.errorMessage ?? 'Failed to load guidelines',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+          colorText: Colors.black,
+        );
+      }
+    } catch (e) {
+      if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      Get.snackbar(
+        'Failed',
+        'Network error: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade100,
+        colorText: Colors.black,
+      );
+    }
+  }
+
   Future<void> _onPinnedExamPressed() async {
     final pinned = _pinnedExam;
     if (pinned == null || pinned.safeExamId == 0) return;
 
-    // 1) auth gate
     final authed = await AuthChecker.to.isAuthenticated();
     if (!authed) {
       Get.snackbar(
@@ -511,7 +546,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    // 2) show loader
     Get.dialog(
       const Center(
         child: CustomBlobBackground(
@@ -527,7 +561,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     try {
-      // 3) doctor list (has status)
       final NetworkResponse res =
       await _doctorOpenExamService.fetchFreeExamList(Urls.openExamList);
 
@@ -545,10 +578,8 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
-      // fallback to pinned object if not found for any reason
       target ??= pinned;
 
-      // 4) decide action
       final status = _resolveDoctorExamStatus(target);
 
       if (Get.isDialogOpen == true) Get.back();
@@ -567,7 +598,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // available OR running -> open overview (same as OpenExamListScreen)
       await _openFreeExamOverviewByExamId(target.safeExamId);
     } catch (e) {
       if (Get.isDialogOpen == true) Get.back();
@@ -586,13 +616,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final list = exam.doctorOpenExam;
     if (list == null || list.isEmpty) return _DoctorExamResolvedStatus.available;
 
-    // if ANY record is Completed => completed
     for (final e in list) {
       final s = (e.status ?? '').toLowerCase().trim();
       if (s == 'completed') return _DoctorExamResolvedStatus.completed;
     }
 
-    // otherwise assume running/started
     return _DoctorExamResolvedStatus.running;
   }
 
@@ -644,7 +672,6 @@ class _HomeScreenState extends State<HomeScreen> {
       rethrow;
     }
   }
-  // -----------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -661,10 +688,10 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: isDark ? Colors.grey[800] : Colors.white,
           child: CustomScrollView(
             slivers: [
-              // Header
               SliverToBoxAdapter(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -689,7 +716,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // ✅ PINNED EXAM (TOP)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -700,7 +726,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // Slider
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -721,7 +746,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // Subject Wise
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 16 : 24,
+                    vertical: 8,
+                  ),
+                  child: CareerGuidelineCard(
+                    title: 'Post Graduation Guideline',
+                    subtitle: 'Browse guideline and resources instantly',
+                    requireAuth: false,
+                    onAuthedNavigate: _onCareerGuidelinePressed,
+                  ),
+                ),
+              ),
+
+
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -740,7 +781,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              // Batch Wise
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -753,31 +793,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     model: _batchCourses,
                     showFreeExamRibbon: true,
                     title: "Batch Wise Preparation",
-                    subtitle: "Choose a batch and try free exams to check your level",
+                    subtitle:
+                    "Choose a batch and try free exams to check your level",
                     isBatch: true,
                   ),
                 ),
               ),
 
-/*              // Free exam card
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 16 : 24,
-                    vertical: 8,
-                  ),
-                  child: FreeExamCardButton(
-                    onTap: _onFreeExamPressed,
-                  ),
-                ),
-              ),*/
+
 
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
           ),
         ),
 
-        // Floating Customer Care
         Positioned.fill(
           child: IgnorePointer(
             ignoring: false,
@@ -799,7 +828,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildPinnedExamSection() {
     if (_isPinnedLoading) {
-      // simple skeleton
       return Container(
         height: 86,
         decoration: BoxDecoration(
@@ -810,14 +838,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_pinnedError != null) {
-      // silently hide or show a small retry row (your call)
       return const SizedBox.shrink();
     }
 
     final pinned = _pinnedExam;
     if (pinned == null) return const SizedBox.shrink();
 
-    final examTitle = pinned.safeTitle.isNotEmpty ? pinned.safeTitle : 'Pinned Free Exam';
+    final examTitle =
+    pinned.safeTitle.isNotEmpty ? pinned.safeTitle : 'Pinned Free Exam';
     final courseName = pinned.course?.name ?? '';
 
     return PinnedFreeExamBanner(
@@ -896,8 +924,9 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           } else {
             final sid = package.packageId;
-            final subjects =
-            (sid == null) ? <Subject>[] : (_subjectsBySpecialty[sid] ?? <Subject>[]);
+            final subjects = (sid == null)
+                ? <Subject>[]
+                : (_subjectsBySpecialty[sid] ?? <Subject>[]);
 
             Get.toNamed(
               RouteNames.subjectWisePreparation,

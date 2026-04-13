@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/screens/available_batches_screen.dart';
 import 'package:medi_exam/presentation/screens/batch_schedule_screen.dart';
+import 'package:medi_exam/presentation/screens/career_guideline_screen.dart';
 import 'package:medi_exam/presentation/screens/change_password_screen.dart';
 import 'package:medi_exam/presentation/screens/courses_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/dashboard_screen.dart';
@@ -86,6 +87,7 @@ class RouteNames {
   static const String wrongSkippedQuestions = '/wrongSkippedQuestions';
   static const String favouriteQuestionsList = '/favouriteQuestionsList';
   static const String easyFinderScreen = '/easyFinderScreen';
+  static const String careerGuidelineScreen = '/careerGuidelineScreen';
 }
 
 // Define routes
@@ -240,9 +242,15 @@ final List<GetPage> appRoutes = [
     page: () => const FavouriteQuestionsListScreen(),
   ),
 
+
   GetPage(
     name: RouteNames.easyFinderScreen,
     page: () => const EasyFinderScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.careerGuidelineScreen,
+    page: () => const CareerGuidelineScreen(),
   ),
 
 ];
