@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+
 class BannerImage extends StatelessWidget {
   final String? url;
 
@@ -32,7 +33,7 @@ class BannerImage extends StatelessWidget {
         children: [
           const _BannerPatternBackground(),
 
-          // blurred image fills the whole banner background
+          // blurred image in full background
           if (_hasValidUrl)
             Positioned.fill(
               child: ClipRect(
@@ -48,7 +49,7 @@ class BannerImage extends StatelessWidget {
               ),
             ),
 
-          // dark overlay for better look
+          // dark overlay
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -64,26 +65,35 @@ class BannerImage extends StatelessWidget {
             ),
           ),
 
-          // main image: takes maximum possible square space
+          // main image shown in 16:9 ratio
           LayoutBuilder(
             builder: (context, constraints) {
-              final double horizontalPadding = 12;
-              final double verticalPadding = 12;
+              const double horizontalPadding = 12;
+              const double verticalPadding = 12;
+              const double ratio = 16 / 9;
 
-              final double maxImageSize = math.min(
-                constraints.maxHeight - (verticalPadding * 2),
-                constraints.maxWidth - (horizontalPadding * 2),
-              );
+              final double availableWidth =
+                  constraints.maxWidth - (horizontalPadding * 2);
+              final double availableHeight =
+                  constraints.maxHeight - (verticalPadding * 2);
+
+              double imageWidth = availableWidth;
+              double imageHeight = imageWidth / ratio;
+
+              if (imageHeight > availableHeight) {
+                imageHeight = availableHeight;
+                imageWidth = imageHeight * ratio;
+              }
 
               return Padding(
-                padding: EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: horizontalPadding,
                   vertical: verticalPadding,
                 ),
                 child: Center(
                   child: Container(
-                    width: maxImageSize,
-                    height: maxImageSize,
+                    width: imageWidth,
+                    height: imageHeight,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
                       color: Colors.white.withOpacity(0.08),
@@ -123,7 +133,7 @@ class BannerImage extends StatelessWidget {
 
     return Image.network(
       url!,
-      fit: BoxFit.contain,
+      fit: BoxFit.cover,
       alignment: Alignment.center,
       filterQuality: FilterQuality.high,
       loadingBuilder: (context, child, progress) {

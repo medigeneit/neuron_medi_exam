@@ -31,14 +31,14 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
   bool _isLoading = true;
   String _errorMessage = '';
 
-  late String batchId;
-  late String coursePackageId;
-  late String imageUrl;
-  late String time;
-  late String days;
-  late String startDate;
-  late String title;
-  late String subTitle;
+  String batchId = '';
+  String coursePackageId = '';
+  String imageUrl = '';
+  String time = '';
+  String days = '';
+  String startDate = '';
+  String title = '';
+  String subTitle = '';
 
   @override
   void initState() {
@@ -49,14 +49,15 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
 
   void _extractArguments() {
     final arguments = Get.arguments ?? {};
-    batchId = arguments['batchId'] ?? '';
-    coursePackageId = arguments['coursePackageId'] ?? '';
-    imageUrl = arguments['imageUrl'] ?? '';
-    time = arguments['time'] ?? '';
-    days = arguments['days'] ?? '';
-    startDate = arguments['startDate'] ?? '';
-    title = arguments['title'] ?? '';
-    subTitle = arguments['subTitle'] ?? '';
+
+    batchId = (arguments['batchId'] ?? '').toString();
+    coursePackageId = (arguments['coursePackageId'] ?? '').toString();
+    imageUrl = (arguments['imageUrl'] ?? '').toString();
+    time = (arguments['time'] ?? '').toString();
+    days = (arguments['days'] ?? '').toString();
+    startDate = (arguments['startDate'] ?? '').toString();
+    title = (arguments['title'] ?? '').toString();
+    subTitle = (arguments['subTitle'] ?? '').toString();
   }
 
   Future<void> _fetchBatchDetails() async {
@@ -77,17 +78,46 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
     await _batchDetailsService.fetchBatchDetails(batchId, coursePackageId);
 
     if (response.isSuccess && response.responseData is BatchDetailsModel) {
+      final details = response.responseData as BatchDetailsModel;
+
       setState(() {
-        _batchDetails = response.responseData as BatchDetailsModel;
+        _batchDetails = details;
+
+        // Update screen fields from API response, but keep argument value as fallback
+        imageUrl = _pickString(details.bannerUrl, imageUrl);
+        title = _pickString(details.name, title);
+
+        // Prefer coursePackageName, then courseName, then old subtitle
+        subTitle = _pickString(
+          details.coursePackageName,
+          _pickString(details.courseName, subTitle),
+        );
+
+        startDate = _formatApiDate(details.startDate, fallback: startDate);
+        days = _pickString(details.examDays, days);
+        time = _pickString(details.examTime, time);
+        coursePackageId = _pickString(details.coursePackageId, coursePackageId);
+
         _isLoading = false;
       });
     } else {
       setState(() {
         _isLoading = false;
-        _errorMessage =
-            response.errorMessage ?? 'Failed to load batch details';
+        _errorMessage = response.errorMessage ?? 'Failed to load batch details';
       });
     }
+  }
+
+  String _pickString(String? newValue, String fallback) {
+    final value = newValue?.trim() ?? '';
+    return value.isNotEmpty ? value : fallback;
+  }
+
+  String _formatApiDate(DateTime? date, {String fallback = ''}) {
+    if (date == null) return fallback;
+
+    String two(int n) => n < 10 ? '0$n' : '$n';
+    return '${date.year}-${two(date.month)}-${two(date.day)}';
   }
 
   double? _tryParsePrice(dynamic p) {
@@ -201,7 +231,7 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                   stretch: true,
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  expandedHeight: isMobile ? 260 : 420,
+                  expandedHeight: isMobile ? 220 : 340,
                   flexibleSpace: FlexibleSpaceBar(
                     stretchModes: const [
                       StretchMode.zoomBackground,
@@ -360,11 +390,13 @@ class _BatchDetailsScreenState extends State<BatchDetailsScreen> {
                                         '',
                                     'coursePackageId':
                                     _batchDetails?.coursePackageId?.toString() ??
-                                        '',
+                                        coursePackageId,
                                     'batchId': batchId,
                                     'title': title,
                                     'subTitle':
-                                    _batchDetails?.coursePackageName ?? '',
+                                    _batchDetails?.coursePackageName ??
+                                        _batchDetails?.courseName ??
+                                        subTitle,
                                     'startDate': startDate,
                                     'imageUrl': imageUrl,
                                     'time': time,

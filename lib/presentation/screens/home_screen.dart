@@ -827,9 +827,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPinnedExamSection() {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     if (_isPinnedLoading) {
       return Container(
-        height: 86,
+        height: isMobile ? 86 : 96,
         decoration: BoxDecoration(
           color: Colors.grey.withOpacity(0.12),
           borderRadius: BorderRadius.circular(16),
@@ -854,6 +856,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ? 'Course: $courseName'
           : 'Tap to start/continue your pinned free exam',
       onTap: _onPinnedExamPressed,
+      height: isMobile ? 72 : 82,
     );
   }
 
