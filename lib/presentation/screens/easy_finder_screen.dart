@@ -338,7 +338,7 @@ class _EasyFinderScreenState extends State<EasyFinderScreen> {
         _focus.hasFocus && _controller.text.trim().isNotEmpty && _suggestions.isNotEmpty;
 
     return CommonScaffold(
-      title: 'Easy Finder',
+      title: 'Smart Search',
       actions: [
         IconButton(
           tooltip: _showAllAnswers ? 'Hide answers' : 'Show answers',

@@ -13,6 +13,7 @@ class NetworkCaller {
   final Connectivity _connectivity = Connectivity();
 
   NetworkCaller({required this.logger});
+
   String? token = LocalStorageService.getString(LocalStorageService.token);
 
   // Check network connectivity
@@ -25,12 +26,14 @@ class NetworkCaller {
       }
 
       // Additional check to see if we can actually reach the internet
-      // by trying to connect to a reliable server
       try {
-        final response = await http.get(Uri.parse('https://www.google.com')).timeout(const Duration(seconds: 5));
+        final response = await http
+            .get(Uri.parse('https://www.google.com'))
+            .timeout(const Duration(seconds: 5));
+
         return response.statusCode == 200;
       } catch (e) {
-        return false; // No internet access despite having connection
+        return false;
       }
     } catch (e) {
       logger.e('Network check exception: $e');
@@ -40,7 +43,6 @@ class NetworkCaller {
 
   // Show network error snackbar
   void _showNetworkErrorSnackbar() {
-    // Check if snackbar is already showing to avoid duplicates
     if (!Get.isSnackbarOpen) {
       Get.snackbar(
         "No Internet Connection",
@@ -56,95 +58,163 @@ class NetworkCaller {
     }
   }
 
+  dynamic _decodeResponseBody(String body) {
+    try {
+      return jsonDecode(body);
+    } catch (_) {
+      return body;
+    }
+  }
+
+  String _extractErrorMessage(dynamic responseData) {
+    if (responseData is Map<String, dynamic>) {
+      return responseData['message'] ?? 'Something went wrong';
+    } else if (responseData is String) {
+      return responseData;
+    }
+
+    return 'Something went wrong';
+  }
+
+  Future<NetworkResponse> _handleUnauthorized({
+    dynamic responseData,
+  }) async {
+    logger.e('401: Unauthorized: Token expired or invalid');
+
+    await LocalStorageService.remove(LocalStorageService.token);
+
+    Get.snackbar(
+      "Session Expired",
+      "Please login again",
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 3),
+    );
+
+    Get.offAllNamed(RouteNames.login);
+
+    return NetworkResponse(
+      statusCode: 401,
+      isSuccess: false,
+      responseData: responseData,
+      errorMessage: "Session expired or logged out",
+    );
+  }
+
+  NetworkResponse _handleServerError({
+    dynamic responseData,
+  }) {
+    logger.e('500: Server Error');
+
+    Get.snackbar(
+      "Server Error",
+      "Please try again later",
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
+      duration: const Duration(seconds: 3),
+    );
+
+    return NetworkResponse(
+      statusCode: 500,
+      isSuccess: false,
+      responseData: responseData,
+      errorMessage: "Server Error",
+    );
+  }
+
+  bool _isNetworkException(Object e) {
+    return e is http.ClientException ||
+        e.toString().contains('Network') ||
+        e.toString().contains('Socket');
+  }
+
+  Future<NetworkResponse> _noNetworkResponse() async {
+    _showNetworkErrorSnackbar();
+
+    return NetworkResponse(
+      statusCode: -2,
+      isSuccess: false,
+      errorMessage: "No internet connection",
+    );
+  }
+
+  Map<String, String> _buildHeaders({
+    String? token,
+    Map<String, String>? headers,
+    bool hasJsonBody = false,
+  }) {
+    return {
+      if (hasJsonBody) 'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+      ...?headers,
+    };
+  }
+
   // GET Request with network check
   Future<NetworkResponse> getRequest(
       String url, {
         String? token,
         Map<String, String>? headers,
       }) async {
-    // Check network connectivity first
     final hasNetwork = await _checkNetworkConnection();
+
     if (!hasNetwork) {
-      _showNetworkErrorSnackbar();
-      return NetworkResponse(
-        statusCode: -2, // Custom code for no network
-        isSuccess: false,
-        errorMessage: "No internet connection",
-      );
+      return _noNetworkResponse();
     }
 
     try {
-      final combinedHeaders = {
-        'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-        ...?headers, // ✅ allows custom headers from service
-      };
+      final combinedHeaders = _buildHeaders(
+        token: token,
+        headers: headers,
+      );
 
       logger.i('GET: $url');
-      final response = await http.get(Uri.parse(url), headers: combinedHeaders);
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: combinedHeaders,
+      );
 
       logger.i('Response (${response.headers})');
       logger.i('Response (${response.statusCode}): ${response.body}');
 
+      final responseData = _decodeResponseBody(response.body);
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final decoded = jsonDecode(response.body);
         return NetworkResponse(
           statusCode: response.statusCode,
           isSuccess: true,
-          responseData: decoded,
+          responseData: responseData,
         );
       } else if (response.statusCode == 401) {
-        logger.e('Unauthorized: Token expired or invalid');
-        await LocalStorageService.remove(LocalStorageService.token);
-
-        Get.snackbar(
-          "Session Expired",
-          "Please login again",
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 3),
-        );
-
-        Get.offAllNamed(RouteNames.login); // 👈 redirect to login
-        return NetworkResponse(
-          statusCode: 401,
-          isSuccess: false,
-          errorMessage: "Session expired or logged out",
-        );
+        return await _handleUnauthorized(responseData: responseData);
       } else if (response.statusCode == 500) {
-        logger.e('500: Server Error');
-        Get.snackbar(
-          "Server Error",
-          "Please try again later",
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 3),
-        );
-        if (Get.isSnackbarOpen == false && Get.isDialogOpen == false && Get.key.currentState?.canPop() == true) {
+        if (Get.isSnackbarOpen == false &&
+            Get.isDialogOpen == false &&
+            Get.key.currentState?.canPop() == true) {
           Get.back();
         }
-        return NetworkResponse(
-          statusCode: 500,
-          isSuccess: false,
-          errorMessage: "Server Error",
-        );
+
+        return _handleServerError(responseData: responseData);
       } else {
         logger.e('Error Response (${response.statusCode}): ${response.body}');
 
         return NetworkResponse(
           statusCode: response.statusCode,
           isSuccess: false,
-          errorMessage: response.body,
+          responseData: responseData,
+          errorMessage: _extractErrorMessage(responseData),
         );
       }
     } catch (e) {
       logger.e('GET Exception: $e');
 
-      // Check if it's a network-related exception
-      if (e is http.ClientException || e.toString().contains('Network') || e.toString().contains('Socket')) {
+      if (_isNetworkException(e)) {
         _showNetworkErrorSnackbar();
+
         return NetworkResponse(
           statusCode: -2,
           isSuccess: false,
@@ -167,26 +237,21 @@ class NetworkCaller {
         String? token,
         Map<String, String>? headers,
       }) async {
-    // Check network connectivity first
     final hasNetwork = await _checkNetworkConnection();
+
     if (!hasNetwork) {
-      _showNetworkErrorSnackbar();
-      return NetworkResponse(
-        statusCode: -2, // Custom code for no network
-        isSuccess: false,
-        errorMessage: "No internet connection",
-      );
+      return _noNetworkResponse();
     }
 
     try {
-      final combinedHeaders = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-        ...?headers,
-      };
+      final combinedHeaders = _buildHeaders(
+        token: token,
+        headers: headers,
+        hasJsonBody: true,
+      );
 
       final encodedBody = jsonEncode(body);
+
       logger.i('POST: $url');
       logger.d('Request Body: $encodedBody');
 
@@ -198,13 +263,7 @@ class NetworkCaller {
 
       logger.i('Response (${response.statusCode}): ${response.body}');
 
-      // Parse response body
-      dynamic responseData;
-      try {
-        responseData = jsonDecode(response.body);
-      } catch (e) {
-        responseData = response.body; // Fallback to string if not JSON
-      }
+      final responseData = _decodeResponseBody(response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return NetworkResponse(
@@ -213,7 +272,6 @@ class NetworkCaller {
           responseData: responseData,
         );
       } else if (response.statusCode == 409) {
-        // Conflict - user already exists
         return NetworkResponse(
           statusCode: response.statusCode,
           isSuccess: false,
@@ -221,43 +279,12 @@ class NetworkCaller {
           errorMessage: _extractErrorMessage(responseData),
         );
       } else if (response.statusCode == 401) {
-        logger.e('401: Unauthorized: Token expired or invalid');
-        await LocalStorageService.remove(LocalStorageService.token);
-
-        Get.snackbar(
-          "Session Expired",
-          "Please login again",
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 3),
-        );
-
-        Get.offAllNamed(RouteNames.login);
-        return NetworkResponse(
-          statusCode: 401,
-          isSuccess: false,
-          responseData: responseData,
-          errorMessage: "Session expired or logged out",
-        );
+        return await _handleUnauthorized(responseData: responseData);
       } else if (response.statusCode == 500) {
-        logger.e('500: Server Error');
-        Get.snackbar(
-          "Server Error",
-          "Please try again later",
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 3),
-        );
-        return NetworkResponse(
-          statusCode: 500,
-          isSuccess: false,
-          responseData: responseData,
-          errorMessage: "Server Error",
-        );
+        return _handleServerError(responseData: responseData);
       } else {
         logger.e('Error Response (${response.statusCode}): ${response.body}');
+
         return NetworkResponse(
           statusCode: response.statusCode,
           isSuccess: false,
@@ -268,9 +295,9 @@ class NetworkCaller {
     } catch (e) {
       logger.e('POST Exception: $e');
 
-      // Check if it's a network-related exception
-      if (e is http.ClientException || e.toString().contains('Network') || e.toString().contains('Socket')) {
+      if (_isNetworkException(e)) {
         _showNetworkErrorSnackbar();
+
         return NetworkResponse(
           statusCode: -2,
           isSuccess: false,
@@ -287,13 +314,89 @@ class NetworkCaller {
     }
   }
 
-  // Helper method to extract error message from response data
-  String _extractErrorMessage(dynamic responseData) {
-    if (responseData is Map<String, dynamic>) {
-      return responseData['message'] ?? 'Something went wrong';
-    } else if (responseData is String) {
-      return responseData;
+  // DELETE Request with network check
+  Future<NetworkResponse> deleteRequest(
+      String url, {
+        Map<String, dynamic>? body,
+        String? token,
+        Map<String, String>? headers,
+      }) async {
+    final hasNetwork = await _checkNetworkConnection();
+
+    if (!hasNetwork) {
+      return _noNetworkResponse();
     }
-    return 'Something went wrong';
+
+    try {
+      final combinedHeaders = _buildHeaders(
+        token: token,
+        headers: headers,
+        hasJsonBody: body != null,
+      );
+
+      logger.i('DELETE: $url');
+
+      final http.Response response;
+
+      if (body != null) {
+        final encodedBody = jsonEncode(body);
+        logger.d('Request Body: $encodedBody');
+
+        response = await http.delete(
+          Uri.parse(url),
+          headers: combinedHeaders,
+          body: encodedBody,
+        );
+      } else {
+        response = await http.delete(
+          Uri.parse(url),
+          headers: combinedHeaders,
+        );
+      }
+
+      logger.i('Response (${response.statusCode}): ${response.body}');
+
+      final responseData = _decodeResponseBody(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return NetworkResponse(
+          statusCode: response.statusCode,
+          isSuccess: true,
+          responseData: responseData,
+        );
+      } else if (response.statusCode == 401) {
+        return await _handleUnauthorized(responseData: responseData);
+      } else if (response.statusCode == 500) {
+        return _handleServerError(responseData: responseData);
+      } else {
+        logger.e('Error Response (${response.statusCode}): ${response.body}');
+
+        return NetworkResponse(
+          statusCode: response.statusCode,
+          isSuccess: false,
+          responseData: responseData,
+          errorMessage: _extractErrorMessage(responseData),
+        );
+      }
+    } catch (e) {
+      logger.e('DELETE Exception: $e');
+
+      if (_isNetworkException(e)) {
+        _showNetworkErrorSnackbar();
+
+        return NetworkResponse(
+          statusCode: -2,
+          isSuccess: false,
+          errorMessage: "Network error: Please check your connection",
+        );
+      }
+
+      return NetworkResponse(
+        statusCode: -1,
+        isSuccess: false,
+        responseData: null,
+        errorMessage: e.toString(),
+      );
+    }
   }
 }

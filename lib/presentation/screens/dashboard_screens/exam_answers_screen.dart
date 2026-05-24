@@ -3,11 +3,13 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:medi_exam/data/models/exam_answers_model.dart';
 import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/data/services/exam_answers_service.dart';
 import 'package:medi_exam/data/utils/urls.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/routes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/custom_glass_card.dart';
@@ -15,6 +17,8 @@ import 'package:medi_exam/presentation/widgets/helpers/exam_questions_screen_hel
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
 import 'package:medi_exam/presentation/widgets/mcq_answer_review_tile.dart';
 import 'package:medi_exam/presentation/widgets/sba_answer_review_tile.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 class ExamAnswersScreen extends StatefulWidget {
   const ExamAnswersScreen({super.key});
@@ -28,12 +32,11 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
   late final String admissionId;
   late final String examId;
 
-  /// ✅ 'freeExam', 'openExam', 'courseExam', 'subjectExam'
+  /// 'freeExam', 'openExam', 'courseExam', 'subjectExam'
   late final String examType;
 
-  // Optional extras coming from the Result screen:
-  dynamic _examInfo; // title, totalQuestion, fullMark
-  dynamic _result; // obtainedMarkPercent, obtainedMark, correctMark, negativeMark, wrongAnswers...
+  dynamic _examInfo;
+  dynamic _result;
 
   final _service = ExamAnswersService();
 
@@ -47,7 +50,7 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     _args = Get.arguments ?? {};
     admissionId = (_args['admissionId'] ?? '').toString();
     examId = (_args['examId'] ?? '').toString();
-    examType = (_args['examType'] ?? '').toString(); // ✅ required now
+    examType = (_args['examType'] ?? '').toString();
 
     _examInfo = _args['examInfo'];
     _result = _args['result'];
@@ -101,7 +104,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     }
   }
 
-  // ✅ Pick answers URL based on examType
   String _answersUrlByExamType() {
     switch (examType) {
       case 'freeExam':
@@ -117,9 +119,52 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     }
   }
 
+  String get _printUrl =>
+      'https://admin.neuronpg.com/exams/$examId/questions/print?answers=1';
+
+  void _onPrintTap() async {
+    if (examId.isEmpty || _printUrl.isEmpty) return;
+
+    try {
+      // Fetch the HTML of the print page
+      final response = await http.get(Uri.parse(_printUrl));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final htmlContent = response.body;
+
+        await Printing.layoutPdf(
+          name: examId.isEmpty ? 'exam_answers' : 'exam_$examId',
+          onLayout: (PdfPageFormat format) async {
+            // Convert HTML to PDF
+            final pdfBytes = await Printing.convertHtml(
+              format: format,
+              html: htmlContent,
+            );
+            return pdfBytes;
+          },
+        );
+      } else {
+        Get.snackbar(
+          'Print failed',
+          'Could not load printable page',
+          snackPosition: SnackPosition.BOTTOM,
+          margin: const EdgeInsets.all(12),
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Print failed',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(12),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return CommonScaffold(
+      showCart: true,
       title: 'Answers',
       body: _loading
           ? const Center(child: LoadingWidget())
@@ -144,9 +189,11 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.analytics_outlined,
-                            size: 20,
-                            color: Theme.of(context).colorScheme.primary),
+                        Icon(
+                          Icons.analytics_outlined,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -160,7 +207,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-
                     Center(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: maxWidth),
@@ -168,12 +214,13 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-
                     Row(
                       children: [
-                        Icon(Icons.fact_check_outlined,
-                            size: 20,
-                            color: Theme.of(context).colorScheme.primary),
+                        Icon(
+                          Icons.fact_check_outlined,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -186,7 +233,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 12),
                     _legend(context),
                     const SizedBox(height: 12),
@@ -194,7 +240,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                 ),
               ),
             ),
-
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               sliver: SliverList.separated(
@@ -235,30 +280,67 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     );
   }
 
-  // ---------- Overview (pretty + compact) ----------
   Widget _buildOverview(BuildContext context) {
-    final percent = _toDouble(_readDyn(
+    final percent = _toDouble(
+      _readDyn(
         _result,
             (d) => (d as dynamic).obtainedMarkPercent,
-        ['obtainedMarkPercent', 'obtained_mark_percent'])) ??
+        ['obtainedMarkPercent', 'obtained_mark_percent'],
+      ),
+    ) ??
         0.0;
 
-    final totalQ = _toInt(_readDyn(_examInfo,
-            (d) => (d as dynamic).totalQuestion, ['totalQuestion', 'total_question']));
-    final fullMark = _toInt(_readDyn(
-        _examInfo, (d) => (d as dynamic).fullMark, ['fullMark', 'full_mark']));
+    final totalQ = _toInt(
+      _readDyn(
+        _examInfo,
+            (d) => (d as dynamic).totalQuestion,
+        ['totalQuestion', 'total_question'],
+      ),
+    );
 
-    final obtained = _toDouble(_readDyn(_result,
-            (d) => (d as dynamic).obtainedMark, ['obtainedMark', 'obtained_mark']));
-    final correct = _toDouble(_readDyn(_result,
-            (d) => (d as dynamic).correctMark, ['correctMark', 'correct_mark']));
-    final negative = _toDouble(_readDyn(_result,
-            (d) => (d as dynamic).negativeMark, ['negativeMark', 'negative_mark']));
-    final wrong = _toInt(_readDyn(_result, (d) => (d as dynamic).wrongAnswers,
-        ['wrongAnswers', 'wrong_answers']));
+    final fullMark = _toInt(
+      _readDyn(
+        _examInfo,
+            (d) => (d as dynamic).fullMark,
+        ['fullMark', 'full_mark'],
+      ),
+    );
+
+    final obtained = _toDouble(
+      _readDyn(
+        _result,
+            (d) => (d as dynamic).obtainedMark,
+        ['obtainedMark', 'obtained_mark'],
+      ),
+    );
+
+    final correct = _toDouble(
+      _readDyn(
+        _result,
+            (d) => (d as dynamic).correctMark,
+        ['correctMark', 'correct_mark'],
+      ),
+    );
+
+    final negative = _toDouble(
+      _readDyn(
+        _result,
+            (d) => (d as dynamic).negativeMark,
+        ['negativeMark', 'negative_mark'],
+      ),
+    );
+
+    final wrong = _toInt(
+      _readDyn(
+        _result,
+            (d) => (d as dynamic).wrongAnswers,
+        ['wrongAnswers', 'wrong_answers'],
+      ),
+    );
 
     final title = _toString(
-        _readDyn(_examInfo, (d) => (d as dynamic).title, ['title'])) ??
+      _readDyn(_examInfo, (d) => (d as dynamic).title, ['title']),
+    ) ??
         '—';
 
     return CustomBlobBackground(
@@ -278,9 +360,11 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.assignment_outlined,
-                              size: 20,
-                              color: Theme.of(context).colorScheme.primary),
+                          Icon(
+                            Icons.assignment_outlined,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
@@ -303,6 +387,8 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
                         children: [
                           _pillMetric('Total Qs', _fmtInt(totalQ)),
                           _pillMetric('Full Mark', _fmtInt(fullMark)),
+                          SizedBox(width:4,),
+                          _printPill(onTap: _onPrintTap),
                         ],
                       ),
                     ],
@@ -311,7 +397,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
               ],
             ),
             const SizedBox(height: 12),
-
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -346,7 +431,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     );
   }
 
-  // ----- Pretty bits -----
   Widget _pillMetric(String label, String value) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -375,6 +459,43 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _printPill({required VoidCallback onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColor.indigo.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppColor.indigo.withOpacity(0.20)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.print_rounded,
+                size: 15,
+                color: AppColor.indigo,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'Print',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  color: AppColor.primaryTextColor,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -476,7 +597,6 @@ class _ExamAnswersScreenState extends State<ExamAnswersScreen> {
     );
   }
 
-  // ---------- Safe readers / formatters ----------
   dynamic _readDyn(
       dynamic obj,
       dynamic Function(dynamic d) dynGet,

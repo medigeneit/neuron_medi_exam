@@ -23,7 +23,7 @@ class EasyFinderCard extends StatefulWidget {
 
   const EasyFinderCard({
     super.key,
-    this.title = 'Easy Finder',
+    this.title = 'Smart Search',
     this.routeName,
     this.arguments,
     this.onAuthedNavigate,
@@ -357,7 +357,7 @@ class EasyFinderPlaceholderScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Easy Finder')),
+      appBar: AppBar(title: const Text('Smart Search')),
       body: Center(
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -375,7 +375,7 @@ class EasyFinderPlaceholderScreen extends StatelessWidget {
             ],
           ),
           child: const Text(
-            'Smart Search screen will be implemented here.',
+            'Smart Search screen.',
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.w700),
           ),

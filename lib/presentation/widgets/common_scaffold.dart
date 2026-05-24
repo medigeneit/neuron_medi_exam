@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/presentation/controllers/background_settings_controller.dart';
+import 'package:medi_exam/presentation/screens/unit_video_cart_screen.dart';
 
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/responsive.dart';
@@ -17,6 +18,12 @@ class CommonScaffold extends StatelessWidget {
   final Widget? bottomNavigationBar;
   final Widget? floatingActionButton;
 
+  /// Show unit video cart icon in app bar
+  final bool showCart;
+
+  /// Optional cart button tap override
+  final VoidCallback? onCartTap;
+
   /// Max content width used on tablet/desktop
   final double maxContentWidth;
 
@@ -31,6 +38,8 @@ class CommonScaffold extends StatelessWidget {
     this.actions,
     this.bottomNavigationBar,
     this.floatingActionButton,
+    this.showCart = false,
+    this.onCartTap,
     this.maxContentWidth = 900,
     this.largeScreenPadding = const EdgeInsets.symmetric(horizontal: 16.0),
   });
@@ -39,6 +48,37 @@ class CommonScaffold extends StatelessWidget {
     return Get.isRegistered<BackgroundSettingsController>()
         ? Get.find<BackgroundSettingsController>()
         : Get.put(BackgroundSettingsController(), permanent: true);
+  }
+
+  List<Widget> _buildActions(BuildContext context) {
+    final List<Widget> appBarActions = [];
+
+    if (actions != null) {
+      appBarActions.addAll(actions!);
+    }
+
+    if (showCart) {
+      appBarActions.add(
+        IconButton(
+          tooltip: 'Cart',
+          icon: const Icon(
+            Icons.shopping_cart_outlined,
+            color: Colors.white,
+          ),
+          onPressed: onCartTap ??
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const UnitVideoCartScreen(),
+                  ),
+                );
+              },
+        ),
+      );
+    }
+
+    return appBarActions;
   }
 
   @override
@@ -75,11 +115,11 @@ class CommonScaffold extends StatelessWidget {
             ),
             iconTheme: const IconThemeData(color: Colors.white),
             centerTitle: true,
-            actions: actions,
+            actions: _buildActions(context),
           ),
           endDrawer: showDrawer ? const CustomDrawer() : null,
 
-          // ✅ React to toggle
+          // React to toggle
           body: Obx(() {
             final enabled = bgCtrl.animationEnabled.value;
 

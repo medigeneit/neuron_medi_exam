@@ -9,6 +9,7 @@ import 'package:medi_exam/presentation/screens/batch_details_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/doctor_schedule_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/enrolled_courses_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/exam_answers_screen.dart';
+import 'package:medi_exam/presentation/screens/dashboard_screens/exam_print_view_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/exam_questions_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/exam_result_screen.dart';
 import 'package:medi_exam/presentation/screens/dashboard_screens/free_exam_list_screen.dart';
@@ -88,6 +89,7 @@ class RouteNames {
   static const String favouriteQuestionsList = '/favouriteQuestionsList';
   static const String easyFinderScreen = '/easyFinderScreen';
   static const String careerGuidelineScreen = '/careerGuidelineScreen';
+  static const String examPrintView = '/examPrintView';
 }
 
 // Define routes
@@ -251,6 +253,11 @@ final List<GetPage> appRoutes = [
   GetPage(
     name: RouteNames.careerGuidelineScreen,
     page: () => const CareerGuidelineScreen(),
+  ),
+
+  GetPage(
+    name: RouteNames.examPrintView,
+    page: () => const ExamPrintViewScreen(),
   ),
 
 ];

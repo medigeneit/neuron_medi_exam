@@ -36,6 +36,10 @@ class Urls {
   static const String favouritesToggleAddRemove = "${_baseUrl}doctor/favourites/add";
   static const String smartSearchKeywordsAll = "${_baseUrl}doctor/smart-search/keywords/all";
   static const String careerGuidelines = "${_baseUrl}career-guidelines/folders";
+  static const String unitVideoCart = "${_baseUrl}doctor/unit-video-cart";
+  static const String unitVideoAddToCart = "${_baseUrl}doctor/unit-video-cart/add";
+  static const String unitVideoAllRemoveFromCart = "${_baseUrl}doctor/unit-video-cart/clear/all";
+  static const String unitVideoBkashCheckOut = "${_baseUrl}doctor/unit-video-checkout/bkash";
 
 
 
@@ -179,12 +183,25 @@ class Urls {
   static String questionAnalyticsBreakdown(String questionId) {
     return "${_baseUrl}doctor/question-analytics/breakdown?question_id=$questionId";
   }
+
   static String smartSearchQuestions(String query) {
     return "${_baseUrl}doctor/smart-search/questions?q=$query";
   }
 
   static String careerGuidelineFolder(String folderId) {
     return "${_baseUrl}career-guidelines/folders/$folderId";
+  }
+
+  static String unitVideo(String questionId) {
+    return "${_baseUrl}doctor/questions/$questionId/unit-videos";
+  }
+
+  static String removeSingleVideoFromCart(String cartItemId) {
+    return "${_baseUrl}doctor/unit-video-cart/$cartItemId";
+  }
+
+  static String bkashPaymentStatus(String bkashPaymentId) {
+    return "${_baseUrl}unit-video-payments/bkash/callback?paymentID=$bkashPaymentId";
   }
 
 

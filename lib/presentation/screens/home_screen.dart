@@ -310,64 +310,96 @@ class _HomeScreenState extends State<HomeScreen> {
       _pinnedExam = null;
     });
 
-    _fetchData();
+    await _fetchData();
   }
 
-  bool get _isDesktopLike {
-    final w = MediaQuery.of(context).size.width;
-    return w >= 900;
-  }
+  String? _extractYouTubeId(String? input) {
+    if (input == null) return null;
 
-  String? _extractYouTubeId(String? url) {
-    if (url == null || url.trim().isEmpty) return null;
-    final u = url.trim();
+    final raw = input.trim();
+    if (raw.isEmpty) return null;
 
-    final patterns = <RegExp>[
-      RegExp(r'youtu\.be/([A-Za-z0-9_-]{6,})'),
-      RegExp(r'youtube\.com/watch\?v=([A-Za-z0-9_-]{6,})'),
-      RegExp(r'youtube\.com/embed/([A-Za-z0-9_-]{6,})'),
-      RegExp(r'youtube\.com/shorts/([A-Za-z0-9_-]{6,})'),
-    ];
-    for (final p in patterns) {
-      final m = p.firstMatch(u);
-      if (m != null && m.groupCount >= 1) return m.group(1);
+    final rawIdPattern = RegExp(r'^[A-Za-z0-9_-]{6,}$');
+    if (rawIdPattern.hasMatch(raw) &&
+        !raw.contains('http') &&
+        !raw.contains('youtube') &&
+        !raw.contains('youtu.be')) {
+      return raw;
     }
+
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return null;
+
+    final host = uri.host.toLowerCase();
+    final segments = uri.pathSegments;
+
+    if (host.contains('youtu.be')) {
+      if (segments.isNotEmpty && segments.first.trim().isNotEmpty) {
+        return segments.first.trim();
+      }
+    }
+
+    final v = uri.queryParameters['v'];
+    if (v != null && v.trim().isNotEmpty) {
+      return v.trim();
+    }
+
+    final embedIndex = segments.indexOf('embed');
+    if (embedIndex != -1 && embedIndex + 1 < segments.length) {
+      final id = segments[embedIndex + 1].trim();
+      if (id.isNotEmpty) return id;
+    }
+
+    final shortsIndex = segments.indexOf('shorts');
+    if (shortsIndex != -1 && shortsIndex + 1 < segments.length) {
+      final id = segments[shortsIndex + 1].trim();
+      if (id.isNotEmpty) return id;
+    }
+
+    final liveIndex = segments.indexOf('live');
+    if (liveIndex != -1 && liveIndex + 1 < segments.length) {
+      final id = segments[liveIndex + 1].trim();
+      if (id.isNotEmpty) return id;
+    }
+
     return null;
+  }
+
+  void _showYouTubeDialog({
+    required String source,
+    String? title,
+  }) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => YouTubeVideoDialog(
+        videoId: source,
+        title: title,
+      ),
+    );
   }
 
   Future<void> _handlePromoTap() async {
     final link = (_helpline?.promotionalVideoUrl ?? '').trim();
-    final videoId = _extractYouTubeId(link);
-
-    if (!_isDesktopLike && videoId != null) {
-      _showYouTubeDialog(videoId);
-      return;
-    }
-
-    if (link.isNotEmpty) {
-      await _openExternal(link);
-    } else {
+    if (link.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Video link is unavailable')),
       );
+      return;
     }
-  }
 
-  void _showYouTubeDialog(String videoId) {
-    try {
-      showDialog<void>(
-        context: context,
-        barrierDismissible: true,
-        builder: (context) => YouTubeVideoDialog(
-          videoId: videoId,
-          title: 'Tutorial Video',
-        ),
+    final videoId = _extractYouTubeId(link);
+
+    if (videoId != null) {
+      _showYouTubeDialog(
+        source: link,
+        title: 'Tutorial Video',
       );
-    } catch (_) {
-      final link = (_helpline?.promotionalVideoUrl ?? '').trim();
-      _openExternal(link);
+      return;
     }
+
+    await _openExternal(link);
   }
 
   Future<void> _openExternal(String url) async {
@@ -642,7 +674,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final String eid = examId.toString();
       final String url = Urls.openExamProperty(eid);
-      final NetworkResponse res = await _examPropertyService.fetchExamProperty(url);
+      final NetworkResponse res =
+      await _examPropertyService.fetchExamProperty(url);
 
       if (!res.isSuccess) {
         throw Exception(res.errorMessage ?? 'Failed to load exam property.');
@@ -715,7 +748,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -725,7 +757,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _buildPinnedExamSection(),
                 ),
               ),
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -735,18 +766,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _buildSliderSection(),
                 ),
               ),
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: isMobile ? 16 : 24,
                     vertical: 8,
                   ),
-                  child: const EasyFinderCard(title: 'Easy Finder'),
+                  child: const EasyFinderCard(title: 'Smart Search'),
                 ),
               ),
-
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -761,8 +789,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -780,7 +806,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-
               SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -799,14 +824,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-
-
-
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
           ),
         ),
-
         Positioned.fill(
           child: IgnorePointer(
             ignoring: false,

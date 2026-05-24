@@ -1,4 +1,3 @@
-// lib/data/models/question_explanation_model.dart
 import 'dart:convert';
 
 QuestionExplanationModel questionExplanationFromJson(String source) {
@@ -11,20 +10,21 @@ class QuestionExplanationModel {
   final int? questionId;
   final bool? hasExplanation;
   final QuestionExplanation? explanation;
+  final String? reference;
 
   const QuestionExplanationModel({
     this.success,
     this.questionId,
     this.hasExplanation,
     this.explanation,
+    this.reference,
   });
 
   /// Accepts either:
-  /// - full response map (your example)
+  /// - full response map
   /// - direct "explanation" map
   factory QuestionExplanationModel.fromAny(dynamic json) {
     if (json is Map<String, dynamic>) {
-      // If caller passes only the explanation object directly
       final isDirectExplanation =
           json.containsKey('body_html') || json.containsKey('body');
 
@@ -42,9 +42,10 @@ class QuestionExplanationModel {
         hasExplanation: QeJsonUtils.toBool(json['has_explanation']),
         explanation: QuestionExplanation.fromJson(
           json['explanation'] is Map<String, dynamic>
-              ? (json['explanation'] as Map<String, dynamic>)
+              ? json['explanation'] as Map<String, dynamic>
               : null,
         ),
+        reference: QeJsonUtils.toStringOrNull(json['reference']),
       );
     }
 
@@ -56,6 +57,7 @@ class QuestionExplanationModel {
     'question_id': questionId,
     'has_explanation': hasExplanation,
     'explanation': explanation?.toJson(),
+    'reference': reference,
   };
 
   String toRawJson() => jsonEncode(toJson());
@@ -65,12 +67,14 @@ class QuestionExplanationModel {
     int? questionId,
     bool? hasExplanation,
     QuestionExplanation? explanation,
+    String? reference,
   }) {
     return QuestionExplanationModel(
       success: success ?? this.success,
       questionId: questionId ?? this.questionId,
       hasExplanation: hasExplanation ?? this.hasExplanation,
       explanation: explanation ?? this.explanation,
+      reference: reference ?? this.reference,
     );
   }
 }

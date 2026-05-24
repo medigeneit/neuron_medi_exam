@@ -121,7 +121,8 @@ class _WrongSkippedQuestionsScreenState extends State<WrongSkippedQuestionsScree
   @override
   Widget build(BuildContext context) {
     return CommonScaffold(
-      title: _title.isEmpty ? 'Wrong & Skipped' : _title,
+      showCart: true,
+      title: 'Wrong & Skipped',
       body: _loading
           ? const Center(child: LoadingWidget())
           : _error != null

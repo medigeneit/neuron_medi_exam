@@ -216,6 +216,7 @@ class _FavouriteQuestionsListScreenState
   @override
   Widget build(BuildContext context) {
     return CommonScaffold(
+      showCart: true,
       title: 'My Favourites',
       actions: [
         IconButton(

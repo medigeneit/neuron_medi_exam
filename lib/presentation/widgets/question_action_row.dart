@@ -4,16 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:medi_exam/data/models/favourite_questions_list_model.dart';
 import 'package:medi_exam/data/models/question_analytics_breakdown_model.dart';
+import 'package:medi_exam/data/models/unit_video_add_to_cart_model.dart';
+import 'package:medi_exam/data/models/unit_video_model.dart';
 import 'package:medi_exam/data/network_response.dart';
 import 'package:medi_exam/data/services/favourite_questions_list_service.dart';
 import 'package:medi_exam/data/services/favourites_toggle_service.dart';
 import 'package:medi_exam/data/services/question_analytics_breakdown_service.dart';
+import 'package:medi_exam/data/services/unit_video_add_to_cart_service.dart';
+import 'package:medi_exam/data/services/unit_video_service.dart';
+import 'package:medi_exam/data/utils/urls.dart';
+import 'package:medi_exam/presentation/screens/webview_video_screen.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/custom_blob_background.dart';
 import 'package:medi_exam/presentation/widgets/question_explaination_button.dart';
 
-/// ✅ Global favourite cache (loads once, used everywhere)
+/// Global favourite cache
 class GlobalFavouriteCache {
   static final FavouriteQuestionsListService _listService =
   FavouriteQuestionsListService();
@@ -64,6 +70,7 @@ class GlobalFavouriteCache {
             : FavouriteQuestionsListModel.parse(resp.responseData);
 
         final items = model.data ?? const <FavouriteQuestionItem>[];
+
         _ids
           ..clear()
           ..addAll(items.map((e) => e.id).whereType<int>());
@@ -74,6 +81,7 @@ class GlobalFavouriteCache {
       success = false;
     } finally {
       _loaded = success;
+
       if (!success) {
         _loadingFuture = null;
       }
@@ -83,13 +91,14 @@ class GlobalFavouriteCache {
 
 /// Compact action row:
 /// 1) Favourite
-/// 2) Stats (fetch breakdown, show pies)
-/// 3) Explanation
+/// 2) Stats
+/// 3) Video
+/// 4) Explanation
 class QuestionActionRow extends StatefulWidget {
   final int? questionId;
   final bool initiallyBookmarked;
 
-  /// ✅ notify parent when favourite changes (added/removed)
+  /// Notify parent when favourite changes
   final ValueChanged<bool>? onFavouriteChanged;
 
   const QuestionActionRow({
@@ -110,8 +119,19 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
   static final QuestionAnalyticsBreakdownService _statsService =
   QuestionAnalyticsBreakdownService();
 
+  static final UnitVideoService _unitVideoService = UnitVideoService();
+
+  static final UnitVideoAddToCartService _unitVideoCartService =
+  UnitVideoAddToCartService();
+
   bool _bookmarked = false;
   bool _favLoading = false;
+
+  UnitVideoModel? _unitVideoModel;
+  bool _unitVideoLoading = false;
+  bool _unitVideoLoaded = false;
+
+  final Set<int> _addingCartVideoIds = <int>{};
 
   bool _userOverrode = false;
 
@@ -119,14 +139,23 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
   void initState() {
     super.initState();
     _initFavouriteState();
+    _loadUnitVideos();
   }
 
   @override
   void didUpdateWidget(covariant QuestionActionRow oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.questionId != widget.questionId) {
       _userOverrode = false;
+
+      _unitVideoModel = null;
+      _unitVideoLoaded = false;
+      _unitVideoLoading = false;
+      _addingCartVideoIds.clear();
+
       _initFavouriteState();
+      _loadUnitVideos(forceRefresh: true);
     }
   }
 
@@ -153,6 +182,7 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
 
   Future<void> _hydrateFromFavouriteList(int id) async {
     await GlobalFavouriteCache.ensureLoaded();
+
     if (!mounted) return;
     if (_userOverrode) return;
 
@@ -165,6 +195,7 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
   @override
   Widget build(BuildContext context) {
     final bool canFav = widget.questionId != null;
+    final bool hasVideos = _unitVideoModel?.videos.isNotEmpty == true;
 
     return Row(
       children: [
@@ -172,13 +203,13 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
           icon: _bookmarked
               ? Icons.favorite_rounded
               : Icons.favorite_border_rounded,
-          label: 'Favorite',
+          label: 'Fav',
           selected: _bookmarked,
           loading: _favLoading,
           enabled: canFav && !_favLoading,
           onTap: _toggleFavourite,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         _ActionPillButton(
           icon: Icons.pie_chart_outline_rounded,
           label: 'Stats',
@@ -187,6 +218,27 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
           enabled: widget.questionId != null,
           onTap: () => _openStatsDialog(context),
         ),
+        if (_unitVideoLoading) ...[
+          const SizedBox(width: 8),
+          _ActionPillButton(
+            icon: Icons.video_library_outlined,
+            label: 'Video',
+            selected: false,
+            loading: true,
+            enabled: false,
+            onTap: () {},
+          ),
+        ] else if (_unitVideoLoaded && hasVideos) ...[
+          const SizedBox(width: 8),
+          _ActionPillButton(
+            icon: Icons.play_circle_outline_rounded,
+            label: 'Video',
+            selected: false,
+            loading: false,
+            enabled: true,
+            onTap: () => _onVideoButtonTap(context),
+          ),
+        ],
         const Spacer(),
         QuestionExplainationButton(
           questionId: widget.questionId,
@@ -196,8 +248,258 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
     );
   }
 
+  /// Called when user clicks video button.
+  /// This always calls unit-video API again before opening the list.
+  Future<void> _onVideoButtonTap(BuildContext context) async {
+    await _loadUnitVideos(forceRefresh: true);
+
+    if (!mounted) return;
+
+    final videos = _unitVideoModel?.videos ?? const <UnitVideoItemModel>[];
+
+    if (videos.isEmpty) {
+      Get.snackbar(
+        'No Video',
+        'No unit video found for this question.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange.shade700,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    _openUnitVideoDialog(context);
+  }
+
+  Future<void> _loadUnitVideos({bool forceRefresh = false}) async {
+    final id = widget.questionId;
+
+    if (id == null) return;
+    if (_unitVideoLoading) return;
+
+    if (_unitVideoLoaded && !forceRefresh) return;
+
+    setState(() {
+      _unitVideoLoading = true;
+
+      if (forceRefresh) {
+        _unitVideoLoaded = false;
+      }
+    });
+
+    try {
+      final resp = await _unitVideoService.fetchUnitVideos(id.toString());
+
+      if (!mounted) return;
+
+      UnitVideoModel? model;
+
+      if (resp.isSuccess && resp.responseData != null) {
+        model = resp.responseData is UnitVideoModel
+            ? resp.responseData as UnitVideoModel
+            : UnitVideoModel.parse(resp.responseData);
+      }
+
+      setState(() {
+        _unitVideoModel = model;
+        _unitVideoLoaded = true;
+        _unitVideoLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _unitVideoModel = null;
+        _unitVideoLoaded = true;
+        _unitVideoLoading = false;
+      });
+    }
+  }
+
+  void _openUnitVideoDialog(BuildContext context) {
+    final videos = _unitVideoModel?.videos ?? const <UnitVideoItemModel>[];
+
+    if (videos.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return _UnitVideoListSheet(
+          videos: videos,
+          addingCartVideoIds: _addingCartVideoIds,
+          onPlayVideo: (video) {
+            Navigator.of(ctx).pop();
+            _openWebviewVideoScreen(context, video);
+          },
+          onAddToCart: (video) async {
+            final success = await _addUnitVideoToCart(video);
+
+            if (!success) return;
+            if (!mounted) return;
+
+            if (ctx.mounted && Navigator.of(ctx).canPop()) {
+              Navigator.of(ctx).pop();
+            }
+
+            Future.delayed(const Duration(milliseconds: 140), () {
+              if (!mounted) return;
+
+              final updatedVideos =
+                  _unitVideoModel?.videos ?? const <UnitVideoItemModel>[];
+
+              if (updatedVideos.isNotEmpty) {
+                _openUnitVideoDialog(context);
+              }
+            });
+          },
+        );
+      },
+    );
+  }
+
+  /// Adds video to cart.
+  /// After success, unit-video API is called again so the Add button updates.
+  Future<bool> _addUnitVideoToCart(UnitVideoItemModel video) async {
+    final videoLinkId = video.id;
+
+    if (videoLinkId == null) {
+      Get.snackbar(
+        'Failed',
+        'Video id was not found.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+      );
+      return false;
+    }
+
+    if (_addingCartVideoIds.contains(videoLinkId)) return false;
+
+    setState(() {
+      _addingCartVideoIds.add(videoLinkId);
+    });
+
+    try {
+      final resp = await _unitVideoCartService.addUnitVideoToCart(
+        questionVideoLinkId: videoLinkId,
+      );
+
+      if (!mounted) return false;
+
+      if (resp.isSuccess) {
+        final model = resp.responseData is UnitVideoAddToCartModel
+            ? resp.responseData as UnitVideoAddToCartModel
+            : UnitVideoAddToCartModel.parse(resp.responseData);
+
+        Get.snackbar(
+          'Success',
+          model.message ?? 'Video added to cart successfully.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.shade600,
+          colorText: Colors.white,
+        );
+
+        await _loadUnitVideos(forceRefresh: true);
+
+        return true;
+      } else {
+        Get.snackbar(
+          'Failed',
+          resp.errorMessage ?? 'Failed to add video to cart.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade600,
+          colorText: Colors.white,
+        );
+
+        return false;
+      }
+    } catch (e) {
+      if (!mounted) return false;
+
+      Get.snackbar(
+        'Failed',
+        'Failed to add video to cart: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+      );
+
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _addingCartVideoIds.remove(videoLinkId);
+        });
+      }
+    }
+  }
+
+  void _openWebviewVideoScreen(
+      BuildContext context,
+      UnitVideoItemModel video,
+      ) {
+    final rawVideoUrl = video.videoLink?.trim() ?? '';
+
+    if (rawVideoUrl.isEmpty) {
+      Get.snackbar(
+        'Video unavailable',
+        'Video link was not found.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.shade600,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final playableUrl = _buildPlayableVideoUrl(rawVideoUrl);
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => WebviewVideoScreen(
+          videoUrl: playableUrl,
+          title: 'Unit Video',
+        ),
+      ),
+    );
+  }
+
+  String _buildPlayableVideoUrl(String rawVideoUrl) {
+    final String apiBase = _apiBaseUrl();
+    final String base = apiBase.endsWith('/') ? apiBase : '$apiBase/';
+
+    final String path = _isYoutubeVideo(rawVideoUrl)
+        ? 'youtube-video-show'
+        : 'gumlet-video-show';
+
+    return '$base$path?video_address=${Uri.encodeComponent(rawVideoUrl)}';
+  }
+
+  String _apiBaseUrl() {
+    final sampleEndpoint = Urls.unitVideo(widget.questionId?.toString() ?? '0');
+    const marker = 'doctor/questions/';
+    final markerIndex = sampleEndpoint.indexOf(marker);
+
+    if (markerIndex > 0) {
+      return sampleEndpoint.substring(0, markerIndex);
+    }
+
+    return sampleEndpoint;
+  }
+
+  bool _isYoutubeVideo(String url) {
+    final uri = Uri.tryParse(url);
+    final host = uri?.host.toLowerCase() ?? '';
+
+    return host.contains('youtube.com') ||
+        host.contains('youtu.be') ||
+        url.toLowerCase().contains('youtube');
+  }
+
   Future<void> _toggleFavourite() async {
     final id = widget.questionId;
+
     if (id == null) return;
     if (_favLoading) return;
 
@@ -218,12 +520,14 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
+
       return;
     }
 
     final status = _toggleService.extractStatus(resp.responseData);
 
     bool newState = _bookmarked;
+
     if (status == 'added') newState = true;
     if (status == 'removed') newState = false;
 
@@ -240,6 +544,7 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
 
   void _openStatsDialog(BuildContext context) {
     final qid = widget.questionId;
+
     if (qid == null) return;
 
     showDialog(
@@ -248,7 +553,10 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
       builder: (ctx) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 18,
+          ),
           child: CustomBlobBackground(
             backgroundColor: Colors.white,
             blobColor: AppColor.indigo,
@@ -261,16 +569,17 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
                 builder: (context, snapshot) {
                   final header = Row(
                     children: [
-                      Icon(Icons.pie_chart_rounded,
-                          size: 20, color: AppColor.indigo),
+                      Icon(
+                        Icons.pie_chart_rounded,
+                        size: 20,
+                        color: AppColor.indigo,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Question Stats',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
+                          style:
+                          Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w900,
                             color: AppColor.primaryTextColor,
                           ),
@@ -327,8 +636,8 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
                     } else {
                       final model =
                       resp.responseData is QuestionAnalyticsBreakdownModel
-                          ? (resp.responseData
-                      as QuestionAnalyticsBreakdownModel)
+                          ? resp.responseData
+                      as QuestionAnalyticsBreakdownModel
                           : QuestionAnalyticsBreakdownModel.parse(
                         resp.responseData,
                       );
@@ -365,16 +674,371 @@ class _QuestionActionRowState extends State<QuestionActionRow> {
   }
 }
 
+/// ------------------------------
+/// Unit video bottom sheet
+/// ------------------------------
+class _UnitVideoListSheet extends StatelessWidget {
+  final List<UnitVideoItemModel> videos;
+  final ValueChanged<UnitVideoItemModel> onPlayVideo;
+  final Future<void> Function(UnitVideoItemModel) onAddToCart;
+  final Set<int> addingCartVideoIds;
+
+  const _UnitVideoListSheet({
+    required this.videos,
+    required this.onPlayVideo,
+    required this.onAddToCart,
+    required this.addingCartVideoIds,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: CustomBlobBackground(
+        backgroundColor: Colors.white,
+        blobColor: AppColor.indigo,
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 12,
+            bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.16),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColor.blue.withOpacity(0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.video_library_rounded,
+                      color: AppColor.blue,
+                      size: 21,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Unit Videos',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: AppColor.primaryTextColor,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    splashRadius: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.62,
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: videos.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final video = videos[index];
+
+                    return _UnitVideoTile(
+                      index: index,
+                      video: video,
+                      onPlayVideo: onPlayVideo,
+                      onAddToCart: onAddToCart,
+                      isAddingToCart:
+                      addingCartVideoIds.contains(video.id),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UnitVideoTile extends StatelessWidget {
+  final int index;
+  final UnitVideoItemModel video;
+  final ValueChanged<UnitVideoItemModel> onPlayVideo;
+  final Future<void> Function(UnitVideoItemModel) onAddToCart;
+  final bool isAddingToCart;
+
+  const _UnitVideoTile({
+    required this.index,
+    required this.video,
+    required this.onPlayVideo,
+    required this.onAddToCart,
+    required this.isAddingToCart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final String accessStatus = (video.accessStatus ?? '').toLowerCase();
+
+    final bool isFree =
+        video.isFree == true || accessStatus == 'free';
+
+    final bool isPurchased =
+        video.isPurchased == true || accessStatus == 'purchased';
+
+    final bool isPlayable =
+        (isFree || isPurchased) && video.hasVideoLink;
+
+    final bool isLocked =
+        !isPlayable &&
+            (accessStatus == 'locked' || video.isPaid == true);
+
+    final bool isAddedToCart = video.isAddedToCart == true;
+
+    final bool canAddToCart =
+        video.canAddToCart == true && !isAddedToCart && !isPlayable;
+
+    final int amount = video.amount ?? 0;
+
+    final Color statusColor = isPlayable
+        ? Colors.green
+        : isAddedToCart
+        ? Colors.green
+        : Colors.orange;
+
+    final String statusLabel = isPurchased
+        ? 'Purchased'
+        : isFree
+        ? 'Free'
+        : isAddedToCart
+        ? 'Added'
+        : 'Locked';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.black.withOpacity(0.07)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.045),
+            blurRadius: 12,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              isPlayable
+                  ? Icons.play_circle_fill_rounded
+                  : isAddedToCart
+                  ? Icons.check_circle_rounded
+                  : Icons.lock_rounded,
+              color: statusColor,
+              size: 25,
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Video ${index + 1}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: AppColor.primaryTextColor,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _MiniStatusChip(
+                      label: statusLabel,
+                      color: statusColor,
+                    ),
+                    if (isLocked || (!isPlayable && amount > 0))
+                      _MiniStatusChip(
+                        label: '৳$amount',
+                        color: AppColor.blue,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          if (isPlayable)
+            InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: () => onPlayVideo(video),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColor.blue,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Play',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: canAddToCart && !isAddingToCart
+                  ? () => onAddToCart(video)
+                  : null,
+              child: Opacity(
+                opacity: canAddToCart || isAddedToCart ? 1 : 0.55,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isAddedToCart ? Colors.orange : AppColor.indigo,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isAddingToCart)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      else
+                        Icon(
+                          isAddedToCart
+                              ? Icons.check_circle_rounded
+                              : Icons.shopping_cart_outlined,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      const SizedBox(width: 5),
+                      Text(
+                        isAddingToCart
+                            ? 'Adding'
+                            : isAddedToCart
+                            ? 'Added'
+                            : 'Add',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniStatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _MiniStatusChip({
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.09),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: color.withOpacity(0.22),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w900,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+}
+
 /// --------------------------------------
-/// Stats content:
-/// - type 2 => 1 pie (Right/Wrong/Skipped)
-/// - type 1 => for stems/options: show pies in a grid (3 items per row)
-///
-/// Requirements:
-/// - Real pie (cake), not donut
-/// - Percent text inside the pie
-/// - Legend chips at the TOP (color dot + meaning) for BOTH types
-/// - For type 1: grid of stems (A/B/C/...), each stem shows its own PIE + label under it
+/// Stats content
 /// --------------------------------------
 class _StatsContent extends StatelessWidget {
   final QuestionAnalyticsBreakdownModel model;
@@ -430,15 +1094,16 @@ class _StatsContent extends StatelessWidget {
       );
     }
 
-    final optionMap =
-        model.optionBreakdowns ?? const <String, QuestionAnalyticsOptionBreakdown>{};
+    final optionMap = model.optionBreakdowns ??
+        const <String, QuestionAnalyticsOptionBreakdown>{};
+
     if (optionMap.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _LegendChips(items: _legendSegments),
-          const SizedBox(height: 12),
-          const Padding(
+        children: const [
+          _LegendChips(items: _legendSegments),
+          SizedBox(height: 12),
+          Padding(
             padding: EdgeInsets.only(top: 10, bottom: 10),
             child: Text(
               'No stats available.',
@@ -453,9 +1118,11 @@ class _StatsContent extends StatelessWidget {
       ..sort((a, b) {
         final aa = a.trim();
         final bb = b.trim();
+
         if (aa.length == 1 && bb.length == 1) {
           return aa.codeUnitAt(0).compareTo(bb.codeUnitAt(0));
         }
+
         return aa.compareTo(bb);
       });
 
@@ -469,7 +1136,7 @@ class _StatsContent extends StatelessWidget {
           shrinkWrap: true,
           itemCount: keys.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3, // ✅ 3 pie in a row
+            crossAxisCount: 3,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
             childAspectRatio: 0.82,
@@ -504,7 +1171,6 @@ class _StatsContent extends StatelessWidget {
     final w = (wrong ?? 0).toDouble();
     final s = (skip ?? 0).toDouble();
 
-    // Keep stable order matching legend chips.
     return [
       PieSlice(label: 'Right', value: r, color: Colors.green),
       PieSlice(label: 'Wrong', value: w, color: Colors.red),
@@ -513,7 +1179,6 @@ class _StatsContent extends StatelessWidget {
   }
 }
 
-/// A grid tile: a cake pie chart + stem label at bottom
 class _StemPieTile extends StatelessWidget {
   final String stemLabel;
   final List<PieSlice> slices;
@@ -558,9 +1223,6 @@ class _StemPieTile extends StatelessWidget {
   }
 }
 
-/// ------------------------------
-/// Compact pill button
-/// ------------------------------
 class _ActionPillButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -601,7 +1263,7 @@ class _ActionPillButton extends StatelessWidget {
                 color: Colors.black.withOpacity(0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 6),
-              )
+              ),
             ],
           ),
           child: Row(
@@ -614,12 +1276,16 @@ class _ActionPillButton extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                Icon(icon, size: 18, color: iconColor),
+                Icon(
+                  icon,
+                  size: 14,
+                  color: iconColor,
+                ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: Sizes.verySmallText(context),
+                  fontSize: Sizes.extraSmallText(context),
                   fontWeight: FontWeight.w900,
                   color: AppColor.primaryTextColor,
                 ),
@@ -632,20 +1298,22 @@ class _ActionPillButton extends StatelessWidget {
   }
 }
 
-/// ------------------------------
-/// Legend chips (top)
-/// ------------------------------
 class PieLegendItem {
   final String label;
   final Color color;
 
-  const PieLegendItem({required this.label, required this.color});
+  const PieLegendItem({
+    required this.label,
+    required this.color,
+  });
 }
 
 class _LegendChips extends StatelessWidget {
   final List<PieLegendItem> items;
 
-  const _LegendChips({required this.items});
+  const _LegendChips({
+    required this.items,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -658,11 +1326,16 @@ class _LegendChips extends StatelessWidget {
 
   Widget _chip(PieLegendItem item) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 7,
+      ),
       decoration: BoxDecoration(
         color: item.color.withOpacity(0.07),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: item.color.withOpacity(0.25)),
+        border: Border.all(
+          color: item.color.withOpacity(0.25),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -690,11 +1363,9 @@ class _LegendChips extends StatelessWidget {
   }
 }
 
-/// ------------------------------
-/// ------------------------------
 class PieSlice {
-  final String label; // Right/Wrong/Skipped
-  final double value; // 0..100
+  final String label;
+  final double value;
   final Color color;
 
   const PieSlice({
@@ -726,14 +1397,24 @@ class _AnimatedCakePieChartState extends State<AnimatedCakePieChart>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: widget.duration);
-    _t = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+    );
+
+    _t = CurvedAnimation(
+      parent: _ctrl,
+      curve: Curves.easeOutCubic,
+    );
+
     _ctrl.forward();
   }
 
   @override
   void didUpdateWidget(covariant AnimatedCakePieChart oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.slices != widget.slices ||
         oldWidget.duration != widget.duration) {
       _ctrl.duration = widget.duration;
@@ -779,15 +1460,18 @@ class _CakePiePainter extends CustomPainter {
     final center = rect.center;
     final radius = math.min(size.width, size.height) / 2;
 
-    // background faint circle
     final bg = Paint()
       ..style = PaintingStyle.fill
       ..color = Colors.black.withOpacity(0.03);
+
     canvas.drawCircle(center, radius, bg);
 
-    final total = slices.fold<double>(0, (s, e) => s + e.value);
+    final total = slices.fold<double>(
+      0,
+          (sum, slice) => sum + slice.value,
+    );
+
     if (total <= 0) {
-      // If all are 0, show empty center text
       final tp = TextPainter(
         text: const TextSpan(
           text: '0%',
@@ -800,25 +1484,30 @@ class _CakePiePainter extends CustomPainter {
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
+
+      tp.paint(
+        canvas,
+        center - Offset(tp.width / 2, tp.height / 2),
+      );
+
       return;
     }
 
     final allowed = (2 * math.pi) * t;
     double startAngle = -math.pi / 2;
 
-    // Draw slices
-    for (final s in slices) {
-      final fullSweep = (s.value / total) * (2 * math.pi);
-      final used = (startAngle - (-math.pi / 2));
+    for (final slice in slices) {
+      final fullSweep = (slice.value / total) * (2 * math.pi);
+      final used = startAngle - (-math.pi / 2);
       final remainingAllowed = allowed - used;
+
       if (remainingAllowed <= 0) break;
 
       final sweep = math.min(fullSweep, remainingAllowed);
 
       final paint = Paint()
         ..style = PaintingStyle.fill
-        ..color = s.color;
+        ..color = slice.color;
 
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
@@ -828,11 +1517,11 @@ class _CakePiePainter extends CustomPainter {
         paint,
       );
 
-      // outline
       final outline = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
         ..color = Colors.white.withOpacity(0.95);
+
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         startAngle,
@@ -844,29 +1533,27 @@ class _CakePiePainter extends CustomPainter {
       startAngle += fullSweep;
     }
 
-    // Draw % texts after paint (based on FULL values, no animation dependency)
-    // Place at mid angle of each slice.
     double angle = -math.pi / 2;
-    for (final s in slices) {
-      final sweep = (s.value / total) * (2 * math.pi);
-      if (s.value <= 0) {
+
+    for (final slice in slices) {
+      final sweep = (slice.value / total) * (2 * math.pi);
+
+      if (slice.value <= 0) {
         angle += sweep;
         continue;
       }
 
       final mid = angle + sweep / 2;
-
-      // place text at ~55% radius (inside slice)
       final r = radius * 0.55;
+
       final pos = Offset(
         center.dx + r * math.cos(mid),
         center.dy + r * math.sin(mid),
       );
 
-      final txt = '${s.value.toStringAsFixed(0)}%';
       final tp = TextPainter(
         text: TextSpan(
-          text: txt,
+          text: '${slice.value.toStringAsFixed(0)}%',
           style: TextStyle(
             fontWeight: FontWeight.w900,
             fontSize: radius < 60 ? 8 : 12,
@@ -883,7 +1570,10 @@ class _CakePiePainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      tp.paint(canvas, pos - Offset(tp.width / 2, tp.height / 2));
+      tp.paint(
+        canvas,
+        pos - Offset(tp.width / 2, tp.height / 2),
+      );
 
       angle += sweep;
     }

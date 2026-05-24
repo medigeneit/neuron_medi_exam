@@ -1,4 +1,3 @@
-// lib/presentation/widgets/question_explaination_button.dart
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -31,7 +30,8 @@ class QuestionExplainationButton extends StatefulWidget {
       _QuestionExplainationButtonState();
 }
 
-class _QuestionExplainationButtonState extends State<QuestionExplainationButton> {
+class _QuestionExplainationButtonState
+    extends State<QuestionExplainationButton> {
   static final Map<String, QuestionExplanationModel?> _cache = {};
   static final Map<String, Future<QuestionExplanationModel?>> _inFlight = {};
 
@@ -62,13 +62,11 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
     final qid = widget.questionId;
     if (qid == null || qid <= 0) return;
 
-    // Cache hit
     if (_cache.containsKey(_key)) {
       _model = _cache[_key];
       return;
     }
 
-    // Start fetch once
     _fetchOnce(qid);
   }
 
@@ -101,7 +99,6 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
       await _service.fetchQuestionExplanation(questionId.toString());
 
       if (!resp.isSuccess || resp.responseData == null) {
-        // cache negative too (null model) so we don't spam server
         return null;
       }
 
@@ -132,10 +129,13 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
     return has && body != null && body.trim().isNotEmpty;
   }
 
+  bool _htmlHasImage(String html) {
+    final lower = html.toLowerCase();
+    return lower.contains('<img');
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Keep UI compact:
-    // - While loading, show nothing OR tiny spinner (optional).
     if (_loading && widget.compact) {
       return const SizedBox.shrink();
     }
@@ -162,14 +162,14 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
         onPressed: _openDialog,
         icon: Icon(
           Icons.lightbulb_outline_rounded,
-          size: widget.compact ? 18 : 20,
+          size: widget.compact ? 14 : 18,
           color: AppColor.blue,
         ),
         label: Text(
-          'Explanation',
+          'Exp',
           style: TextStyle(
             fontWeight: FontWeight.w800,
-            fontSize: Sizes.verySmallText(context),
+            fontSize: Sizes.extraSmallText(context),
             color: AppColor.primaryTextColor,
           ),
         ),
@@ -179,7 +179,11 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
 
   void _openDialog() {
     final html = _model?.explanation?.bodyHtml ?? '';
+    final reference = _model?.reference?.trim() ?? '';
+
     if (html.trim().isEmpty) return;
+
+    final hasImage = _htmlHasImage(html);
 
     showDialog(
       context: context,
@@ -187,7 +191,8 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
       builder: (ctx) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          insetPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           child: CustomBlobBackground(
             backgroundColor: Colors.white,
             blobColor: AppColor.blue,
@@ -196,16 +201,19 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Top row: title + close
                   Row(
                     children: [
-                      Icon(Icons.lightbulb_outline_rounded,
-                          size: 20, color: AppColor.blue),
+                      Icon(
+                        Icons.lightbulb_outline_rounded,
+                        size: 20,
+                        color: AppColor.blue,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Explanation',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style:
+                          Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w900,
                             color: AppColor.primaryTextColor,
                           ),
@@ -220,46 +228,195 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
                   ),
                   const SizedBox(height: 6),
                   const Divider(height: 1),
-
                   const SizedBox(height: 10),
 
-                  // Body (scrollable)
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      // keep dialog compact but usable
                       maxHeight: MediaQuery.of(context).size.height * 0.70,
                     ),
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
-                      child: Html(
-                        data: html,
-                        style: {
-                          "body": Style(
-                            margin: Margins.zero,
-                            padding: HtmlPaddings.zero,
-                            lineHeight: const LineHeight(1.35),
-                            color: AppColor.primaryTextColor,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Html(
+                            data: html,
+                            style: {
+                              "body": Style(
+                                margin: Margins.zero,
+                                padding: HtmlPaddings.zero,
+                                lineHeight: const LineHeight(1.35),
+                                color: AppColor.primaryTextColor,
+                              ),
+                              "table": Style(
+                                width: Width(100, Unit.percent),
+                              ),
+                              "img": Style(
+                                display: Display.block,
+                                width: Width(100, Unit.percent),
+                                margin: Margins.symmetric(vertical: 12),
+                              ),
+                              "p": Style(
+                                margin: Margins.only(bottom: 10),
+                              ),
+                            },
+                            extensions: [
+                              TagExtension(
+                                tagsToExtend: {"img"},
+                                builder: (extensionContext) {
+                                  final src =
+                                  extensionContext.attributes['src']?.trim();
+
+                                  if (src == null || src.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 10),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                      children: [
+                                        GestureDetector(
+                                          onTap: () => _openImagePreview(src),
+                                          child: ClipRRect(
+                                            borderRadius:
+                                            BorderRadius.circular(12),
+                                            child: ConstrainedBox(
+                                              constraints: BoxConstraints(
+                                                minHeight: 160,
+                                                maxHeight: MediaQuery.of(context)
+                                                    .size
+                                                    .height *
+                                                    0.42,
+                                                minWidth: double.infinity,
+                                              ),
+                                              child: Image.network(
+                                                src,
+                                                fit: BoxFit.contain,
+                                                width: double.infinity,
+                                                loadingBuilder: (context, child,
+                                                    progress) {
+                                                  if (progress == null) {
+                                                    return child;
+                                                  }
+                                                  return Container(
+                                                    alignment: Alignment.center,
+                                                    height: 180,
+                                                    child:
+                                                    const CircularProgressIndicator(),
+                                                  );
+                                                },
+                                                errorBuilder: (_, __, ___) {
+                                                  return Container(
+                                                    width: double.infinity,
+                                                    padding:
+                                                    const EdgeInsets.all(16),
+                                                    alignment: Alignment.center,
+                                                    child: Text(
+                                                      'Failed to load image',
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodyMedium,
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.touch_app_rounded,
+                                              size: 16,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Tap to view full screen',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade700,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                            onLinkTap: (url, attrs, element) async {
+                              if (url == null) return;
+                              final uri = Uri.tryParse(url);
+                              if (uri == null) return;
+
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(
+                                  uri,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              }
+                            },
                           ),
-                          "img": Style(
-                            width: Width(100, Unit.percent),
-                          ),
-                          "table": Style(
-                            width: Width(100, Unit.percent),
-                          ),
-                        },
-                        onLinkTap: (url, attrs, element) async {
-                          if (url == null) return;
-                          final uri = Uri.tryParse(url);
-                          if (uri == null) return;
-                          // best effort: open links safely
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
-                          }
-                        },
-                       /* onImageTap: (url, attrs, element) {
-                          if (url == null) return;
-                          _openImagePreview(url);
-                        },*/
+
+                          if (reference.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColor.blue.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: AppColor.blue.withOpacity(0.18),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.menu_book_rounded,
+                                    size: 18,
+                                    color: AppColor.blue,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                          color: AppColor.primaryTextColor,
+                                          height: 1.4,
+                                        ),
+                                        children: [
+                                          const TextSpan(
+                                            text: 'Reference: ',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          TextSpan(text: reference),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+
+                          if (hasImage) const SizedBox(height: 4),
+                        ],
                       ),
                     ),
                   ),
@@ -274,47 +431,52 @@ class _QuestionExplainationButtonState extends State<QuestionExplainationButton>
 
   void _openImagePreview(String url) {
     Get.dialog(
-      Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: CustomBlobBackground(
-          backgroundColor: Colors.white,
-          blobColor: AppColor.blue,
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => Get.back(),
-                      icon: const Icon(Icons.close_rounded),
-                      splashRadius: 20,
-                    ),
-                  ],
-                ),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.75,
-                  ),
-                  child: InteractiveViewer(
-                    child: Image.network(
-                      url,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Text(
-                          'Failed to load image.',
-                          style: Theme.of(context).textTheme.bodyMedium,
+      Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.7,
+                  maxScale: 5.0,
+                  panEnabled: true,
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
                         ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Text(
+                        'Failed to load image.',
+                        style: TextStyle(color: Colors.white),
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    onPressed: () => Get.back(),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

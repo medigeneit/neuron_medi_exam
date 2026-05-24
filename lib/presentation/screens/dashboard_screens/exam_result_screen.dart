@@ -356,12 +356,16 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
               ),
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColor.primaryTextColor,
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColor.primaryTextColor,
+              ),
             ),
           ),
         ],

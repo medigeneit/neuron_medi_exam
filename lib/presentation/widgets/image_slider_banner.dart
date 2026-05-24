@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:carousel_slider/carousel_controller.dart';
 import 'package:medi_exam/data/models/slide_items_model.dart';
 import 'package:medi_exam/presentation/widgets/youtube_video_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import 'package:medi_exam/presentation/utils/app_colors.dart';
 import 'package:get/get.dart';
@@ -32,8 +30,8 @@ class PromoSliderBanner extends StatefulWidget {
 class _PromoSliderBannerState extends State<PromoSliderBanner> {
   int _currentIndex = 0;
 
-
-  final CarouselSliderController _carouselController = CarouselSliderController();
+  final CarouselSliderController _carouselController =
+  CarouselSliderController();
 
   List<SlideItem> _displayItems = [];
 
@@ -52,7 +50,6 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
   }
 
   void _prepareDisplayItems() {
-    // 1) Filter base list: require thumb; for batch, require a target
     final base = <SlideItem>[];
     for (final item in widget.slideItems) {
       if (!item.hasValidThumb) continue;
@@ -65,31 +62,23 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
       return;
     }
 
-    // 2) Collect repeating items (repeat_after > 0)
     final repeaters = base.where((it) => it.safeRepeatAfter > 0).toList();
 
-    // A counter per repeater: how many items have passed since it last appeared
-    // Initialize to 0 to enforce an initial delay of repeat_after after its first appearance.
-    final counters = <int, int>{}; // key: logical id, value: ticks
+    final counters = <int, int>{};
     for (final r in repeaters) {
       counters[_keyOf(r)] = 0;
     }
 
-    // 3) Build one "cycle":
-    //    - Include each base item exactly once
-    //    - After EVERY placed item, tick counters and insert any due repeats (priority desc)
     final result = <SlideItem>[];
 
-    void _tickAndMaybeInsertRepeats() {
+    void tickAndInsertRepeats() {
       if (repeaters.isEmpty) return;
 
-      // Advance counters
       for (final r in repeaters) {
         final k = _keyOf(r);
         counters[k] = (counters[k] ?? 0) + 1;
       }
 
-      // Collect all repeats that are due now
       final due = <SlideItem>[];
       for (final r in repeaters) {
         final k = _keyOf(r);
@@ -100,49 +89,33 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
 
       if (due.isEmpty) return;
 
-      // Insert by priority (desc). If equal, keep stable order.
       due.sort((a, b) => b.safePriority.compareTo(a.safePriority));
 
       for (final r in due) {
         result.add(r);
-        counters[_keyOf(r)] = 0; // reset the one we just inserted
+        counters[_keyOf(r)] = 0;
       }
     }
 
     for (final item in base) {
-      // Place the base item once
       result.add(item);
 
-      // If this base item is itself a repeater, its appearance resets its counter
       if (item.safeRepeatAfter > 0) {
         counters[_keyOf(item)] = 0;
       }
 
-      // After every placement, tick time and insert any due repeats
-      _tickAndMaybeInsertRepeats();
+      tickAndInsertRepeats();
     }
 
     setState(() => _displayItems = result);
   }
 
-  // Prefer stable key (id) when present
   int _keyOf(SlideItem item) => item.hasValidId ? item.id! : item.hashCode;
-
-  bool get _isDesktopLike {
-    if (kIsWeb) return true;
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return true;
-      default:
-        return false;
-    }
-  }
 
   Future<void> _openExternal(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
+
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
@@ -153,10 +126,72 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
     }
   }
 
-  void _handleItemTap(SlideItem item) async {
+  String? _extractYouTubeId(String? input) {
+    if (input == null) return null;
+
+    final raw = input.trim();
+    if (raw.isEmpty) return null;
+
+    final rawIdPattern = RegExp(r'^[A-Za-z0-9_-]{6,}$');
+    if (rawIdPattern.hasMatch(raw) &&
+        !raw.contains('http') &&
+        !raw.contains('youtube') &&
+        !raw.contains('youtu.be')) {
+      return raw;
+    }
+
+    final uri = Uri.tryParse(raw);
+    if (uri == null) return null;
+
+    final host = uri.host.toLowerCase();
+    final segments = uri.pathSegments;
+
+    if (host.contains('youtu.be')) {
+      if (segments.isNotEmpty && segments.first.trim().isNotEmpty) {
+        return segments.first.trim();
+      }
+    }
+
+    final v = uri.queryParameters['v'];
+    if (v != null && v.trim().isNotEmpty) {
+      return v.trim();
+    }
+
+    final embedIndex = segments.indexOf('embed');
+    if (embedIndex != -1 && embedIndex + 1 < segments.length) {
+      final id = segments[embedIndex + 1].trim();
+      if (id.isNotEmpty) return id;
+    }
+
+    final shortsIndex = segments.indexOf('shorts');
+    if (shortsIndex != -1 && shortsIndex + 1 < segments.length) {
+      final id = segments[shortsIndex + 1].trim();
+      if (id.isNotEmpty) return id;
+    }
+
+    final liveIndex = segments.indexOf('live');
+    if (liveIndex != -1 && liveIndex + 1 < segments.length) {
+      final id = segments[liveIndex + 1].trim();
+      if (id.isNotEmpty) return id;
+    }
+
+    return null;
+  }
+
+  void _showYouTubeDialog(SlideItem item, String source) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => YouTubeVideoDialog(
+        videoId: source,
+        title: item.hasValidTitle ? item.safeTitle : null,
+      ),
+    );
+  }
+
+  Future<void> _handleItemTap(SlideItem item) async {
     final type = item.safeLinkType;
 
-    // Batch route
     if (type == 'batch_type') {
       final batchId = item.safeBatchId;
       final coursePackageId = item.safeCoursePackageId;
@@ -180,13 +215,12 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
       return;
     }
 
-    // Video link
     if (type == 'video_link') {
       final link = item.safeLink;
       final videoId = _extractYouTubeId(link);
 
-      if (!_isDesktopLike && videoId != null) {
-        _showYouTubeDialog(item, videoId);
+      if (videoId != null) {
+        _showYouTubeDialog(item, link);
         return;
       }
 
@@ -200,7 +234,6 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
       return;
     }
 
-    // Web link
     if (type == 'web_link') {
       final link = item.safeLink;
       if (link.isNotEmpty) {
@@ -212,22 +245,6 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
       }
       return;
     }
-  }
-
-  void _showYouTubeDialog(SlideItem item, String videoId) {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => YouTubeVideoDialog(
-        videoId: videoId,
-        title: item.hasValidTitle ? item.safeTitle : null,
-      ),
-    );
-  }
-
-  String? _extractYouTubeId(String url) {
-    final id = YoutubePlayer.convertUrlToId(url);
-    return (id != null && id.isNotEmpty) ? id : null;
   }
 
   @override
@@ -260,13 +277,14 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
       margin: const EdgeInsets.only(bottom: 24),
       child: Column(
         children: [
-          // Main Carousel
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.borderRadius),
               boxShadow: [
                 BoxShadow(
-                  color: isDark ? Colors.black.withOpacity(0.6) : Colors.grey.withOpacity(0.4),
+                  color: isDark
+                      ? Colors.black.withOpacity(0.6)
+                      : Colors.grey.withOpacity(0.4),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -275,7 +293,7 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(widget.borderRadius),
               child: CarouselSlider.builder(
-                carouselController: _carouselController, // ✅ correct controller
+                carouselController: _carouselController,
                 itemCount: _displayItems.length,
                 options: CarouselOptions(
                   height: height,
@@ -304,7 +322,8 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(widget.borderRadius),
+                        borderRadius:
+                        BorderRadius.circular(widget.borderRadius),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.2),
@@ -314,27 +333,36 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
                         ],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(widget.borderRadius),
+                        borderRadius:
+                        BorderRadius.circular(widget.borderRadius),
                         child: Stack(
                           children: [
-                            // Image
                             Image.network(
                               item.safeThumb,
                               width: double.infinity,
                               height: double.infinity,
                               fit: widget.fit,
-                              loadingBuilder: (context, child, loadingProgress) {
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;
                                 return Container(
                                   decoration: BoxDecoration(
-                                    color: isDark ? Colors.grey[800] : Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(widget.borderRadius),
+                                    color: isDark
+                                        ? Colors.grey[800]
+                                        : Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(
+                                      widget.borderRadius,
+                                    ),
                                   ),
                                   child: Center(
                                     child: CircularProgressIndicator(
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
+                                      value: loadingProgress
+                                          .expectedTotalBytes !=
+                                          null
+                                          ? loadingProgress
+                                          .cumulativeBytesLoaded /
+                                          loadingProgress
+                                              .expectedTotalBytes!
                                           : null,
                                       color: AppColor.primaryColor,
                                       strokeWidth: 2,
@@ -345,22 +373,28 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
                                   decoration: BoxDecoration(
-                                    color: isDark ? Colors.grey[800] : Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(widget.borderRadius),
+                                    color: isDark
+                                        ? Colors.grey[800]
+                                        : Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(
+                                      widget.borderRadius,
+                                    ),
                                   ),
                                   child: Icon(
                                     Icons.error_outline,
-                                    color: isDark ? Colors.white70 : Colors.grey[500],
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.grey[500],
                                     size: 40,
                                   ),
                                 );
                               },
                             ),
 
-                            // Gradient overlay
                             Container(
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(widget.borderRadius),
+                                borderRadius:
+                                BorderRadius.circular(widget.borderRadius),
                                 gradient: LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
@@ -374,7 +408,6 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
                               ),
                             ),
 
-                            // Play overlay for videos
                             if (isVideo)
                               Positioned.fill(
                                 child: Center(
@@ -393,13 +426,15 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
                                 ),
                               ),
 
-                            // Badge for batch type
                             if (isBatch)
                               Positioned(
                                 top: 12,
                                 left: 12,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.black.withOpacity(0.45),
                                     borderRadius: BorderRadius.circular(12),
@@ -407,7 +442,11 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.auto_awesome_mosaic, color: Colors.white, size: 14),
+                                      Icon(
+                                        Icons.auto_awesome_mosaic,
+                                        color: Colors.white,
+                                        size: 14,
+                                      ),
                                       SizedBox(width: 6),
                                       Text(
                                         'Batch',
@@ -422,14 +461,16 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
                                 ),
                               ),
 
-                            // Caption
                             if (item.hasValidTitle)
                               Positioned(
                                 left: 20,
                                 right: 20,
                                 bottom: 24,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.black.withOpacity(0.5),
                                     borderRadius: BorderRadius.circular(12),
@@ -460,50 +501,47 @@ class _PromoSliderBannerState extends State<PromoSliderBanner> {
 
           const SizedBox(height: 20),
 
-          // Dot indicators
-// Dot indicators (responsive: single row when fits, wrap when not)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isMobile = MediaQuery.of(context).size.width < 600;
 
-                // Sizes tuned for small vs large screens
                 final double dotHeight = isMobile ? 6 : 8;
                 final double dotWidth = isMobile ? 6 : 8;
                 final double activeDotWidth = isMobile ? 16 : 24;
                 const double spacing = 4;
 
-                // Build all indicators once
-                final indicators = List<Widget>.generate(_displayItems.length, (i) {
+                final indicators =
+                List<Widget>.generate(_displayItems.length, (i) {
                   final bool isActive = _currentIndex == i;
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     width: isActive ? activeDotWidth : dotWidth,
                     height: dotHeight,
-                    margin: const EdgeInsets.symmetric(horizontal: spacing / 2),
+                    margin:
+                    const EdgeInsets.symmetric(horizontal: spacing / 2),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(dotHeight / 2),
-                      color: isActive ? AppColor.primaryColor : Colors.grey[400],
+                      color: isActive
+                          ? AppColor.primaryColor
+                          : Colors.grey[400],
                     ),
                   );
                 });
 
-                // Quick width estimate to decide if we can keep a single Row
                 final int count = indicators.length;
                 final estimatedWidth = (count - 1) * spacing +
-                    // assume one active and rest normal (rough but safe)
-                    activeDotWidth + (count - 1) * dotWidth;
+                    activeDotWidth +
+                    (count - 1) * dotWidth;
 
                 if (estimatedWidth <= constraints.maxWidth) {
-                  // Fits in one line → center Row
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: indicators,
                   );
                 }
 
-                // Doesn’t fit → Wrap across multiple lines, centered
                 return Wrap(
                   alignment: WrapAlignment.center,
                   runAlignment: WrapAlignment.center,
