@@ -46,7 +46,7 @@ class _UnitVideoBkashWebViewPageState extends State<UnitVideoBkashWebViewPage> {
 
     return lower.contains('unit-video-payments/bkash/callback') ||
         lower.contains('/bkash/callback') ||
-        lower.contains('paymentid=') && lower.contains('callback');
+        (lower.contains('paymentid=') && lower.contains('callback'));
   }
 
   Future<void> _checkStatusAndReturn() async {
@@ -61,6 +61,11 @@ class _UnitVideoBkashWebViewPageState extends State<UnitVideoBkashWebViewPage> {
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
+
+      if (!mounted || _hasReturnedResult) return;
+
+      _hasReturnedResult = true;
+      Navigator.of(context).pop(null);
       return;
     }
 
@@ -79,8 +84,13 @@ class _UnitVideoBkashWebViewPageState extends State<UnitVideoBkashWebViewPage> {
         model = UnitVideoBkashPaymentStatusModel.parse(response.responseData);
       }
 
+      if (!mounted || _hasReturnedResult) return;
+
       _hasReturnedResult = true;
 
+      // Only pop UnitVideoBkashWebViewPage.
+      // Do not navigate to dashboard.
+      // Do not pop UnitVideoCartScreen.
       Navigator.of(context).pop(model);
     } catch (e) {
       if (!mounted) return;
@@ -91,6 +101,11 @@ class _UnitVideoBkashWebViewPageState extends State<UnitVideoBkashWebViewPage> {
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
+
+      if (!mounted || _hasReturnedResult) return;
+
+      _hasReturnedResult = true;
+      Navigator.of(context).pop(null);
     } finally {
       if (mounted && !_hasReturnedResult) {
         setState(() => _isCheckingStatus = false);
@@ -99,6 +114,8 @@ class _UnitVideoBkashWebViewPageState extends State<UnitVideoBkashWebViewPage> {
   }
 
   Future<bool> _handleBack() async {
+    if (_isCheckingStatus || _hasReturnedResult) return false;
+
     final canGoBack = await _controller?.canGoBack() ?? false;
 
     if (canGoBack) {
@@ -192,7 +209,6 @@ class _UnitVideoBkashWebViewPageState extends State<UnitVideoBkashWebViewPage> {
                 return false;
               },
             ),
-
             if (_isLoading || _isCheckingStatus)
               Container(
                 color: Colors.black.withOpacity(0.08),

@@ -7,9 +7,9 @@ import 'package:medi_exam/data/services/unit_video_cart_service.dart';
 import 'package:medi_exam/data/services/unit_video_payment_service.dart';
 import 'package:medi_exam/presentation/screens/unit_video_bkash_webview_page.dart';
 import 'package:medi_exam/presentation/utils/app_colors.dart';
+import 'package:medi_exam/presentation/utils/sizes.dart';
 import 'package:medi_exam/presentation/widgets/common_scaffold.dart';
 import 'package:medi_exam/presentation/widgets/loading_widget.dart';
-import 'package:medi_exam/presentation/widgets/payment_success_dialog.dart';
 import 'package:slide_to_act/slide_to_act.dart';
 
 class UnitVideoCartScreen extends StatefulWidget {
@@ -40,6 +40,15 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
     _fetchCart();
   }
 
+  void _resetCheckoutSlider() {
+    try {
+      _slideKey.currentState?.reset();
+    } catch (_) {
+      // Slider may already be disposed if route changed.
+      // Ignore safely.
+    }
+  }
+
   Future<void> _fetchCart() async {
     if (!mounted) return;
 
@@ -47,6 +56,8 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
 
     try {
       final response = await _cartService.fetchUnitVideoCart();
+
+      if (!mounted) return;
 
       if (response.isSuccess && response.responseData is UnitVideoCartModel) {
         setState(() {
@@ -61,6 +72,8 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
+
       Get.snackbar(
         'Error',
         'An error occurred while fetching cart: $e',
@@ -105,6 +118,8 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
         cartItemId.toString(),
       );
 
+      if (!mounted) return;
+
       if (response.isSuccess && response.responseData is UnitVideoCartModel) {
         setState(() {
           _cart = response.responseData as UnitVideoCartModel;
@@ -125,6 +140,8 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
+
       Get.snackbar(
         'Error',
         'An error occurred while removing item: $e',
@@ -157,6 +174,8 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
     try {
       final response = await _cartService.clearUnitVideoCart();
 
+      if (!mounted) return;
+
       if (response.isSuccess && response.responseData is UnitVideoCartModel) {
         setState(() {
           _cart = response.responseData as UnitVideoCartModel;
@@ -177,6 +196,8 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
+
       Get.snackbar(
         'Error',
         'An error occurred while clearing cart: $e',
@@ -198,7 +219,7 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
-      _slideKey.currentState?.reset();
+      _resetCheckoutSlider();
       return;
     }
 
@@ -236,8 +257,6 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
       }
 
       final paymentUrl = checkoutModel.paymentUrl.trim();
-
-      // Important: this must be bkash_payment_id, not payment_id.
       final paymentID = checkoutModel.bkashPaymentId.trim();
 
       if (paymentUrl.isEmpty || paymentID.isEmpty) {
@@ -250,8 +269,7 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
         return;
       }
 
-      final result = await Navigator.of(context)
-          .push<UnitVideoBkashPaymentStatusModel>(
+      final result = await Navigator.of(context).push<UnitVideoBkashPaymentStatusModel>(
         MaterialPageRoute(
           builder: (_) => UnitVideoBkashWebViewPage(
             initialUrl: paymentUrl,
@@ -261,6 +279,8 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
       );
 
       if (!mounted) return;
+
+      _resetCheckoutSlider();
 
       if (result == null) {
         Get.snackbar(
@@ -273,35 +293,42 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
       }
 
       if (result.isSuccess) {
-        _slideKey.currentState?.reset();
-
-        if (mounted) {
-          setState(() => _isCheckingOut = false);
-        }
-
-        await PaymentSuccessDialog.show(
+        await _showPaymentSuccessDialog(
           message: result.statusMessage.isNotEmpty
               ? result.statusMessage
-              : 'Payment successful.',
+              : 'Payment completed successfully.',
           amountText:
           '৳${checkoutModel.data?.totalAmount ?? _cart.totalAmount ?? 0}',
         );
 
         if (!mounted) return;
 
-        // Pop the cart screen after showing success dialog.
-        Navigator.of(context).pop(true);
-        return;
-      } else {
-        await _showPaymentFailedDialog(
-          result.statusMessage.isNotEmpty
-              ? result.statusMessage
-              : 'Payment was not completed.',
+        await _fetchCart();
+
+        if (!mounted) return;
+
+        Get.snackbar(
+          'bKash Payment',
+          'Your cart is now empty.',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
         );
 
-        await _fetchCart();
+        return;
       }
+
+      await _showPaymentFailedDialog(
+        result.statusMessage.isNotEmpty
+            ? result.statusMessage
+            : 'Payment was not completed.',
+      );
+
+      if (!mounted) return;
+
+      await _fetchCart();
     } catch (e) {
+      if (!mounted) return;
+
       Get.snackbar(
         'bKash Payment',
         'An error occurred during checkout: $e',
@@ -309,25 +336,139 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
         colorText: Colors.white,
       );
     } finally {
-      _slideKey.currentState?.reset();
-
       if (mounted) {
+        _resetCheckoutSlider();
         setState(() => _isCheckingOut = false);
       }
     }
   }
 
-  Future<void> _showPaymentFailedDialog(String message) async {
-    await showDialog(
+  Future<void> _showPaymentSuccessDialog({
+    required String message,
+    required String amountText,
+  }) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Payment Failed'),
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title:  Row(
+            children: [
+              Icon(
+                Icons.check_circle_rounded,
+                color: Colors.green,
+                size: Sizes.extraSmallIcon(context),
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Payment Successful',
+                style: TextStyle(
+                  fontSize: Sizes.smallText(context),
+                  fontWeight: FontWeight.w900,
+                  color: AppColor.primaryTextColor,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message.isEmpty ? 'Payment completed successfully.' : message,
+                style: TextStyle(
+                  color: Colors.grey.shade800,
+                  fontWeight: FontWeight.w600,
+                  fontSize: Sizes.smallText(context),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColor.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColor.primaryColor.withOpacity(0.14),
+                  ),
+                ),
+                child: Text(
+                  'Amount: $amountText',
+                  style:  TextStyle(
+                    color: AppColor.primaryColor,
+                    fontWeight: FontWeight.w900,
+                    fontSize: Sizes.smallText(context),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColor.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showPaymentFailedDialog(String message) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        title:  Row(
+          children: [
+            Icon(
+              Icons.error_rounded,
+              color: Colors.red,
+              size: Sizes.verySmallIcon(context),
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Payment Failed',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppColor.primaryTextColor,
+                fontSize: Sizes.smallText(context),
+              ),
+            ),
+          ],
+        ),
         content: Text(
           message.isEmpty ? 'Your payment was not completed.' : message,
+          style: TextStyle(
+            color: Colors.grey.shade800,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('OK'),
           ),
         ],
@@ -342,7 +483,7 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
   }) {
     return showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
@@ -364,11 +505,11 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
@@ -773,7 +914,7 @@ class _UnitVideoCartScreenState extends State<UnitVideoCartScreen> {
                   backgroundColor: Colors.orange,
                   colorText: Colors.white,
                 );
-                _slideKey.currentState?.reset();
+                _resetCheckoutSlider();
                 return;
               }
 
